@@ -13,10 +13,9 @@ impl Rom {
       .bytes()
       .skip(10)
       .take(16_384)
-      .collect::<Result<Vec<u8>, _>>().expect("Unexpected file size");
+      .collect::<Result<Vec<u8>, _>>()
+      .expect("Unexpected file size");
 
-    Rom {
-      rom
-    }
+    Rom { rom }
   }
 }
