@@ -314,7 +314,7 @@ impl<'a> Cpu<'a> {
     let byte = self.bus.read_u8(self.pc);
     self.pc += 1;
 
-    let x: u16 =  self.x.try_into().unwrap();
+    let x: u16 = self.x.try_into().unwrap();
     let lo_byte: u16 = self.bus.read_u8((byte + x) & 0x00FF).try_into().unwrap();
     let hi_byte: u16 = self.bus.read_u8((byte + x + 1) & 0x00FF).try_into().unwrap();
     self.addr_abs = ((hi_byte << 8) | lo_byte);
@@ -913,7 +913,7 @@ impl<'a> Cpu<'a> {
   }
 
   pub fn disassemble(&self, start: u16, end: u16) -> HashMap<u16, String> {
-    let mut addr = start;
+    let mut addr = start as u32;
     let value: u8 = 0x00;
     let mut lo_byte: u16 = 0x00;
     let mut hi_byte: u16 = 0x00;
@@ -921,11 +921,11 @@ impl<'a> Cpu<'a> {
     let mut map: HashMap<u16, String> = HashMap::new();
     let mut line_addr: u16 = 0x00;
 
-    while addr <= end {
-      line_addr = addr;
+    while addr <= end as u32 {
+      line_addr = addr as u16;
 
       let mut codes = format!("$ {}:", hex(addr as usize, 4));
-      let opcode = self.bus.read_u8(addr);
+      let opcode = self.bus.read_u8(addr as u16);
       addr += 1;
 
       let idx = usize::try_from(opcode).unwrap_or(0);
@@ -938,75 +938,75 @@ impl<'a> Cpu<'a> {
       match addr_mode {
         ADDRMODE6502::IMP => {
           codes = format!("{} {{IMP}} ", codes);
-        },
+        }
         ADDRMODE6502::IMM => {
-          let value = self.bus.read_u8(addr);
+          let value = self.bus.read_u8(addr as u16);
           addr += 1;
           codes = format!("{}$ {} {{IMM}} ", codes, hex(value as usize, 2));
-        },
+        }
         ADDRMODE6502::ZP0 => {
-          lo_byte = self.bus.read_u8(addr);
+          lo_byte = self.bus.read_u8(addr as u16);
           addr += 1;
           hi_byte = 0x00;
           codes = format!("{}$ {} {{ZP0}} ", codes, hex(value as usize, 2));
-        },
+        }
         ADDRMODE6502::ZPX => {
-          lo_byte = self.bus.read_u8(addr);
+          lo_byte = self.bus.read_u8(addr as u16);
           addr += 1;
           hi_byte = 0x00;
           codes = format!("{}$ {} {{ZPX}} ", codes, hex(value as usize, 2));
-        },
+        }
         ADDRMODE6502::ZPY => {
-          lo_byte = self.bus.read_u8(addr);
+          lo_byte = self.bus.read_u8(addr as u16);
           addr += 1;
           hi_byte = 0x00;
           codes = format!("{}$ {} {{ZPY}} ", codes, hex(value as usize, 2));
-        },
+        }
         ADDRMODE6502::REL => {
-          let value = self.bus.read_u8(addr);
+          let value = self.bus.read_u8(addr as u16);
           addr += 1;
           codes = format!("{}$ {} {{ZP0}} ", codes, hex(value as usize, 2));
-        },
+        }
         ADDRMODE6502::ABS => {
-          lo_byte = self.bus.read_u8(addr);
+          lo_byte = self.bus.read_u8(addr as u16);
           addr += 1;
-          hi_byte = self.bus.read_u8(addr);
+          hi_byte = self.bus.read_u8(addr as u16);
           addr += 1;
           codes = format!("{}$ {} {{ABS}} ", codes, hex(usize::from(hi_byte << 8 | lo_byte), 4));
-        },
+        }
         ADDRMODE6502::ABX => {
-          lo_byte = self.bus.read_u8(addr);
+          lo_byte = self.bus.read_u8(addr as u16);
           addr += 1;
-          hi_byte = self.bus.read_u8(addr);
+          hi_byte = self.bus.read_u8(addr as u16);
           addr += 1;
           codes = format!("{}$ {} {{ABS}} ", codes, hex(usize::from(hi_byte << 8 | lo_byte), 4));
-        },
+        }
         ADDRMODE6502::ABY => {
-          lo_byte = self.bus.read_u8(addr);
+          lo_byte = self.bus.read_u8(addr as u16);
           addr += 1;
-          hi_byte = self.bus.read_u8(addr);
+          hi_byte = self.bus.read_u8(addr as u16);
           addr += 1;
           codes = format!("{}$ {} {{ABY}} ", codes, hex(usize::from(hi_byte << 8 | lo_byte), 4));
-        },
+        }
         ADDRMODE6502::IND => {
-          lo_byte = self.bus.read_u8(addr);
+          lo_byte = self.bus.read_u8(addr as u16);
           addr += 1;
-          hi_byte = self.bus.read_u8(addr);
+          hi_byte = self.bus.read_u8(addr as u16);
           addr += 1;
           codes = format!("{}$ {} {{IND}} ", codes, hex(usize::from(hi_byte << 8 | lo_byte), 4));
-        },
+        }
         ADDRMODE6502::IZX => {
-          lo_byte = self.bus.read_u8(addr);
+          lo_byte = self.bus.read_u8(addr as u16);
           addr += 1;
           hi_byte = 0x00;
           codes = format!("{}$ {} {{IZX}} ", codes, hex(value as usize, 2));
-        },
+        }
         ADDRMODE6502::IZY => {
-          lo_byte = self.bus.read_u8(addr);
+          lo_byte = self.bus.read_u8(addr as u16);
           addr += 1;
           hi_byte = 0x00;
           codes = format!("{}$ {} {{IZY}} ", codes, hex(value as usize, 2));
-        },
+        }
       }
 
       map.insert(line_addr, codes);
@@ -1016,10 +1016,11 @@ impl<'a> Cpu<'a> {
 }
 
 
-pub fn hex(n: usize, d: usize) -> String {
-  let mut output = Vec::with_capacity(d);
-  for x in (0..d - 1).step_by(4) {
-    output[x] = "0123456789ABCDEF".chars().nth(n & 0xF).unwrap_or(' ');
+pub fn hex(idx: usize, len: usize) -> String {
+  let mut output = vec!['0'; len];
+  for x in (0..len) {
+    let i = idx >> 4;
+    output[x] = "0123456789ABCDEF".chars().nth(i & 0xF).unwrap_or(' ');
   }
   output.into_iter().map(|c| c.to_string()).collect()
 }

@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::convert::TryInto;
+use std::io::{stdin, stdout, Stdout, Write};
 use std::str::FromStr;
 
-use std::io::{stdout, stdin};
 use termion::event::Key;
 use termion::input::TermRead;
-use termion::raw::IntoRawMode;
+use termion::raw::{IntoRawMode, RawTerminal};
 
 use crate::bus::Bus;
 use crate::cpu::{Cpu, hex};
@@ -27,42 +28,43 @@ impl<'a> Nes<'a> {
     }
   }
 
-  pub fn draw_ram(&mut self, mut addr: u16) {
-    println!("draw_ram");
+  pub fn draw_ram(&mut self, stdout: &mut RawTerminal<Stdout>, x: u16, mut y: u16, mut addr: u16) {
     for row in 0..16 {
       let mut offset = format!("$:{}", hex(addr as usize, 4));
       for col in 0..16 {
-        offset = format!("{} {}", offset, hex(usize::from(self.cpu.bus.read_u8(addr)), 2));
+        offset = format!("{}{}", offset, hex(self.cpu.bus.read_u8(addr).try_into().unwrap(), 2));
         addr += 1;
       }
+      write!(stdout, "{}{}", termion::cursor::Goto(x, y), offset).unwrap();
+      y += 1;
     }
   }
 
-  pub fn draw_cpu(&self) {
-    println!("draw_cpu");
-    println!("N {}", if self.cpu.status_register & FLAGS6502::N.value() > 0x00 { "ON" } else { "OFF" });
-    println!("V {}", if self.cpu.status_register & FLAGS6502::V.value() > 0x00 { "ON" } else { "OFF" });
-    println!("- {}", if self.cpu.status_register & FLAGS6502::U.value() > 0x00 { "ON" } else { "OFF" });
-    println!("B {}", if self.cpu.status_register & FLAGS6502::B.value() > 0x00 { "ON" } else { "OFF" });
-    println!("D {}", if self.cpu.status_register & FLAGS6502::D.value() > 0x00 { "ON" } else { "OFF" });
-    println!("I {}", if self.cpu.status_register & FLAGS6502::I.value() > 0x00 { "ON" } else { "OFF" });
-    println!("Z {}", if self.cpu.status_register & FLAGS6502::Z.value() > 0x00 { "ON" } else { "OFF" });
-    println!("C {}", if self.cpu.status_register & FLAGS6502::C.value() > 0x00 { "ON" } else { "OFF" });
+  pub fn draw_cpu(&self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
+    write!(stdout, "{}Status", termion::cursor::Goto(x, y)).unwrap();
+    write!(stdout, "{}N {}", termion::cursor::Goto(x + 64, y), if self.cpu.status_register & FLAGS6502::N.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    write!(stdout, "{}V {}", termion::cursor::Goto(x + 80, y), if self.cpu.status_register & FLAGS6502::V.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    write!(stdout, "{}- {}", termion::cursor::Goto(x + 96, y), if self.cpu.status_register & FLAGS6502::U.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    write!(stdout, "{}B {}", termion::cursor::Goto(x + 112, y), if self.cpu.status_register & FLAGS6502::B.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    write!(stdout, "{}D {}", termion::cursor::Goto(x + 128, y), if self.cpu.status_register & FLAGS6502::D.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    write!(stdout, "{}I {}", termion::cursor::Goto(x + 144, y), if self.cpu.status_register & FLAGS6502::I.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    write!(stdout, "{}Z {}", termion::cursor::Goto(x + 160, y), if self.cpu.status_register & FLAGS6502::Z.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    write!(stdout, "{}C {}", termion::cursor::Goto(x + 178, y), if self.cpu.status_register & FLAGS6502::C.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
 
-    println!("PC: ${}", hex(usize::from(self.cpu.pc), 4));
-    println!("A: ${}  {}", hex(usize::from(self.cpu.a), 2), usize::from(self.cpu.a));
-    println!("X: ${}  {}", hex(usize::from(self.cpu.x), 2), usize::from(self.cpu.x));
-    println!("Y: ${}  {}", hex(usize::from(self.cpu.y), 2), usize::from(self.cpu.y));
+    write!(stdout, "{}PC: ${}", termion::cursor::Goto(x, y + 10), hex(self.cpu.pc.try_into().unwrap(), 4)).unwrap();
+    write!(stdout, "{}A: ${} {}", termion::cursor::Goto(x, y + 20), hex(self.cpu.a.try_into().unwrap(), 2), self.cpu.a).unwrap();
+    write!(stdout, "{}X: ${} {}", termion::cursor::Goto(x, y + 30), hex(self.cpu.x.try_into().unwrap(), 2), self.cpu.x).unwrap();
+    write!(stdout, "{}Y: ${} {}", termion::cursor::Goto(x, y + 40), hex(self.cpu.y.try_into().unwrap(), 2), self.cpu.y).unwrap();
 
-    println!("Stack P: ${}", hex(usize::from(self.cpu.stack_pointer), 4));
+    write!(stdout, "{}Stack P: ${}", termion::cursor::Goto(x, y + 50), hex(usize::from(self.cpu.stack_pointer), 4)).unwrap();
   }
 
-  pub fn draw_code(&self) {
-    let val = self.map_asm.get(&self.cpu.pc);
-    println!("draw_code {:?}", val);
+  pub fn draw_code(&self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16, lines: u16) {
+    let val = self.map_asm.get(&self.cpu.pc).unwrap();
+    write!(stdout, "{}{}", termion::cursor::Goto(x, y), val).unwrap();
   }
 
-  pub fn create(&mut self) -> bool {
+  pub fn create(&mut self) {
     let hex_str = "A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA";
     let mut offset = 0x8000;
     for s in hex_str.split_ascii_whitespace() {
@@ -76,10 +78,9 @@ impl<'a> Nes<'a> {
     self.map_asm = self.cpu.disassemble(0x0000, 0xFFFF);
 
     self.cpu.reset();
-    true
   }
 
-  pub fn user_update(&mut self) -> bool {
+  pub fn user_update(&mut self) {
     let stdin = stdin();
     let mut stdout = stdout()
       .into_raw_mode()
@@ -87,7 +88,7 @@ impl<'a> Nes<'a> {
 
     for c in stdin.keys() {
       match c.unwrap() {
-        Key::Char('q') => break,
+        Key::Char('q') | Key::Esc => break,
         Key::Right => {
           while !self.cpu.complete() {
             self.cpu.clock();
@@ -105,11 +106,10 @@ impl<'a> Nes<'a> {
         _ => (),
       }
 
-      self.draw_ram(0x0000);
-      self.draw_ram(0x8000);
-      self.draw_cpu();
-      self.draw_code();
+      self.draw_ram(&mut stdout, 0x0000, 16, 16);
+      self.draw_ram(&mut stdout, 0x8000, 16, 16);
+      self.draw_cpu(&mut stdout, 448, 2);
+      self.draw_code(&mut stdout, 448, 72, 26);
     }
-    true
   }
 }
