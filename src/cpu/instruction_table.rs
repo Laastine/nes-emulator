@@ -1,5 +1,3 @@
-use crate::cpu::Cpu;
-
 #[derive(Debug, PartialEq)]
 #[repr(u8)]
 pub enum FLAGS6502 {

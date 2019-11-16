@@ -1,14 +1,13 @@
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 
 use crate::bus::Bus;
-use crate::cpu;
 use crate::cpu::instruction_table::{ADDRMODE6502, FLAGS6502, LookUpTable, OPCODES6502};
 
-mod instruction_table;
+pub mod instruction_table;
 
 pub struct Cpu<'a> {
-  bus: &'a mut Bus,
+  pub bus: &'a mut Bus,
   pub pc: u16,
   pub a: u8,
   pub x: u8,
@@ -48,6 +47,10 @@ impl<'a> Cpu<'a> {
     }
   }
 
+  pub fn complete(&self) -> bool {
+    self.cycles == 0
+  }
+
   fn set_flag(&mut self, flag: &FLAGS6502, val: bool) {
     let f = flag.value();
     if val {
@@ -77,7 +80,7 @@ impl<'a> Cpu<'a> {
       let idx = usize::try_from(op_code).unwrap_or(0);
 
       let instruction = &self.lookup.instructions[idx];
-      let mut cycles = instruction.cycles;
+      let cycles = instruction.cycles;
 
       let addr_mode = self.lookup.get_addr_mode(idx).clone();
       let op_code = self.lookup.get_operate(idx).clone();
@@ -100,7 +103,7 @@ impl<'a> Cpu<'a> {
     let addr_mode = self.lookup.get_addr_mode(idx).clone();
     if addr_mode == ADDRMODE6502::IMP {
       let addr = self.addr_mode_value(addr_mode.clone()) as u16;
-      self.fetched = self.bus.read_u8(addr);
+      self.fetched = self.bus.read_u8(addr).try_into().unwrap();
     }
     self.fetched
   }
@@ -174,7 +177,7 @@ impl<'a> Cpu<'a> {
     let address_abs = 0xFFFA;
     let lo_byte = self.bus.read_u8(address_abs);
     let hi_byte = self.bus.read_u8(address_abs + 1);
-    self.pc = ((hi_byte << 8) | lo_byte) as u16;
+    self.pc = ((hi_byte << 8) | lo_byte);
 
     self.cycles = 8;
   }
@@ -184,10 +187,10 @@ impl<'a> Cpu<'a> {
   }
 
   fn read_u16(&mut self, address: u16) -> u16 {
-    let low_byte = self.bus.read_u8(address);
-    let high_byte = self.bus.read_u8(address.wrapping_add(1));
+    let low_byte: u16 = self.bus.read_u8(address).try_into().unwrap();
+    let high_byte: u16 = self.bus.read_u8(address.wrapping_add(1)).try_into().unwrap();
 
-    u16::from(low_byte) | u16::from(high_byte) << 8
+    low_byte | high_byte << 8
   }
 
   /// ADDRESS MODES
@@ -220,21 +223,23 @@ impl<'a> Cpu<'a> {
   }
 
   pub fn zp0(&mut self) -> u8 {
-    self.addr_abs = self.bus.read_u8(self.pc) as u16;
+    self.addr_abs = self.bus.read_u8(self.pc);
     self.pc += 1;
     self.addr_abs &= 0x00FF;
     0
   }
 
   pub fn zpx(&mut self) -> u8 {
-    self.addr_abs = (self.bus.read_u8(self.pc) + self.x) as u16;
+    let x: u16 = self.x.try_into().unwrap();
+    self.addr_abs = (self.bus.read_u8(self.pc) + x);
     self.pc += 1;
     self.addr_abs &= 0x00FF;
     0
   }
 
   pub fn zpy(&mut self) -> u8 {
-    self.addr_abs = (self.bus.read_u8(self.pc) + self.y) as u16;
+    let y: u16 = self.y.try_into().unwrap();
+    self.addr_abs = (self.bus.read_u8(self.pc) + y);
     self.pc += 1;
     self.addr_abs &= 0x00FF;
     0
@@ -294,12 +299,12 @@ impl<'a> Cpu<'a> {
     let hi_byte = self.bus.read_u8(self.pc);
     self.pc += 1;
 
-    let byte = ((hi_byte << 8) | lo_byte) as u16;
+    let byte = ((hi_byte << 8) | lo_byte);
 
     if lo_byte == 0x00FF {
-      self.addr_abs = ((self.bus.read_u8(byte & 0xFF00) << 8) | self.bus.read_u8(byte + 0)) as u16;
+      self.addr_abs = ((self.bus.read_u8(byte & 0xFF00) << 8) | self.bus.read_u8(byte + 0)).try_into().unwrap();
     } else {
-      self.addr_abs = (self.bus.read_u8((byte + 1) << 8) | self.bus.read_u8(byte + 0)) as u16
+      self.addr_abs = (self.bus.read_u8((byte + 1) << 8) | self.bus.read_u8(byte + 0)).try_into().unwrap()
     }
 
     0
@@ -309,9 +314,10 @@ impl<'a> Cpu<'a> {
     let byte = self.bus.read_u8(self.pc);
     self.pc += 1;
 
-    let lo_byte = self.bus.read_u8((byte + self.x) as u16 & 0x00FF);
-    let hi_byte = self.bus.read_u8((byte + self.x + 1) as u16 & 0x00FF);
-    self.addr_abs = ((hi_byte << 8) | lo_byte) as u16;
+    let x: u16 =  self.x.try_into().unwrap();
+    let lo_byte: u16 = self.bus.read_u8((byte + x) & 0x00FF).try_into().unwrap();
+    let hi_byte: u16 = self.bus.read_u8((byte + x + 1) & 0x00FF).try_into().unwrap();
+    self.addr_abs = ((hi_byte << 8) | lo_byte);
 
     0
   }
@@ -320,9 +326,10 @@ impl<'a> Cpu<'a> {
     let byte = self.bus.read_u8(self.pc);
     self.pc += 1;
 
-    let lo_byte = self.bus.read_u8((byte + self.x) as u16 & 0x00FF);
-    let hi_byte = self.bus.read_u8((byte + self.x + 1) as u16 & 0x00FF);
-    self.addr_abs = ((hi_byte << 8) | lo_byte) as u16;
+    let y: u16 = self.y.try_into().unwrap();
+    let lo_byte: u16 = self.bus.read_u8((byte + y) & 0x00FF).try_into().unwrap();
+    let hi_byte: u16 = self.bus.read_u8((byte + y + 1) & 0x00FF).try_into().unwrap();
+    self.addr_abs = ((hi_byte << 8) | lo_byte).try_into().unwrap();
     self.addr_abs += self.y as u16;
 
 
@@ -752,7 +759,7 @@ impl<'a> Cpu<'a> {
 
   pub fn pla(&mut self) -> u8 {
     self.stack_pointer += 1;
-    self.a = self.bus.read_u8(0x0100 + self.stack_pointer as u16);
+    self.a = self.bus.read_u8(0x0100 + self.stack_pointer as u16).try_into().unwrap();
     self.set_flag(&FLAGS6502::Z, self.a == 0x00);
     self.set_flag(&FLAGS6502::N, self.a & 0x80 > 0x00);
     0
@@ -760,7 +767,7 @@ impl<'a> Cpu<'a> {
 
   pub fn plp(&mut self) -> u8 {
     self.stack_pointer += 1;
-    self.status_register = self.bus.read_u8(0x0100 + self.stack_pointer as u16);
+    self.status_register = self.bus.read_u8(0x0100 + self.stack_pointer as u16).try_into().unwrap();
     self.set_flag(&FLAGS6502::U, true);
     0
   }
@@ -801,12 +808,12 @@ impl<'a> Cpu<'a> {
 
   pub fn rti(&mut self) -> u8 {
     self.stack_pointer += 1;
-    self.status_register = self.bus.read_u8(0x0100 + self.stack_pointer as u16);
+    self.status_register = self.bus.read_u8(0x0100 + self.stack_pointer as u16).try_into().unwrap();
     self.status_register &= !FLAGS6502::B.value();
     self.status_register &= !FLAGS6502::U.value();
 
     self.stack_pointer += 1;
-    self.pc = self.bus.read_u8(0x0100 + self.stack_pointer as u16) as u16;
+    self.pc = self.bus.read_u8(0x0100 + self.stack_pointer as u16).try_into().unwrap();
     self.stack_pointer += 1;
     self.pc |= (self.bus.read_u8(0x0100 + self.stack_pointer as u16) as u16) << 8;
     0
@@ -814,9 +821,9 @@ impl<'a> Cpu<'a> {
 
   pub fn rts(&mut self) -> u8 {
     self.stack_pointer += 1;
-    self.pc = self.bus.read_u8(0x0100 + self.stack_pointer as u16) as u16;
+    self.pc = self.bus.read_u8(0x0100 + self.stack_pointer as u16);
     self.stack_pointer += 1;
-    self.pc |= (self.bus.read_u8(0x0100 + self.stack_pointer as u16) as u16) << 8;
+    self.pc |= (self.bus.read_u8(0x0100 + self.stack_pointer as u16) << 8);
 
     self.pc += 1;
     0
@@ -908,19 +915,11 @@ impl<'a> Cpu<'a> {
   pub fn disassemble(&self, start: u16, end: u16) -> HashMap<u16, String> {
     let mut addr = start;
     let value: u8 = 0x00;
-    let mut lo_byte: u8 = 0x00;
-    let mut hi_byte: u8 = 0x00;
+    let mut lo_byte: u16 = 0x00;
+    let mut hi_byte: u16 = 0x00;
 
     let mut map: HashMap<u16, String> = HashMap::new();
     let mut line_addr: u16 = 0x00;
-
-    fn hex(n: usize, d: usize) -> String {
-      let mut output = Vec::with_capacity(d);
-      for x in (0..d - 1).step_by(4) {
-        output[x] = "0123456789ABCDEF".chars().nth(n & 0xF).unwrap_or(' ');
-      }
-      output.into_iter().map(|c| c.to_string()).collect()
-    }
 
     while addr <= end {
       line_addr = addr;
@@ -1014,4 +1013,13 @@ impl<'a> Cpu<'a> {
     }
     map
   }
+}
+
+
+pub fn hex(n: usize, d: usize) -> String {
+  let mut output = Vec::with_capacity(d);
+  for x in (0..d - 1).step_by(4) {
+    output[x] = "0123456789ABCDEF".chars().nth(n & 0xF).unwrap_or(' ');
+  }
+  output.into_iter().map(|c| c.to_string()).collect()
 }

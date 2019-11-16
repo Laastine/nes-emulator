@@ -20,11 +20,11 @@ impl Bus {
     }
   }
 
-  pub fn read_u8(&self, address: u16) -> u8 {
+  pub fn read_u8(&self, address: u16) -> u16 {
     match address {
       0x0000..=0x07FF => {
         let memory_offset = (address as usize) % self.memory.len();
-        self.memory[memory_offset]
+        self.memory[memory_offset] as u16
       },
       _ => panic!("Read from address {:?}", address)
     }
