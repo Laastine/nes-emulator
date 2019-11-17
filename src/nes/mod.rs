@@ -28,37 +28,37 @@ impl<'a> Nes<'a> {
     }
   }
 
-  pub fn draw_ram(&mut self, stdout: &mut RawTerminal<Stdout>, mut addr: u16, x_ram: u16, y_ram: u16) {
-    let mut y = y_ram;
-    let x = x_ram;
-    for _ in 0..x {
-      let mut offset = format!("$:{}", hex(addr as usize, 4));
-      for _ in 0..y {
+  pub fn draw_ram(&mut self, stdout: &mut RawTerminal<Stdout>, mut addr: u16, x: u16, y: u16, rows: u16, columns: u16) {
+    let mut y_ram = y;
+    let x_ram = x;
+    for _ in 0..rows {
+      let mut offset = format!("${}:", hex(addr as usize, 4));
+      for _ in 0..columns {
         offset = format!("{} {}", offset, hex(self.cpu.bus.read_u8(addr).try_into().unwrap(), 2));
         addr += 1;
       }
-      write!(stdout, "{}{}", termion::cursor::Goto(x, y), offset).unwrap();
-      y += 1;
+      write!(stdout, "{}{}", termion::cursor::Goto(x_ram, y_ram), offset).unwrap();
+      y_ram += 1;
     }
   }
 
   pub fn draw_cpu(&self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
-    write!(stdout, "{}Status", termion::cursor::Goto(x, y)).unwrap();
-    write!(stdout, "{}N {}", termion::cursor::Goto(x + 64, y), if self.cpu.status_register & FLAGS6502::N.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
-    write!(stdout, "{}V {}", termion::cursor::Goto(x + 80, y), if self.cpu.status_register & FLAGS6502::V.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
-    write!(stdout, "{}- {}", termion::cursor::Goto(x + 96, y), if self.cpu.status_register & FLAGS6502::U.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
-    write!(stdout, "{}B {}", termion::cursor::Goto(x + 112, y), if self.cpu.status_register & FLAGS6502::B.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
-    write!(stdout, "{}D {}", termion::cursor::Goto(x + 128, y), if self.cpu.status_register & FLAGS6502::D.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
-    write!(stdout, "{}I {}", termion::cursor::Goto(x + 144, y), if self.cpu.status_register & FLAGS6502::I.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
-    write!(stdout, "{}Z {}", termion::cursor::Goto(x + 160, y), if self.cpu.status_register & FLAGS6502::Z.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
-    write!(stdout, "{}C {}", termion::cursor::Goto(x + 178, y), if self.cpu.status_register & FLAGS6502::C.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    writeln!(stdout, "{}Status", termion::cursor::Goto(x, y)).unwrap();
+    writeln!(stdout, "{}N {}", termion::cursor::Goto(x + 1, y), if self.cpu.status_register & FLAGS6502::N.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    writeln!(stdout, "{}V {}", termion::cursor::Goto(x + 2, y), if self.cpu.status_register & FLAGS6502::V.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    writeln!(stdout, "{}- {}", termion::cursor::Goto(x + 3, y), if self.cpu.status_register & FLAGS6502::U.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    writeln!(stdout, "{}B {}", termion::cursor::Goto(x + 4, y), if self.cpu.status_register & FLAGS6502::B.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    writeln!(stdout, "{}D {}", termion::cursor::Goto(x + 5, y), if self.cpu.status_register & FLAGS6502::D.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    writeln!(stdout, "{}I {}", termion::cursor::Goto(x + 6, y), if self.cpu.status_register & FLAGS6502::I.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    writeln!(stdout, "{}Z {}", termion::cursor::Goto(x + 7, y), if self.cpu.status_register & FLAGS6502::Z.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
+    writeln!(stdout, "{}C {}", termion::cursor::Goto(x + 8, y), if self.cpu.status_register & FLAGS6502::C.value() > 0x00 { "ON" } else { "OFF" }).unwrap();
 
-    write!(stdout, "{}PC: ${}", termion::cursor::Goto(x, y + 10), hex(self.cpu.pc.try_into().unwrap(), 4)).unwrap();
-    write!(stdout, "{}A: ${} {}", termion::cursor::Goto(x, y + 20), hex(self.cpu.a.try_into().unwrap(), 2), self.cpu.a).unwrap();
-    write!(stdout, "{}X: ${} {}", termion::cursor::Goto(x, y + 30), hex(self.cpu.x.try_into().unwrap(), 2), self.cpu.x).unwrap();
-    write!(stdout, "{}Y: ${} {}", termion::cursor::Goto(x, y + 40), hex(self.cpu.y.try_into().unwrap(), 2), self.cpu.y).unwrap();
+    writeln!(stdout, "{}PC: ${}", termion::cursor::Goto(x, y + 1), hex(self.cpu.pc.try_into().unwrap(), 4)).unwrap();
+    writeln!(stdout, "{}A: ${} {}", termion::cursor::Goto(x, y + 2), hex(self.cpu.a.try_into().unwrap(), 2), self.cpu.a).unwrap();
+    writeln!(stdout, "{}X: ${} {}", termion::cursor::Goto(x, y + 3), hex(self.cpu.x.try_into().unwrap(), 2), self.cpu.x).unwrap();
+    writeln!(stdout, "{}Y: ${} {}", termion::cursor::Goto(x, y + 4), hex(self.cpu.y.try_into().unwrap(), 2), self.cpu.y).unwrap();
 
-    write!(stdout, "{}Stack P: ${}", termion::cursor::Goto(x, y + 50), hex(usize::from(self.cpu.stack_pointer), 4)).unwrap();
+    writeln!(stdout, "{}Stack P: ${}", termion::cursor::Goto(x, y + 5), hex(usize::from(self.cpu.stack_pointer), 4)).unwrap();
   }
 
   pub fn draw_code(&self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16, lines: u16) {
@@ -113,10 +113,10 @@ impl<'a> Nes<'a> {
         _ => (),
       }
 
-      self.draw_ram(&mut stdout, 0x0000, 16, 16);
-      self.draw_ram(&mut stdout, 0x8000, 16, 16);
+      self.draw_ram(&mut stdout, 0x0000, 2, 2, 16, 16);
+      self.draw_ram(&mut stdout, 0x8000, 2, 20, 16, 16);
       self.draw_cpu(&mut stdout, 64, 2);
-      self.draw_code(&mut stdout, 64, 72, 26);
+      self.draw_code(&mut stdout, 64, 12, 26);
     }
   }
 }

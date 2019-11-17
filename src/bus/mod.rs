@@ -1,3 +1,5 @@
+use std::convert::TryInto;
+
 pub const MEM_SIZE: usize = 64 * 1024;
 
 pub struct Bus {
@@ -13,7 +15,7 @@ impl Bus {
   }
 
   pub fn write_u8(&mut self, address: u16, data: u8) {
-    if address <= MEM_SIZE as u16 {
+    if address <= (0xFFFF as u16).try_into().unwrap() {
       self.memory[address as usize] = data;
     } else {
       panic!("Cannot write to {}", address);
