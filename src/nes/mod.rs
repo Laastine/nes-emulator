@@ -28,11 +28,13 @@ impl<'a> Nes<'a> {
     }
   }
 
-  pub fn draw_ram(&mut self, stdout: &mut RawTerminal<Stdout>, x: u16, mut y: u16, mut addr: u16) {
-    for row in 0..16 {
+  pub fn draw_ram(&mut self, stdout: &mut RawTerminal<Stdout>, mut addr: u16, x_ram: u16, y_ram: u16) {
+    let mut y = y_ram;
+    let x = x_ram;
+    for _ in 0..x {
       let mut offset = format!("$:{}", hex(addr as usize, 4));
-      for col in 0..16 {
-        offset = format!("{}{}", offset, hex(self.cpu.bus.read_u8(addr).try_into().unwrap(), 2));
+      for _ in 0..y {
+        offset = format!("{} {}", offset, hex(self.cpu.bus.read_u8(addr).try_into().unwrap(), 2));
         addr += 1;
       }
       write!(stdout, "{}{}", termion::cursor::Goto(x, y), offset).unwrap();
@@ -86,9 +88,14 @@ impl<'a> Nes<'a> {
       .into_raw_mode()
       .unwrap_or_else(|err| panic!("stdout raw mode error {:?}", err));
 
+    write!(stdout, "{}{}", termion::cursor::Goto(1, 1), termion::clear::AfterCursor).unwrap();
+
     for c in stdin.keys() {
       match c.unwrap() {
-        Key::Char('q') | Key::Esc => break,
+        Key::Char('q') | Key::Esc => {
+          write!(stdout, "{}{}", termion::cursor::Goto(1, 1), termion::clear::AfterCursor).unwrap();
+          break;
+        }
         Key::Right => {
           while !self.cpu.complete() {
             self.cpu.clock();
@@ -108,8 +115,8 @@ impl<'a> Nes<'a> {
 
       self.draw_ram(&mut stdout, 0x0000, 16, 16);
       self.draw_ram(&mut stdout, 0x8000, 16, 16);
-      self.draw_cpu(&mut stdout, 448, 2);
-      self.draw_code(&mut stdout, 448, 72, 26);
+      self.draw_cpu(&mut stdout, 64, 2);
+      self.draw_code(&mut stdout, 64, 72, 26);
     }
   }
 }

@@ -26,7 +26,6 @@ impl Bus {
         let memory_offset = (address as usize) % self.memory.len();
         self.memory[memory_offset] as u16
       }
-      _ => panic!("Read from address {:?}", address)
     }
   }
 }
