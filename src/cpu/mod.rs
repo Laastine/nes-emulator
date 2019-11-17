@@ -47,6 +47,12 @@ impl<'a> Cpu<'a> {
     }
   }
 
+  fn decrease_stack_pointer(&mut self) {
+    let len = 0xFF;
+    let new_stack_pointer = self.stack_pointer as u16;
+    self.stack_pointer = ((new_stack_pointer + len - 1) % len ) as u8;
+  }
+
   pub fn complete(&self) -> bool {
     self.cycles == 0
   }
@@ -119,17 +125,17 @@ impl<'a> Cpu<'a> {
   }
 
   pub fn irq(&mut self) {
-    if self.status_register == 0u8 {
+    if self.get_flag(&FLAGS6502::I) == 0x00 {
       self.bus.write_u8(
         0x0100 + self.stack_pointer as u16,
         ((self.pc >> 8) & 0x00FF) as u8,
       );
-      self.stack_pointer -= 1;
+      self.decrease_stack_pointer();
       self.bus.write_u8(
         0x0100 + self.stack_pointer as u16,
         (self.pc & 0x00FF) as u8,
       );
-      self.stack_pointer -= 1;
+      self.decrease_stack_pointer();
 
       self.set_flag(&FLAGS6502::B, false);
       self.set_flag(&FLAGS6502::U, true);
@@ -139,7 +145,7 @@ impl<'a> Cpu<'a> {
         0x100 + self.stack_pointer as u16,
         self.status_register,
       );
-      self.stack_pointer -= 1;
+      self.decrease_stack_pointer();
 
       let address_abs = 0xFFFE;
       let lo_byte = self.bus.read_u8(address_abs);
@@ -155,12 +161,12 @@ impl<'a> Cpu<'a> {
       0x01000 + self.stack_pointer as u16,
       ((self.pc >> 8) & 0x00FF) as u8,
     );
-    self.stack_pointer -= 1;
+    self.decrease_stack_pointer();
     self.bus.write_u8(
       0x01000 + self.stack_pointer as u16,
       (self.pc & 0x00FF) as u8,
     );
-    self.stack_pointer -= 1;
+    self.decrease_stack_pointer();
 
     self.set_flag(&FLAGS6502::B, false);
     self.set_flag(&FLAGS6502::U, true);
@@ -169,7 +175,7 @@ impl<'a> Cpu<'a> {
       0x100 + self.stack_pointer as u16,
       self.status_register,
     );
-    self.stack_pointer -= 1;
+    self.decrease_stack_pointer();
 
     let address_abs = 0xFFFA;
     let lo_byte = self.bus.read_u8(address_abs);
@@ -529,13 +535,13 @@ impl<'a> Cpu<'a> {
 
     self.set_flag(&FLAGS6502::Z, true);
     self.bus.write_u8(0x0100 + self.stack_pointer as u16, (self.pc >> 8) as u8 & 0x00FF);
-    self.stack_pointer -= 1;
+    self.decrease_stack_pointer();
     self.bus.write_u8(0x0100 + self.stack_pointer as u16, self.pc as u8 & 0x00FF);
-    self.stack_pointer -= 1;
+    self.decrease_stack_pointer();
 
     self.set_flag(&FLAGS6502::B, true);
     self.bus.write_u8(0x0100 + self.stack_pointer as u16, self.pc as u8 & 0x00FF);
-    self.stack_pointer -= 1;
+    self.decrease_stack_pointer();
     self.set_flag(&FLAGS6502::B, false);
 
     self.pc = self.bus.read_u8(0xFFFE) as u16 | (self.bus.read_u8(0xFFFF) as u16) << 8;
@@ -675,9 +681,9 @@ impl<'a> Cpu<'a> {
   pub fn jsr(&mut self) -> u8 {
     self.pc -= 1;
     self.bus.write_u8(0x0100 & self.stack_pointer as u16, (self.pc >> 8) as u8 & 0x00FF);
-    self.stack_pointer -= 1;
+    self.decrease_stack_pointer();
     self.bus.write_u8(0x0100 & self.stack_pointer as u16, self.pc as u8 & 0x00FF);
-    self.stack_pointer -= 1;
+    self.decrease_stack_pointer();
 
     self.pc = self.addr_abs;
     0
@@ -747,7 +753,7 @@ impl<'a> Cpu<'a> {
 
   pub fn pha(&mut self) -> u8 {
     self.bus.write_u8(0x0100 + self.stack_pointer as u16, self.a);
-    self.stack_pointer -= 1;
+    self.decrease_stack_pointer();
     0
   }
 
@@ -755,7 +761,7 @@ impl<'a> Cpu<'a> {
     self.bus.write_u8(0x0100 + self.stack_pointer as u16, self.status_register | FLAGS6502::B.value() | FLAGS6502::U.value());
     self.set_flag(&FLAGS6502::B, false);
     self.set_flag(&FLAGS6502::U, false);
-    self.stack_pointer -= 1;
+    self.decrease_stack_pointer();
     0
   }
 
