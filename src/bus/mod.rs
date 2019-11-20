@@ -15,7 +15,7 @@ impl Bus {
   }
 
   pub fn write_u8(&mut self, address: u16, data: u8) {
-    if address <= (0xFFFF as u16).try_into().unwrap() {
+    if address <= (0xFFFF).try_into().unwrap() {
       self.memory[address as usize] = data;
     } else {
       panic!("Cannot write to {}", address);
@@ -25,9 +25,9 @@ impl Bus {
   pub fn read_u8(&self, address: u16) -> u16 {
     match address {
       0x0000..=0xFFFF => {
-        let memory_offset = (address as usize) % self.memory.len();
-        self.memory[memory_offset] as u16
+        self.memory[address as usize] as u16
       }
+      _ => 0x00,
     }
   }
 }
