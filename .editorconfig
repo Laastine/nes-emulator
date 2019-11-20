@@ -1,0 +1,17 @@
+# EditorConfig is awesome: http://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# For each file
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+indent_style = space
+
+# For project specific files
+[*.{rs,toml,lock,glsl}]
+indent_size = 2
+max_line_length = 120
+trim_trailing_whitespace = true
