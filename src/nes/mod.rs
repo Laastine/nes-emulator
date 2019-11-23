@@ -65,10 +65,10 @@ impl<'a> Nes<'a> {
   }
 
   pub fn draw_code(&self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
-    let mut val = self.map_asm.get(&self.cpu.pc).unwrap();
+    let val = self.map_asm.get(&self.cpu.pc).unwrap();
     let blue = color::Fg(termion::color::AnsiValue::rgb(0, 0, 5));
-    write!(stdout, "{}{}", cursor::Goto(x, 9), termion::clear::AfterCursor);
-    write!(stdout, "{}{}{}{}", cursor::Goto(x, 9), blue, val, termion::style::Reset).unwrap();
+    write!(stdout, "{}{}", cursor::Goto(x, y), termion::clear::AfterCursor).unwrap();
+    write!(stdout, "{}{}{}{}", cursor::Goto(x, y), blue, val, termion::style::Reset).unwrap();
   }
 
   pub fn create(&mut self) {
