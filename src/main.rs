@@ -20,4 +20,3 @@ fn main() {
   nes.create();
   nes.user_update();
 }
-

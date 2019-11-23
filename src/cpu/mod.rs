@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::prelude::*;
 
 use crate::bus::Bus;
-use crate::cpu::instruction_table::{ADDRMODE6502, FLAGS6502, LookUpTable, OPCODES6502};
+use crate::cpu::instruction_table::{LookUpTable, ADDRMODE6502, FLAGS6502, OPCODES6502};
 
 pub mod instruction_table;
 
@@ -92,21 +92,27 @@ impl<'a> Cpu<'a> {
       self.set_flag(&FLAGS6502::U, true);
 
       let mut file = File::create("log.txt").expect("File create error");
-      file.write_all(
-        format!("{} PC:{} XXX {} {} {} N:{}, V:{}, U:{}, B:{}, D:{}, I:{}, Z:{}, C:{} stack_pointer:{}",
-                self.clock_count, log_pc,
-                hex(u8::try_into(self.a).unwrap(), 2),
-                hex(u8::try_into(self.x).unwrap(), 2),
-                hex(u8::try_into(self.y).unwrap(), 2),
-                self.get_flag(&FLAGS6502::N),
-                self.get_flag(&FLAGS6502::V),
-                self.get_flag(&FLAGS6502::U),
-                self.get_flag(&FLAGS6502::B),
-                self.get_flag(&FLAGS6502::D),
-                self.get_flag(&FLAGS6502::I),
-                self.get_flag(&FLAGS6502::Z),
-                self.get_flag(&FLAGS6502::C),
-                self.stack_pointer).as_bytes())
+      file
+        .write_all(
+          format!(
+            "{} PC:{} XXX {} {} {} N:{}, V:{}, U:{}, B:{}, D:{}, I:{}, Z:{}, C:{} stack_pointer:{}",
+            self.clock_count,
+            log_pc,
+            hex(u8::try_into(self.a).unwrap(), 2),
+            hex(u8::try_into(self.x).unwrap(), 2),
+            hex(u8::try_into(self.y).unwrap(), 2),
+            self.get_flag(&FLAGS6502::N),
+            self.get_flag(&FLAGS6502::V),
+            self.get_flag(&FLAGS6502::U),
+            self.get_flag(&FLAGS6502::B),
+            self.get_flag(&FLAGS6502::D),
+            self.get_flag(&FLAGS6502::I),
+            self.get_flag(&FLAGS6502::Z),
+            self.get_flag(&FLAGS6502::C),
+            self.stack_pointer
+          )
+          .as_bytes(),
+        )
         .expect("File write error");
     }
 
@@ -317,9 +323,13 @@ impl<'a> Cpu<'a> {
     let byte = (hi_byte.wrapping_shl(8)) | lo_byte;
 
     self.addr_abs = if lo_byte == 0x00FF {
-      ((self.bus.read_u8(byte & 0xFF00).wrapping_shl(8)) | self.bus.read_u8(byte)).try_into().unwrap()
+      ((self.bus.read_u8(byte & 0xFF00).wrapping_shl(8)) | self.bus.read_u8(byte))
+        .try_into()
+        .unwrap()
     } else {
-      (self.bus.read_u8((byte + 1).wrapping_shl(8)) | self.bus.read_u8(byte)).try_into().unwrap()
+      (self.bus.read_u8((byte + 1).wrapping_shl(8)) | self.bus.read_u8(byte))
+        .try_into()
+        .unwrap()
     };
 
     0
@@ -331,7 +341,11 @@ impl<'a> Cpu<'a> {
 
     let x: u16 = self.x.try_into().unwrap();
     let lo_byte: u16 = self.bus.read_u8((byte + x) & 0x00FF).try_into().unwrap();
-    let hi_byte: u16 = self.bus.read_u8((byte + x + 1) & 0x00FF).try_into().unwrap();
+    let hi_byte: u16 = self
+      .bus
+      .read_u8((byte + x + 1) & 0x00FF)
+      .try_into()
+      .unwrap();
     self.addr_abs = (hi_byte.wrapping_shl(8)) | lo_byte;
 
     0
@@ -346,14 +360,12 @@ impl<'a> Cpu<'a> {
     self.addr_abs = ((hi_byte.wrapping_shl(8)) | lo_byte).try_into().unwrap();
     self.addr_abs += u16::try_from(self.y).unwrap();
 
-
     if (self.addr_abs & 0xFF00) != u16::try_from(hi_byte.wrapping_shl(8)).unwrap() {
       1
     } else {
       0
     }
   }
-
 
   ///OPCODES
   pub fn op_code_value(&mut self, op_code: OPCODES6502) -> u8 {
@@ -425,7 +437,13 @@ impl<'a> Cpu<'a> {
 
     self.set_flag(&FLAGS6502::C, self.temp > 255);
     self.set_flag(&FLAGS6502::Z, (self.temp & 0x00FF) != 0x00);
-    self.set_flag(&FLAGS6502::V, (!(self.a ^ self.fetched) & u8::try_from(u16::try_from(self.a).unwrap() ^ self.temp).unwrap()) & 0x0080 != 0x00);
+    self.set_flag(
+      &FLAGS6502::V,
+      (!(self.a ^ self.fetched)
+        & u8::try_from(u16::try_from(self.a).unwrap() ^ self.temp).unwrap())
+        & 0x0080
+        != 0x00,
+    );
     self.set_flag(&FLAGS6502::N, self.temp & 0x80 != 0x00);
     self.a = (self.temp & 0x00FF) as u8;
     1
@@ -438,7 +456,6 @@ impl<'a> Cpu<'a> {
     self.set_flag(&FLAGS6502::C, (self.temp & 0xFF00) > 0x00);
     self.set_flag(&FLAGS6502::Z, (self.temp & 0xFF00) == 0x00);
     self.set_flag(&FLAGS6502::N, (self.temp & 0x80) != 0x00);
-
 
     if self.addr_mode() == ADDRMODE6502::IMP {
       self.a = (self.temp & 0x00FF).try_into().unwrap();
@@ -557,17 +574,27 @@ impl<'a> Cpu<'a> {
     self.pc = self.pc.wrapping_add(1);
 
     self.set_flag(&FLAGS6502::I, true);
-    self.bus.write_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap(), (self.pc.wrapping_shr(8) & 0x00FF).try_into().unwrap());
+    self.bus.write_u8(
+      0x0100 + u16::try_from(self.stack_pointer).unwrap(),
+      (self.pc.wrapping_shr(8) & 0x00FF).try_into().unwrap(),
+    );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
-    self.bus.write_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap(), u8::try_from(self.pc).unwrap() & 0x00FF);
+    self.bus.write_u8(
+      0x0100 + u16::try_from(self.stack_pointer).unwrap(),
+      u8::try_from(self.pc).unwrap() & 0x00FF,
+    );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
 
     self.set_flag(&FLAGS6502::B, true);
-    self.bus.write_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap(), self.status_register);
+    self.bus.write_u8(
+      0x0100 + u16::try_from(self.stack_pointer).unwrap(),
+      self.status_register,
+    );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     self.set_flag(&FLAGS6502::B, false);
 
-    self.pc = u16::try_from(self.bus.read_u8(0xFFFE)).unwrap() | (u16::try_from(self.bus.read_u8(0xFFFF)).unwrap()).wrapping_shl(8);
+    self.pc = u16::try_from(self.bus.read_u8(0xFFFE)).unwrap()
+      | (u16::try_from(self.bus.read_u8(0xFFFF)).unwrap()).wrapping_shl(8);
     0
   }
 
@@ -723,9 +750,15 @@ impl<'a> Cpu<'a> {
   /// Jump subroutine
   pub fn jsr(&mut self) -> u8 {
     self.pc = self.pc.wrapping_sub(1);
-    self.bus.write_u8(0x0100 & u16::try_from(self.stack_pointer).unwrap(), (self.pc.wrapping_shr(8)) as u8 & 0x00FF);
+    self.bus.write_u8(
+      0x0100 & u16::try_from(self.stack_pointer).unwrap(),
+      (self.pc.wrapping_shr(8)) as u8 & 0x00FF,
+    );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
-    self.bus.write_u8(0x0100 & u16::try_from(self.stack_pointer).unwrap(), self.pc as u8 & 0x00FF);
+    self.bus.write_u8(
+      0x0100 & u16::try_from(self.stack_pointer).unwrap(),
+      self.pc as u8 & 0x00FF,
+    );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
 
     self.pc = self.addr_abs;
@@ -779,7 +812,7 @@ impl<'a> Cpu<'a> {
   pub fn nop(&mut self) -> u8 {
     match self.opcode {
       0x1C | 0x3C | 0x5C | 0x7C | 0xDC | 0xFC => 1,
-      _ => 0
+      _ => 0,
     }
   }
 
@@ -794,14 +827,19 @@ impl<'a> Cpu<'a> {
 
   /// Push accumulator
   pub fn pha(&mut self) -> u8 {
-    self.bus.write_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap(), self.a);
+    self
+      .bus
+      .write_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap(), self.a);
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     0
   }
 
   /// Push processor status (PR)
   pub fn php(&mut self) -> u8 {
-    self.bus.write_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap(), self.status_register | FLAGS6502::B.value() | FLAGS6502::U.value());
+    self.bus.write_u8(
+      0x0100 + u16::try_from(self.stack_pointer).unwrap(),
+      self.status_register | FLAGS6502::B.value() | FLAGS6502::U.value(),
+    );
     self.set_flag(&FLAGS6502::B, false);
     self.set_flag(&FLAGS6502::U, false);
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
@@ -811,7 +849,11 @@ impl<'a> Cpu<'a> {
   /// Pull accumulator
   pub fn pla(&mut self) -> u8 {
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
-    self.a = self.bus.read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap()).try_into().unwrap();
+    self.a = self
+      .bus
+      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap())
+      .try_into()
+      .unwrap();
     self.set_flag(&FLAGS6502::Z, self.a == 0x00);
     self.set_flag(&FLAGS6502::N, self.a & 0x80 != 0x00);
     0
@@ -820,7 +862,11 @@ impl<'a> Cpu<'a> {
   /// Pull processor status (SR)
   pub fn plp(&mut self) -> u8 {
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
-    self.status_register = self.bus.read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap()).try_into().unwrap();
+    self.status_register = self
+      .bus
+      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap())
+      .try_into()
+      .unwrap();
     self.set_flag(&FLAGS6502::U, true);
     0
   }
@@ -832,7 +878,6 @@ impl<'a> Cpu<'a> {
     self.set_flag(&FLAGS6502::C, self.temp & 0xFF00 != 0x00);
     self.set_flag(&FLAGS6502::Z, self.temp & 0x00FF == 0x00);
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
-
 
     if self.addr_mode() == ADDRMODE6502::IMP {
       self.a = self.temp as u8 & 0x00FF;
@@ -866,23 +911,39 @@ impl<'a> Cpu<'a> {
   /// Return form interrupt
   pub fn rti(&mut self) -> u8 {
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
-    self.status_register = self.bus.read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap()).try_into().unwrap();
+    self.status_register = self
+      .bus
+      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap())
+      .try_into()
+      .unwrap();
     self.status_register &= !FLAGS6502::B.value();
     self.status_register &= !FLAGS6502::U.value();
 
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
-    self.pc = self.bus.read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap()).try_into().unwrap();
+    self.pc = self
+      .bus
+      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap())
+      .try_into()
+      .unwrap();
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
-    self.pc |= (self.bus.read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap()) as u16).wrapping_shl(8);
+    self.pc |= (self
+      .bus
+      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap()) as u16)
+      .wrapping_shl(8);
     0
   }
 
   /// Return form subroutine
   pub fn rts(&mut self) -> u8 {
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
-    self.pc = self.bus.read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap());
+    self.pc = self
+      .bus
+      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap());
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
-    self.pc |= self.bus.read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap()).wrapping_shl(8);
+    self.pc |= self
+      .bus
+      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap())
+      .wrapping_shl(8);
 
     self.pc = self.pc.wrapping_add(1);
     0
@@ -893,10 +954,14 @@ impl<'a> Cpu<'a> {
     self.fetch();
     let value = self.fetched as u16 ^ 0x00FF;
 
-    self.temp = u16::try_from(self.a).unwrap() + value + u16::try_from(self.get_flag(&FLAGS6502::C)).unwrap();
+    self.temp =
+      u16::try_from(self.a).unwrap() + value + u16::try_from(self.get_flag(&FLAGS6502::C)).unwrap();
     self.set_flag(&FLAGS6502::C, self.temp & 0xFF00 != 0x00);
     self.set_flag(&FLAGS6502::Z, self.temp & 0x00FF == 0);
-    self.set_flag(&FLAGS6502::V, (self.temp ^ self.a as u16 & (self.temp ^ value as u16) & 0x0080) != 0x00);
+    self.set_flag(
+      &FLAGS6502::V,
+      (self.temp ^ self.a as u16 & (self.temp ^ value as u16) & 0x0080) != 0x00,
+    );
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
     self.a = self.temp as u8 & 0x00FF;
     1
@@ -997,7 +1062,10 @@ impl<'a> Cpu<'a> {
       let name = self.lookup.get_name(opcode.try_into().unwrap());
       codes = format!("{} {} ", codes, name);
 
-      let addr_mode = self.lookup.get_addr_mode(opcode.try_into().unwrap()).clone();
+      let addr_mode = self
+        .lookup
+        .get_addr_mode(opcode.try_into().unwrap())
+        .clone();
 
       match addr_mode {
         ADDRMODE6502::IMP => {
@@ -1026,23 +1094,39 @@ impl<'a> Cpu<'a> {
         ADDRMODE6502::REL => {
           let value = self.bus.read_u8(addr.try_into().unwrap());
           addr += 1;
-          codes.push_str(&format!("${} [${}] {{REL}}\t", hex(usize::from(value), 2), hex((addr + value as u32).try_into().unwrap(), 4)));
+          codes.push_str(&format!(
+            "${} [${}] {{REL}}\t",
+            hex(usize::from(value), 2),
+            hex((addr + value as u32).try_into().unwrap(), 4)
+          ));
         }
         ADDRMODE6502::ABS => {
           let (lo_byte, hi_byte) = self.extract_addr_16(addr);
-          codes.push_str(&format!("${} {{ABS}}\t", hex(usize::from(hi_byte.wrapping_shl(8) | lo_byte), 4)));
+          codes.push_str(&format!(
+            "${} {{ABS}}\t",
+            hex(usize::from(hi_byte.wrapping_shl(8) | lo_byte), 4)
+          ));
         }
         ADDRMODE6502::ABX => {
           let (lo_byte, hi_byte) = self.extract_addr_16(addr);
-          codes.push_str(&format!("${} X {{ABX}}\t", hex(usize::from(hi_byte.wrapping_shl(8) | lo_byte), 4)));
+          codes.push_str(&format!(
+            "${} X {{ABX}}\t",
+            hex(usize::from(hi_byte.wrapping_shl(8) | lo_byte), 4)
+          ));
         }
         ADDRMODE6502::ABY => {
           let (lo_byte, hi_byte) = self.extract_addr_16(addr);
-          codes.push_str(&format!("${}, Y {{ABY}}\t", hex(usize::from(hi_byte.wrapping_shl(8) | lo_byte), 4)));
+          codes.push_str(&format!(
+            "${}, Y {{ABY}}\t",
+            hex(usize::from(hi_byte.wrapping_shl(8) | lo_byte), 4)
+          ));
         }
         ADDRMODE6502::IND => {
           let (lo_byte, hi_byte) = self.extract_addr_16(addr);
-          codes.push_str(&format!("(${}) {{IND}}\t", hex(usize::from(hi_byte.wrapping_shl(8) | lo_byte), 4)));
+          codes.push_str(&format!(
+            "(${}) {{IND}}\t",
+            hex(usize::from(hi_byte.wrapping_shl(8) | lo_byte), 4)
+          ));
         }
         ADDRMODE6502::IZX => {
           let lo_byte = self.bus.read_u8(addr.try_into().unwrap());
@@ -1073,6 +1157,6 @@ pub fn hex(num: usize, len: usize) -> String {
   match len {
     2 => format!("{:0>2X}", num),
     4 => format!("{:0>4X}", num),
-    _ => panic!("Unknown length")
+    _ => panic!("Unknown length"),
   }
 }

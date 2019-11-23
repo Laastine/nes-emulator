@@ -1,4 +1,4 @@
-use std::convert::{TryInto, TryFrom};
+use std::convert::{TryFrom, TryInto};
 
 pub const MEM_SIZE: usize = 64 * 1024;
 
@@ -9,9 +9,7 @@ pub struct Bus {
 impl Bus {
   pub fn new() -> Bus {
     let memory: [u8; MEM_SIZE] = [0u8; MEM_SIZE];
-    Bus {
-      memory,
-    }
+    Bus { memory }
   }
 
   pub fn write_u8(&mut self, address: u16, data: u8) {
