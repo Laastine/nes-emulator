@@ -1,5 +1,4 @@
 #[derive(Debug, PartialEq)]
-#[repr(u8)]
 pub enum FLAGS6502 {
   C,
   Z,

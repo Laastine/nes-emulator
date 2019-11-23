@@ -1,4 +1,4 @@
-use std::convert::TryInto;
+use std::convert::{TryInto, TryFrom};
 
 pub const MEM_SIZE: usize = 64 * 1024;
 
@@ -23,11 +23,10 @@ impl Bus {
   }
 
   pub fn read_u8(&self, address: u16) -> u16 {
-    match address {
-      0x0000..=0xFFFF => {
-        self.memory[address as usize] as u16
-      }
-      _ => 0x00,
+    if address <= (0xFFFF).try_into().unwrap() {
+      u16::try_from(self.memory[address as usize]).unwrap()
+    } else {
+      panic!("Memory read from {}", address);
     }
   }
 }

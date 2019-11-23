@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::io::{stdin, stdout, Stdout, Write};
-use std::str::FromStr;
 
 use termion::{color, cursor};
 use termion::event::Key;
@@ -65,9 +64,11 @@ impl<'a> Nes<'a> {
     write!(stdout, "{}Stack P: ${}", cursor::Goto(x, y + 5), hex(usize::from(self.cpu.stack_pointer), 4)).unwrap();
   }
 
-  pub fn draw_code(&self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16, lines: u16) {
-    let val = self.map_asm.get(&self.cpu.pc).unwrap();
-    write!(stdout, "{}{}", termion::cursor::Goto(x, y), val).unwrap();
+  pub fn draw_code(&self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
+    let mut val = self.map_asm.get(&self.cpu.pc).unwrap();
+    let blue = color::Fg(termion::color::AnsiValue::rgb(0, 0, 5));
+    write!(stdout, "{}{}", cursor::Goto(x, 9), termion::clear::AfterCursor);
+    write!(stdout, "{}{}{}{}", cursor::Goto(x, 9), blue, val, termion::style::Reset).unwrap();
   }
 
   pub fn create(&mut self) {
@@ -90,7 +91,7 @@ impl<'a> Nes<'a> {
     self.draw_ram(stdout, 0x0000, 2, 2, 16, 16);
     self.draw_ram(stdout, 0x8000, 2, 20, 16, 16);
     self.draw_cpu(stdout, 64, 2);
-    self.draw_code(stdout, 64, 9, 26);
+    self.draw_code(stdout, 64, 9);
   }
 
   pub fn user_update(&mut self) {
