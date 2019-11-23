@@ -82,9 +82,9 @@ impl<'a> Cpu<'a> {
       let log_pc = self.pc;
 
       let idx = usize::try_from(self.opcode).unwrap();
-      let addr_mode = self.lookup.get_addr_mode(idx).clone();
+      let addr_mode = *self.lookup.get_addr_mode(idx);
 
-      let operate = self.lookup.get_operate(idx).clone();
+      let operate = *self.lookup.get_operate(idx);
 
       let new_cycles = self.addr_mode_value(addr_mode) & self.op_code_value(operate);
       self.cycles = self.cycles.wrapping_add(new_cycles);
@@ -133,14 +133,14 @@ impl<'a> Cpu<'a> {
   pub fn reset(&mut self) {
     self.addr_abs = 0xFFFC;
 
-    let lo_byte = self.bus.read_u8(self.addr_abs + 0);
+    let lo_byte = self.bus.read_u8(self.addr_abs);
     let hi_byte = self.bus.read_u8(self.addr_abs + 1);
 
     self.pc = (hi_byte.wrapping_shl(8)) | lo_byte;
     self.a = 0;
     self.x = 0;
     self.y = 0;
-    self.status_register = 0 | FLAGS6502::U.value();
+    self.status_register = FLAGS6502::U.value();
     self.stack_pointer = 0xFD;
 
     self.addr_abs = 0x0000;
@@ -174,7 +174,7 @@ impl<'a> Cpu<'a> {
       self.stack_pointer = self.stack_pointer.wrapping_sub(1);
 
       self.addr_abs = 0xFFFE;
-      let lo_byte = self.bus.read_u8(self.addr_abs + 0);
+      let lo_byte = self.bus.read_u8(self.addr_abs);
       let hi_byte = self.bus.read_u8(self.addr_abs + 1);
       self.pc = u16::try_from((hi_byte.wrapping_shl(8)) | lo_byte).unwrap();
 
@@ -209,13 +209,6 @@ impl<'a> Cpu<'a> {
     self.pc = (hi_byte.wrapping_shl(8)) | lo_byte;
 
     self.cycles = 8;
-  }
-
-  fn fetch_data(&mut self) -> u8 {
-    if self.addr_mode() != ADDRMODE6502::IMP {
-      self.fetched = self.bus.read_u8(self.addr_abs).try_into().unwrap();
-    }
-    self.fetched
   }
 
   /// ADDRESS MODES
@@ -468,7 +461,7 @@ impl<'a> Cpu<'a> {
   /// and (with accumulator)
   pub fn and(&mut self) -> u8 {
     self.fetch();
-    self.a = self.a & self.fetched;
+    self.a &= self.fetched;
     self.set_flag(&FLAGS6502::Z, self.a == 0x00);
     self.set_flag(&FLAGS6502::N, self.a & 0x80 != 0x00);
     1
@@ -478,8 +471,7 @@ impl<'a> Cpu<'a> {
   pub fn bcc(&mut self) -> u8 {
     if self.get_flag(&FLAGS6502::C) == 0x00 {
       self.cycles = self.cycles.wrapping_add(1);
-      let foo = self.pc.wrapping_add(self.addr_rel);
-      self.addr_abs = foo;
+      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
 
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
         self.cycles = self.cycles.wrapping_add(1);
@@ -493,8 +485,7 @@ impl<'a> Cpu<'a> {
   pub fn bcs(&mut self) -> u8 {
     if self.get_flag(&FLAGS6502::C) == 0x01 {
       self.cycles = self.cycles.wrapping_add(1);
-      let foo = self.pc.wrapping_add(self.addr_rel);
-      self.addr_abs = foo;
+      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
         self.cycles = self.cycles.wrapping_add(1);
       }
@@ -507,8 +498,7 @@ impl<'a> Cpu<'a> {
   pub fn beq(&mut self) -> u8 {
     if self.get_flag(&FLAGS6502::Z) == 0x01 {
       self.cycles = self.cycles.wrapping_add(1);
-      let foo = self.pc.wrapping_add(self.addr_rel);
-      self.addr_abs = foo;
+      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
         self.cycles = self.cycles.wrapping_add(1);
       }
@@ -521,7 +511,7 @@ impl<'a> Cpu<'a> {
   pub fn bit(&mut self) -> u8 {
     self.fetch();
     self.temp = (self.a & self.fetched) as u16;
-    self.set_flag(&FLAGS6502::Z, (self.temp & 0x00FF) == 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
     self.set_flag(&FLAGS6502::N, self.fetched & (1 << 7) != 0x00);
     self.set_flag(&FLAGS6502::V, self.fetched & (1 << 6) != 0x00);
     0
@@ -531,8 +521,7 @@ impl<'a> Cpu<'a> {
   pub fn bmi(&mut self) -> u8 {
     if self.get_flag(&FLAGS6502::N) == 0x01 {
       self.cycles = self.cycles.wrapping_add(1);
-      let foo = self.pc.wrapping_add(self.addr_rel);
-      self.addr_abs = foo;
+      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
         self.cycles = self.cycles.wrapping_add(1);
       }
@@ -545,8 +534,7 @@ impl<'a> Cpu<'a> {
   pub fn bne(&mut self) -> u8 {
     if self.get_flag(&FLAGS6502::Z) == 0x00 {
       self.cycles = self.cycles.wrapping_add(1);
-      let foo = self.pc.wrapping_add(self.addr_rel);
-      self.addr_abs = foo;
+      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
         self.cycles = self.cycles.wrapping_add(1);
       }
@@ -559,8 +547,7 @@ impl<'a> Cpu<'a> {
   pub fn bpl(&mut self) -> u8 {
     if self.get_flag(&FLAGS6502::N) == 0x00 {
       self.cycles = self.cycles.wrapping_add(1);
-      let foo = self.pc.wrapping_add(self.addr_rel);
-      self.addr_abs = foo;
+      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
         self.cycles = self.cycles.wrapping_add(1);
       }
@@ -581,7 +568,7 @@ impl<'a> Cpu<'a> {
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     self.bus.write_u8(
       0x0100 + u16::try_from(self.stack_pointer).unwrap(),
-      u8::try_from(self.pc).unwrap() & 0x00FF,
+      u8::try_from(self.pc).unwrap(),
     );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
 
@@ -602,8 +589,7 @@ impl<'a> Cpu<'a> {
   pub fn bvc(&mut self) -> u8 {
     if self.get_flag(&FLAGS6502::V) == 0 {
       self.cycles = self.cycles.wrapping_add(1);
-      let foo = self.pc.wrapping_add(self.addr_rel);
-      self.addr_abs = foo;
+      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
         self.cycles = self.cycles.wrapping_add(1);
       }
@@ -616,8 +602,7 @@ impl<'a> Cpu<'a> {
   pub fn bvs(&mut self) -> u8 {
     if self.get_flag(&FLAGS6502::V) == 1 {
       self.cycles = self.cycles.wrapping_add(1);
-      let foo = self.pc.wrapping_add(self.addr_rel);
-      self.addr_abs = foo;
+      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
         self.cycles = self.cycles.wrapping_add(1);
       }
@@ -655,7 +640,7 @@ impl<'a> Cpu<'a> {
     self.fetch();
     self.temp = self.a as u16 - self.fetched as u16;
     self.set_flag(&FLAGS6502::C, self.a >= self.fetched);
-    self.set_flag(&FLAGS6502::Z, (self.temp & 0x00FF) == 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
     1
   }
@@ -665,7 +650,7 @@ impl<'a> Cpu<'a> {
     self.fetch();
     self.temp = self.x as u16 - self.fetched as u16;
     self.set_flag(&FLAGS6502::C, self.x >= self.fetched);
-    self.set_flag(&FLAGS6502::Z, (self.temp & 0x00FF) == 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
     0
   }
@@ -675,7 +660,7 @@ impl<'a> Cpu<'a> {
     self.fetch();
     self.temp = self.y as u16 - self.fetched as u16;
     self.set_flag(&FLAGS6502::C, self.y >= self.fetched);
-    self.set_flag(&FLAGS6502::Z, (self.temp & 0x00FF) == 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
     0
   }
@@ -684,8 +669,8 @@ impl<'a> Cpu<'a> {
   pub fn dec(&mut self) -> u8 {
     self.fetch();
     self.temp = self.fetched as u16 - 1;
-    self.bus.write_u8(self.addr_abs, self.temp as u8 & 0x00FF);
-    self.set_flag(&FLAGS6502::Z, (self.temp & 0x00FF) == 0x00);
+    self.bus.write_u8(self.addr_abs, self.temp as u8);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
     0
   }
@@ -719,8 +704,8 @@ impl<'a> Cpu<'a> {
   pub fn inc(&mut self) -> u8 {
     self.fetch();
     self.temp = self.fetched.wrapping_add(1).try_into().unwrap();
-    self.bus.write_u8(self.addr_abs, self.temp as u8 & 0x00FF);
-    self.set_flag(&FLAGS6502::Z, (self.temp & 0x00FF) == 0x00);
+    self.bus.write_u8(self.addr_abs, self.temp as u8);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
     self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) != 0x00);
     0
   }
@@ -752,12 +737,12 @@ impl<'a> Cpu<'a> {
     self.pc = self.pc.wrapping_sub(1);
     self.bus.write_u8(
       0x0100 & u16::try_from(self.stack_pointer).unwrap(),
-      (self.pc.wrapping_shr(8)) as u8 & 0x00FF,
+      (self.pc.wrapping_shr(8)) as u8,
     );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     self.bus.write_u8(
       0x0100 & u16::try_from(self.stack_pointer).unwrap(),
-      self.pc as u8 & 0x00FF,
+      self.pc as u8,
     );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
 
@@ -797,13 +782,13 @@ impl<'a> Cpu<'a> {
     self.fetch();
     self.set_flag(&FLAGS6502::C, self.fetched & 0x0001 != 0x00);
     self.temp = self.fetched as u16 >> 1;
-    self.set_flag(&FLAGS6502::Z, self.temp & 0x00FF == 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
-      self.a = self.temp as u8 & 0x00FF;
+      self.a = self.temp as u8;
     } else {
-      self.bus.write_u8(self.addr_abs, self.temp as u8 & 0x00FF);
+      self.bus.write_u8(self.addr_abs, self.temp as u8);
     }
     0
   }
@@ -819,7 +804,7 @@ impl<'a> Cpu<'a> {
   /// Or with accumulator
   pub fn ora(&mut self) -> u8 {
     self.fetch();
-    self.a = self.a | self.fetched;
+    self.a |= self.fetched;
     self.set_flag(&FLAGS6502::Z, self.a == 0x00);
     self.set_flag(&FLAGS6502::N, self.a & 0x0080 != 0x00);
     1
@@ -876,13 +861,13 @@ impl<'a> Cpu<'a> {
     self.fetch();
     self.temp = (self.fetched.wrapping_shl(1)) as u16 | self.get_flag(&FLAGS6502::C) as u16;
     self.set_flag(&FLAGS6502::C, self.temp & 0xFF00 != 0x00);
-    self.set_flag(&FLAGS6502::Z, self.temp & 0x00FF == 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
-      self.a = self.temp as u8 & 0x00FF;
+      self.a = self.temp as u8;
     } else {
-      self.bus.write_u8(self.addr_abs, self.temp as u8 & 0x00FF);
+      self.bus.write_u8(self.addr_abs, self.temp as u8);
     }
     0
   }
@@ -892,20 +877,20 @@ impl<'a> Cpu<'a> {
     self.fetch();
     self.temp = self.get_flag(&FLAGS6502::C) as u16 | (self.fetched.wrapping_shl(1)) as u16;
     self.set_flag(&FLAGS6502::C, self.fetched & 0x01 != 0x00);
-    self.set_flag(&FLAGS6502::Z, self.temp & 0x00FF == 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
-      self.a = self.temp as u8 & 0x00FF;
+      self.a = self.temp as u8;
     } else {
-      self.bus.write_u8(self.addr_abs, self.temp as u8 & 0x00FF);
+      self.bus.write_u8(self.addr_abs, self.temp as u8);
     }
     0
   }
 
   fn addr_mode(&mut self) -> ADDRMODE6502 {
     let idx = usize::try_from(self.opcode).unwrap();
-    self.lookup.get_addr_mode(idx).clone()
+    *self.lookup.get_addr_mode(idx)
   }
 
   /// Return form interrupt
@@ -957,13 +942,13 @@ impl<'a> Cpu<'a> {
     self.temp =
       u16::try_from(self.a).unwrap() + value + u16::try_from(self.get_flag(&FLAGS6502::C)).unwrap();
     self.set_flag(&FLAGS6502::C, self.temp & 0xFF00 != 0x00);
-    self.set_flag(&FLAGS6502::Z, self.temp & 0x00FF == 0);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
     self.set_flag(
       &FLAGS6502::V,
       (self.temp ^ self.a as u16 & (self.temp ^ value as u16) & 0x0080) != 0x00,
     );
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
-    self.a = self.temp as u8 & 0x00FF;
+    self.a = self.temp as u8;
     1
   }
 
@@ -1062,10 +1047,9 @@ impl<'a> Cpu<'a> {
       let name = self.lookup.get_name(opcode.try_into().unwrap());
       codes = format!("{} {} ", codes, name);
 
-      let addr_mode = self
+      let addr_mode = *self
         .lookup
-        .get_addr_mode(opcode.try_into().unwrap())
-        .clone();
+        .get_addr_mode(opcode.try_into().unwrap());
 
       match addr_mode {
         ADDRMODE6502::IMP => {

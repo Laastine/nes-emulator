@@ -17,6 +17,6 @@ fn main() {
   let mut bus = Bus::new();
   let mut nes = Nes::new(&mut bus);
 
-  nes.create();
-  nes.user_update();
+  nes.create_program();
+  nes.render_loop();
 }
