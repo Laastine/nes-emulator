@@ -11,7 +11,7 @@ pub mod instruction_table;
 pub struct Cpu<'a> {
   pub bus: &'a mut Bus,
   pub pc: u16,
-  pub a: u8,
+  pub acc: u8,
   pub x: u8,
   pub y: u8,
   pub status_register: u8,
@@ -33,7 +33,7 @@ impl<'a> Cpu<'a> {
     Cpu {
       bus,
       pc: 0,
-      a: 0,
+      acc: 0,
       x: 0,
       y: 0,
       fetched: 0x0,
@@ -98,7 +98,7 @@ impl<'a> Cpu<'a> {
             "{} PC:{} XXX {} {} {} N:{}, V:{}, U:{}, B:{}, D:{}, I:{}, Z:{}, C:{} stack_pointer:{}",
             self.clock_count,
             log_pc,
-            hex(u8::try_into(self.a).unwrap(), 2),
+            hex(u8::try_into(self.acc).unwrap(), 2),
             hex(u8::try_into(self.x).unwrap(), 2),
             hex(u8::try_into(self.y).unwrap(), 2),
             self.get_flag(&FLAGS6502::N),
@@ -137,7 +137,7 @@ impl<'a> Cpu<'a> {
     let hi_byte = self.bus.read_u8(self.addr_abs + 1);
 
     self.pc = (hi_byte.wrapping_shl(8)) | lo_byte;
-    self.a = 0;
+    self.acc = 0;
     self.x = 0;
     self.y = 0;
     self.status_register = FLAGS6502::U.value();
@@ -233,7 +233,7 @@ impl<'a> Cpu<'a> {
 
   /// Implied
   pub fn imp(&mut self) -> u8 {
-    self.fetched = self.a;
+    self.fetched = self.acc;
     0
   }
 
@@ -440,19 +440,19 @@ impl<'a> Cpu<'a> {
   /// Add with carry
   pub fn adc(&mut self) -> u8 {
     self.fetch();
-    self.temp = u16::try_from(self.a + self.fetched + self.get_flag(&FLAGS6502::C)).unwrap();
+    self.temp = u16::try_from(self.acc + self.fetched + self.get_flag(&FLAGS6502::C)).unwrap();
 
     self.set_flag(&FLAGS6502::C, self.temp > 255);
     self.set_flag(&FLAGS6502::Z, (self.temp & 0x00FF) != 0x00);
     self.set_flag(
       &FLAGS6502::V,
-      (!(self.a ^ self.fetched)
-        & u8::try_from(u16::try_from(self.a).unwrap() ^ self.temp).unwrap())
+      (!(self.acc ^ self.fetched)
+        & u8::try_from(u16::try_from(self.acc).unwrap() ^ self.temp).unwrap())
         & 0x0080
         != 0x00,
     );
     self.set_flag(&FLAGS6502::N, self.temp & 0x80 != 0x00);
-    self.a = (self.temp & 0x00FF) as u8;
+    self.acc = (self.temp & 0x00FF) as u8;
     1
   }
 
@@ -465,7 +465,7 @@ impl<'a> Cpu<'a> {
     self.set_flag(&FLAGS6502::N, (self.temp & 0x80) != 0x00);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
-      self.a = (self.temp & 0x00FF).try_into().unwrap();
+      self.acc = (self.temp & 0x00FF).try_into().unwrap();
     } else {
       self.bus.write_u8(self.addr_abs, (self.temp & 0x00FF) as u8);
     }
@@ -475,9 +475,9 @@ impl<'a> Cpu<'a> {
   /// and (with accumulator)
   pub fn and(&mut self) -> u8 {
     self.fetch();
-    self.a &= self.fetched;
-    self.set_flag(&FLAGS6502::Z, self.a == 0x00);
-    self.set_flag(&FLAGS6502::N, self.a & 0x80 != 0x00);
+    self.acc &= self.fetched;
+    self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
+    self.set_flag(&FLAGS6502::N, self.acc & 0x80 != 0x00);
     1
   }
 
@@ -524,7 +524,7 @@ impl<'a> Cpu<'a> {
   /// Bit test
   pub fn bit(&mut self) -> u8 {
     self.fetch();
-    self.temp = (self.a & self.fetched) as u16;
+    self.temp = (self.acc & self.fetched) as u16;
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
     self.set_flag(&FLAGS6502::N, self.fetched & (1 << 7) != 0x00);
     self.set_flag(&FLAGS6502::V, self.fetched & (1 << 6) != 0x00);
@@ -652,8 +652,8 @@ impl<'a> Cpu<'a> {
   /// Compare with accumulator
   pub fn cmp(&mut self) -> u8 {
     self.fetch();
-    self.temp = self.a as u16 - self.fetched as u16;
-    self.set_flag(&FLAGS6502::C, self.a >= self.fetched);
+    self.temp = self.acc as u16 - self.fetched as u16;
+    self.set_flag(&FLAGS6502::C, self.acc >= self.fetched);
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
     1
@@ -708,9 +708,9 @@ impl<'a> Cpu<'a> {
   /// Exclusive or with accumulator
   pub fn eor(&mut self) -> u8 {
     self.fetch();
-    self.a ^= self.fetched;
-    self.set_flag(&FLAGS6502::Z, self.a == 0x00);
-    self.set_flag(&FLAGS6502::N, self.a & 0x80 != 0x00);
+    self.acc ^= self.fetched;
+    self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
+    self.set_flag(&FLAGS6502::N, self.acc & 0x80 != 0x00);
     1
   }
 
@@ -767,9 +767,9 @@ impl<'a> Cpu<'a> {
   /// Load accumulator
   pub fn lda(&mut self) -> u8 {
     self.fetch();
-    self.a = self.fetched;
-    self.set_flag(&FLAGS6502::Z, self.a == 0x00);
-    self.set_flag(&FLAGS6502::N, self.a & 0x80 != 0x00);
+    self.acc = self.fetched;
+    self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
+    self.set_flag(&FLAGS6502::N, self.acc & 0x80 != 0x00);
     1
   }
 
@@ -800,7 +800,7 @@ impl<'a> Cpu<'a> {
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
-      self.a = self.temp as u8;
+      self.acc = self.temp as u8;
     } else {
       self.bus.write_u8(self.addr_abs, self.temp as u8);
     }
@@ -818,9 +818,9 @@ impl<'a> Cpu<'a> {
   /// Or with accumulator
   pub fn ora(&mut self) -> u8 {
     self.fetch();
-    self.a |= self.fetched;
-    self.set_flag(&FLAGS6502::Z, self.a == 0x00);
-    self.set_flag(&FLAGS6502::N, self.a & 0x0080 != 0x00);
+    self.acc |= self.fetched;
+    self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
+    self.set_flag(&FLAGS6502::N, self.acc & 0x0080 != 0x00);
     1
   }
 
@@ -828,7 +828,7 @@ impl<'a> Cpu<'a> {
   pub fn pha(&mut self) -> u8 {
     self
       .bus
-      .write_u8(0x0100u16.wrapping_add(u16::try_from(self.stack_pointer).unwrap()), self.a);
+      .write_u8(0x0100u16.wrapping_add(u16::try_from(self.stack_pointer).unwrap()), self.acc);
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     0
   }
@@ -848,13 +848,13 @@ impl<'a> Cpu<'a> {
   /// Pull accumulator
   pub fn pla(&mut self) -> u8 {
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
-    self.a = self
+    self.acc = self
       .bus
       .read_u8(0x0100u16.wrapping_add( u16::try_from(self.stack_pointer).unwrap()))
       .try_into()
       .unwrap();
-    self.set_flag(&FLAGS6502::Z, self.a == 0x00);
-    self.set_flag(&FLAGS6502::N, self.a & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
+    self.set_flag(&FLAGS6502::N, self.acc & 0x80 != 0x00);
     0
   }
 
@@ -879,7 +879,7 @@ impl<'a> Cpu<'a> {
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
-      self.a = self.temp as u8;
+      self.acc = self.temp as u8;
     } else {
       self.bus.write_u8(self.addr_abs, self.temp as u8);
     }
@@ -895,7 +895,7 @@ impl<'a> Cpu<'a> {
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
-      self.a = self.temp as u8;
+      self.acc = self.temp as u8;
     } else {
       self.bus.write_u8(self.addr_abs, self.temp as u8);
     }
@@ -954,15 +954,15 @@ impl<'a> Cpu<'a> {
     let value = self.fetched as u16 ^ 0x00FF;
 
     self.temp =
-      u16::try_from(self.a).unwrap() + value + u16::try_from(self.get_flag(&FLAGS6502::C)).unwrap();
+      u16::try_from(self.acc).unwrap() + value + u16::try_from(self.get_flag(&FLAGS6502::C)).unwrap();
     self.set_flag(&FLAGS6502::C, self.temp & 0xFF00 != 0x00);
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
     self.set_flag(
       &FLAGS6502::V,
-      (self.temp ^ self.a as u16 & (self.temp ^ value as u16) & 0x0080) != 0x00,
+      (self.temp ^ self.acc as u16 & (self.temp ^ value as u16) & 0x0080) != 0x00,
     );
     self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
-    self.a = self.temp as u8;
+    self.acc = self.temp as u8;
     1
   }
 
@@ -986,7 +986,7 @@ impl<'a> Cpu<'a> {
 
   /// Store accumulator
   pub fn sta(&mut self) -> u8 {
-    self.bus.write_u8(self.addr_abs, self.a);
+    self.bus.write_u8(self.addr_abs, self.acc);
     0
   }
 
@@ -1004,7 +1004,7 @@ impl<'a> Cpu<'a> {
 
   /// Transfer accumulator to X
   pub fn tax(&mut self) -> u8 {
-    self.x = self.a;
+    self.x = self.acc;
     self.set_flag(&FLAGS6502::Z, self.x == 0x00);
     self.set_flag(&FLAGS6502::N, self.x & 0x80 != 0x00);
     0
@@ -1012,7 +1012,7 @@ impl<'a> Cpu<'a> {
 
   /// Transfer accumulator to Y
   pub fn tay(&mut self) -> u8 {
-    self.y = self.a;
+    self.y = self.acc;
     self.set_flag(&FLAGS6502::Z, self.y == 0x00);
     self.set_flag(&FLAGS6502::N, self.y & 0x80 != 0x00);
     0
@@ -1028,9 +1028,9 @@ impl<'a> Cpu<'a> {
 
   /// Transfer X to accumulator
   pub fn txa(&mut self) -> u8 {
-    self.a = self.x;
-    self.set_flag(&FLAGS6502::Z, self.a == 0x00);
-    self.set_flag(&FLAGS6502::N, self.a & 0x80 != 0x00);
+    self.acc = self.x;
+    self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
+    self.set_flag(&FLAGS6502::N, self.acc & 0x80 != 0x00);
     0
   }
 
@@ -1042,9 +1042,9 @@ impl<'a> Cpu<'a> {
 
   /// Transfer Y to accumulator
   pub fn tya(&mut self) -> u8 {
-    self.a = self.y;
-    self.set_flag(&FLAGS6502::Z, self.a == 0x00);
-    self.set_flag(&FLAGS6502::N, self.a & 0x80 != 0x00);
+    self.acc = self.y;
+    self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
+    self.set_flag(&FLAGS6502::N, self.acc & 0x80 != 0x00);
     0
   }
 

@@ -109,8 +109,8 @@ impl<'a> Nes<'a> {
       stdout,
       "{}A: ${} [{}]",
       cursor::Goto(x, y + 2),
-      hex(self.cpu.a.try_into().unwrap(), 2),
-      self.cpu.a
+      hex(self.cpu.acc.try_into().unwrap(), 2),
+      self.cpu.acc
     )
     .unwrap();
     write!(
