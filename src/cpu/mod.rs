@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::prelude::*;
 
 use crate::bus::Bus;
-use crate::cpu::instruction_table::{LookUpTable, ADDRMODE6502, FLAGS6502, OPCODES6502};
+use crate::cpu::instruction_table::{ADDRMODE6502, FLAGS6502, LookUpTable, OPCODES6502};
 
 pub mod instruction_table;
 
@@ -154,12 +154,12 @@ impl<'a> Cpu<'a> {
   pub fn irq(&mut self) {
     if self.get_flag(&FLAGS6502::I) == 0x00 {
       self.bus.write_u8(
-        0x0100 + u16::try_from(self.stack_pointer).unwrap(),
+        0x0100u16.wrapping_add( u16::try_from(self.stack_pointer).unwrap()),
         u8::try_from((self.pc.wrapping_shr(8)) & 0x00FF).unwrap(),
       );
       self.stack_pointer = self.stack_pointer.wrapping_sub(1);
       self.bus.write_u8(
-        0x0100 + u16::try_from(self.stack_pointer).unwrap(),
+        0x0100u16.wrapping_add(u16::try_from(self.stack_pointer).unwrap()),
         u8::try_from(self.pc & 0x00FF).unwrap(),
       );
       self.stack_pointer = self.stack_pointer.wrapping_sub(1);
@@ -186,12 +186,12 @@ impl<'a> Cpu<'a> {
   /// Non-maskable interrupt
   pub fn nmi(&mut self) {
     self.bus.write_u8(
-      0x01000 + u16::try_from(self.stack_pointer).unwrap(),
+      0x0100u16.wrapping_add(u16::try_from(self.stack_pointer).unwrap()),
       u8::try_from((self.pc.wrapping_shr(8)) & 0x00FF).unwrap(),
     );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     self.bus.write_u8(
-      0x01000 + u16::try_from(self.stack_pointer).unwrap(),
+      0x0100u16.wrapping_add( u16::try_from(self.stack_pointer).unwrap()),
       u8::try_from(self.pc & 0x00FF).unwrap(),
     );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
@@ -576,19 +576,19 @@ impl<'a> Cpu<'a> {
 
     self.set_flag(&FLAGS6502::I, true);
     self.bus.write_u8(
-      0x0100 + u16::try_from(self.stack_pointer).unwrap(),
+      0x0100u16.wrapping_add( u16::try_from(self.stack_pointer).unwrap()),
       (self.pc.wrapping_shr(8) & 0x00FF).try_into().unwrap(),
     );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     self.bus.write_u8(
-      0x0100 + u16::try_from(self.stack_pointer).unwrap(),
+      0x0100u16.wrapping_add( u16::try_from(self.stack_pointer).unwrap()),
       u8::try_from(self.pc).unwrap(),
     );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
 
     self.set_flag(&FLAGS6502::B, true);
     self.bus.write_u8(
-      0x0100 + u16::try_from(self.stack_pointer).unwrap(),
+      0x0100u16.wrapping_add( u16::try_from(self.stack_pointer).unwrap()),
       self.status_register,
     );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
@@ -828,7 +828,7 @@ impl<'a> Cpu<'a> {
   pub fn pha(&mut self) -> u8 {
     self
       .bus
-      .write_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap(), self.a);
+      .write_u8(0x0100u16.wrapping_add(u16::try_from(self.stack_pointer).unwrap()), self.a);
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     0
   }
@@ -836,7 +836,7 @@ impl<'a> Cpu<'a> {
   /// Push processor status (PR)
   pub fn php(&mut self) -> u8 {
     self.bus.write_u8(
-      0x0100 + u16::try_from(self.stack_pointer).unwrap(),
+      0x0100u16.wrapping_add( u16::try_from(self.stack_pointer).unwrap()),
       self.status_register | FLAGS6502::B.value() | FLAGS6502::U.value(),
     );
     self.set_flag(&FLAGS6502::B, false);
@@ -850,7 +850,7 @@ impl<'a> Cpu<'a> {
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
     self.a = self
       .bus
-      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap())
+      .read_u8(0x0100u16.wrapping_add( u16::try_from(self.stack_pointer).unwrap()))
       .try_into()
       .unwrap();
     self.set_flag(&FLAGS6502::Z, self.a == 0x00);
@@ -863,7 +863,7 @@ impl<'a> Cpu<'a> {
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
     self.status_register = self
       .bus
-      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap())
+      .read_u8(0x0100u16.wrapping_add( u16::try_from(self.stack_pointer).unwrap()))
       .try_into()
       .unwrap();
     self.set_flag(&FLAGS6502::U, true);
@@ -912,7 +912,7 @@ impl<'a> Cpu<'a> {
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
     self.status_register = self
       .bus
-      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap())
+      .read_u8(0x0100u16.wrapping_add( u16::try_from(self.stack_pointer).unwrap()))
       .try_into()
       .unwrap();
     self.status_register &= !FLAGS6502::B.value();
@@ -921,13 +921,13 @@ impl<'a> Cpu<'a> {
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
     self.pc = self
       .bus
-      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap())
+      .read_u8(0x0100u16.wrapping_add( u16::try_from(self.stack_pointer).unwrap()))
       .try_into()
       .unwrap();
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
     self.pc |= (self
       .bus
-      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap()) as u16)
+      .read_u8(0x0100u16.wrapping_add( u16::try_from(self.stack_pointer).unwrap()) as u16))
       .wrapping_shl(8);
     0
   }
@@ -937,11 +937,11 @@ impl<'a> Cpu<'a> {
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
     self.pc = self
       .bus
-      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap());
+      .read_u8(0x0100u16.wrapping_add( u16::try_from(self.stack_pointer).unwrap()));
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
     self.pc |= self
       .bus
-      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap())
+      .read_u8(0x0100u16.wrapping_add( u16::try_from(self.stack_pointer).unwrap()))
       .wrapping_shl(8);
 
     self.pc = self.pc.wrapping_add(1);
@@ -1095,7 +1095,7 @@ impl<'a> Cpu<'a> {
           codes.push_str(&format!(
             "${} [${}] {{REL}}\t",
             hex(usize::from(value), 2),
-            hex((addr + value as u32).try_into().unwrap(), 4)
+            hex((addr.wrapping_add(value.into())).try_into().unwrap(), 4)
           ));
         }
         ADDRMODE6502::ABS => {
