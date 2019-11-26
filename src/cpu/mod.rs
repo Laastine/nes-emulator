@@ -16,13 +16,13 @@ pub struct Cpu<'a> {
   pub y: u8,
   pub status_register: u8,
   pub stack_pointer: u8,
-  pub fetched: u8,
-  pub temp: u16,
-  pub addr_abs: u16,
-  pub addr_rel: u16,
-  pub opcode: u8,
-  pub cycles: u8,
-  pub clock_count: usize,
+  fetched: u8,
+  temp: u16,
+  addr_abs: u16,
+  addr_rel: u16,
+  opcode: u8,
+  cycles: u8,
+  clock_count: usize,
   lookup: LookUpTable,
 }
 
@@ -150,6 +150,7 @@ impl<'a> Cpu<'a> {
     self.cycles = 8;
   }
 
+  /// Interrupt
   pub fn irq(&mut self) {
     if self.get_flag(&FLAGS6502::I) == 0x00 {
       self.bus.write_u8(
@@ -182,6 +183,7 @@ impl<'a> Cpu<'a> {
     }
   }
 
+  /// Non-maskable interrupt
   pub fn nmi(&mut self) {
     self.bus.write_u8(
       0x01000 + u16::try_from(self.stack_pointer).unwrap(),
@@ -229,17 +231,20 @@ impl<'a> Cpu<'a> {
     }
   }
 
+  /// Implied
   pub fn imp(&mut self) -> u8 {
     self.fetched = self.a;
     0
   }
 
+  /// Immediate
   pub fn imm(&mut self) -> u8 {
     self.pc = self.pc.wrapping_add(1);
     self.addr_abs = self.pc;
     0
   }
 
+  /// Zero Page
   pub fn zp0(&mut self) -> u8 {
     self.addr_abs = self.bus.read_u8(self.pc);
     self.pc = self.pc.wrapping_add(1);
@@ -247,6 +252,7 @@ impl<'a> Cpu<'a> {
     0
   }
 
+  /// Zero Page with X offset
   pub fn zpx(&mut self) -> u8 {
     let x: u16 = self.x.try_into().unwrap();
     self.addr_abs = self.bus.read_u8(self.pc) + x;
@@ -255,6 +261,7 @@ impl<'a> Cpu<'a> {
     0
   }
 
+  /// Zero Page with Y offset
   pub fn zpy(&mut self) -> u8 {
     let y: u16 = self.y.try_into().unwrap();
     self.addr_abs = self.bus.read_u8(self.pc) + y;
@@ -263,6 +270,7 @@ impl<'a> Cpu<'a> {
     0
   }
 
+  /// Relative
   pub fn rel(&mut self) -> u8 {
     self.addr_rel = u16::try_from(self.bus.read_u8(self.pc)).unwrap();
     self.pc = self.pc.wrapping_add(1);
@@ -272,20 +280,14 @@ impl<'a> Cpu<'a> {
     0
   }
 
+  /// Absolute
   pub fn abs(&mut self) -> u8 {
     let (lo_byte, hi_byte) = self.read_pc();
     self.addr_abs = u16::try_from((hi_byte.wrapping_shl(8)) | lo_byte).unwrap();
     0
   }
 
-  fn read_pc(&mut self) -> (u16, u16) {
-    let lo_byte = self.bus.read_u8(self.pc);
-    self.pc = self.pc.wrapping_add(1);
-    let hi_byte = self.bus.read_u8(self.pc);
-    self.pc = self.pc.wrapping_add(1);
-    (lo_byte, hi_byte)
-  }
-
+  /// Absolute with X offset
   pub fn abx(&mut self) -> u8 {
     let (lo_byte, hi_byte) = self.read_pc();
 
@@ -298,6 +300,7 @@ impl<'a> Cpu<'a> {
     }
   }
 
+  /// Absolute with Y offset
   pub fn aby(&mut self) -> u8 {
     let (lo_byte, hi_byte) = self.read_pc();
 
@@ -310,6 +313,7 @@ impl<'a> Cpu<'a> {
     }
   }
 
+  /// Indirect
   pub fn ind(&mut self) -> u8 {
     let (lo_byte, hi_byte) = self.read_pc();
 
@@ -328,6 +332,7 @@ impl<'a> Cpu<'a> {
     0
   }
 
+  /// Indirect X
   pub fn izx(&mut self) -> u8 {
     let byte = self.bus.read_u8(self.pc);
     self.pc = self.pc.wrapping_add(1);
@@ -344,6 +349,7 @@ impl<'a> Cpu<'a> {
     0
   }
 
+  /// Indirect Y
   pub fn izy(&mut self) -> u8 {
     let byte = self.bus.read_u8(self.pc);
     self.pc = self.pc.wrapping_add(1);
@@ -358,6 +364,14 @@ impl<'a> Cpu<'a> {
     } else {
       0
     }
+  }
+
+  fn read_pc(&mut self) -> (u16, u16) {
+    let lo_byte = self.bus.read_u8(self.pc);
+    self.pc = self.pc.wrapping_add(1);
+    let hi_byte = self.bus.read_u8(self.pc);
+    self.pc = self.pc.wrapping_add(1);
+    (lo_byte, hi_byte)
   }
 
   ///OPCODES
