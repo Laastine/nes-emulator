@@ -3,8 +3,8 @@ use std::convert::{TryFrom, TryInto};
 use std::fs::File;
 use std::io::prelude::*;
 
-use crate::bus::Bus;
 use crate::cpu::instruction_table::{ADDRMODE6502, FLAGS6502, LookUpTable, OPCODES6502};
+use crate::bus::Bus;
 
 pub mod instruction_table;
 
@@ -27,7 +27,7 @@ pub struct Cpu<'a> {
 }
 
 impl<'a> Cpu<'a> {
-  pub fn new(bus: &mut Bus) -> Cpu {
+  pub fn new(bus: &'a mut Bus) -> Cpu<'a> {
     let lookup = LookUpTable::new();
 
     Cpu {

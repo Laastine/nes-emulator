@@ -3,16 +3,17 @@ extern crate termion;
 
 use std::env;
 
-use crate::bus::Bus;
-use crate::nes::Nes;
-use crate::rom::Rom;
 use getopts::Options;
+
+use crate::bus::Bus;
+use crate::mapper::Mapper;
+use crate::nes::Nes;
 
 mod bus;
 mod cartridge;
 mod cpu;
+mod mapper;
 mod nes;
-mod rom;
 
 fn print_usage() {
   println!("USAGE:\nnes-emulator [FLAGS]\n\nFLAGS:\n-h, --help\t\t\tPrints help information\n-v, --version\t\t\tPrints version information\n-r, --rom\t\t\tRom filename to load");
@@ -45,7 +46,9 @@ fn main() {
     return;
   }
 
-  let mut bus = Bus::new();
+  let rom_file = if !matches.free.is_empty() { matches.free[0].clone() } else { panic!("No ROM file paremeter given") };
+
+  let mut bus = Bus::new(&rom_file);
   let mut nes = Nes::new(&mut bus);
 
   nes.create_program();

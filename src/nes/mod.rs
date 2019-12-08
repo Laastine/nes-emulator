@@ -2,14 +2,15 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::io::{stdin, stdout, Stdout, Write};
 
+use termion::{clear, color, cursor, style};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::{IntoRawMode, RawTerminal};
-use termion::{color, cursor, clear, style};
 
 use crate::bus::Bus;
+use crate::cpu::{Cpu, hex};
 use crate::cpu::instruction_table::FLAGS6502;
-use crate::cpu::{hex, Cpu};
+use crate::mapper::Mapper;
 
 const RED: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(196));
 const GREEN: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(46));
@@ -25,7 +26,10 @@ impl<'a> Nes<'a> {
     let cpu = Cpu::new(bus);
     let map_asm: HashMap<u16, String> = HashMap::new();
 
-    Nes { cpu, map_asm }
+    Nes {
+      cpu,
+      map_asm,
+    }
   }
 
   fn draw_ram(
