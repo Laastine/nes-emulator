@@ -164,22 +164,7 @@ impl<'a> Nes<'a> {
   }
 
   pub fn create_program(&mut self) {
-    let hex_str =
-      "A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA";
-    let mut offset = 0x8000;
-    for s in hex_str.split_ascii_whitespace() {
-      self
-        .cpu
-        .bus
-        .write_u8(offset, u8::from_str_radix(s, 16).unwrap());
-      offset += 1;
-    }
-
-    self.cpu.bus.write_u8(0xFFFC, 0x00);
-    self.cpu.bus.write_u8(0xFFFD, 0x80);
-
     self.map_asm = self.cpu.disassemble(0x0000, 0xFFFF);
-
     self.cpu.reset();
   }
 
