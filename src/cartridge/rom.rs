@@ -51,12 +51,12 @@ impl Rom {
     let flag_persistent = (flags_6 & 0b_0000_0010) != 0x00;
     let flag_trainer = (flags_6 & 0b_0000_0100) != 0x00;
     let flag_four_screen_vram = (flags_6 & 0b_0000_1000) != 0x00;
-    let flag_mapper_lo = u8::try_from((flags_6 & 0b_1111_0000).wrapping_shr(4)).unwrap();
+    let mapper_lo = u8::try_from((flags_6 & 0b_1111_0000).wrapping_shr(4)).unwrap();
 
     let flag_vs_unisystem = (flags_7 & 0b_0000_0001) != 0x00;
     let flag_playchoice_10 = (flags_7 & 0b_0000_0010) != 0x00;
     let flag_rom_format = u8::try_from((flags_7 & 0b_0000_1100).wrapping_shr(2)).unwrap();
-    let flag_mapper_hi = u8::try_from((flags_7 & 0b_1111_0000).wrapping_shr(4)).unwrap();
+    let mapper_hi = u8::try_from((flags_7 & 0b_1111_0000).wrapping_shr(4)).unwrap();
 
     let flag_tv_system = flags_10 & 0b_0000_0011;
     let flag_prg_ram = (flags_10 & 0b_0001_0000) != 0x00;
@@ -80,10 +80,10 @@ impl Rom {
     let mirroring = match (flag_mirror, flag_four_screen_vram) {
       (true, false) => Mirroring::Vertical,
       (false, false) => Mirroring::Horizontal,
-      (_, _) => Mirroring::FourSreenVram,
+      (_, true) => Mirroring::FourSreenVram,
     };
 
-    let mapper = flag_mapper_lo | (flag_mapper_hi.wrapping_shl(4));
+    let mapper = mapper_lo | mapper_hi.wrapping_shl(4);
 
     let tv_system = TVSystem::to_enum(flag_tv_system);
 
@@ -104,12 +104,12 @@ impl Rom {
 
     let prg_rom = bytes.take(rom_header.prg_rom_len).collect::<Vec<u8>>();
     if prg_rom.len() != rom_header.prg_rom_len {
-      panic!("Couldn't read prg rom");
+      panic!("Couldn't read PRG rom");
     }
 
     let chr_rom = bytes.take(rom_header.chr_rom_len).collect::<Vec<u8>>();
     if chr_rom.len() != rom_header.chr_rom_len {
-      panic!("Couldn't read chr rom");
+      panic!("Couldn't read CHR rom");
     }
 
     let title_bytes = bytes.take(0x80).collect::<Vec<u8>>();
@@ -118,6 +118,8 @@ impl Rom {
     if bytes.next().is_some() {
       panic!("Unexpected ROM size");
     }
+
+    println!("Loading {}", title);
 
     Rom {
       rom_header,

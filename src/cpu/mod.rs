@@ -1052,7 +1052,7 @@ impl<'a> Cpu<'a> {
     let mut addr = start as u32;
     let mut map: HashMap<u16, String> = HashMap::new();
 
-    while addr <= end as u32 {
+    while addr < end as u32 {
       let line_addr = u16::try_from(addr).unwrap();
       let mut codes = format!("$:{}: ", hex(usize::try_from(addr).unwrap(), 4));
       let opcode = self.bus.read_u8(u16::try_from(addr).unwrap());
@@ -1075,7 +1075,7 @@ impl<'a> Cpu<'a> {
           codes.push_str(&format!("${} {{IMM}}\t", hex(usize::from(value), 2)));
         }
         ADDRMODE6502::ZP0 => {
-          let lo_byte = self.bus.read_u8(addr.try_into().unwrap());
+          let lo_byte = self.bus.read_u8(u16::try_from(addr).unwrap());
           addr += 1;
           codes.push_str(&format!("${} {{ZP0}}\t", hex(usize::from(lo_byte), 2)));
         }
