@@ -30,7 +30,7 @@ impl Rom {
     let mut bytes = &mut rom_bytes;
 
     let first_4_bytes = (&mut bytes).take(4);
-    if b"NES".iter().cloned().ne(first_4_bytes) {
+    if b"NES\x1A".iter().cloned().ne(first_4_bytes) {
       panic!("Invalid ROM header");
     }
 
@@ -54,7 +54,7 @@ impl Rom {
     let flag_mapper_lo = u8::try_from((flags_6 & 0b_1111_0000).wrapping_shr(4)).unwrap();
 
     let flag_vs_unisystem = (flags_7 & 0b_0000_0001) != 0x00;
-    let flag_playchoice = (flags_7 & 0b_0000_0010) != 0x00;
+    let flag_playchoice_10 = (flags_7 & 0b_0000_0010) != 0x00;
     let flag_rom_format = u8::try_from((flags_7 & 0b_0000_1100).wrapping_shr(2)).unwrap();
     let flag_mapper_hi = u8::try_from((flags_7 & 0b_1111_0000).wrapping_shr(4)).unwrap();
 
@@ -62,23 +62,22 @@ impl Rom {
     let flag_prg_ram = (flags_10 & 0b_0001_0000) != 0x00;
     let flag_bus_conflicts = (flags_10 & 0b_0010_0000) != 0x00;
 
-    let prg_rom = prg_rom_size as usize * 0x4000;
-    let chr_rom = chr_rom_size as usize * 0x2000;
-
     if flag_rom_format == 2 {
       unimplemented!("NES 2.0 ROM format not implemented");
     }
 
-    let prg_ram = usize::try_from(match (prg_ram_size, flag_prg_ram) {
+    let prg_rom_len = prg_rom_size as usize * 0x4000;
+    let chr_rom_len = chr_rom_size as usize * 0x2000;
+
+    let prg_ram_len = usize::try_from(match (prg_ram_size, flag_prg_ram) {
       (_, false) => 0,
       (0, true) => 0x2000,
       (_, true) => prg_ram_size as usize * 0x2000,
     }).unwrap();
-    let chr_ram = match chr_rom {
-      0 => 0x2000,
-      _ => 0,
-    };
-    let mirror_mode = match (flag_mirror, flag_four_screen_vram) {
+
+    let chr_ram_len = if chr_rom_size == 0 { 0x2000 } else { 0 };
+
+    let mirroring = match (flag_mirror, flag_four_screen_vram) {
       (true, false) => Mirroring::Vertical,
       (false, false) => Mirroring::Horizontal,
       (_, _) => Mirroring::FourSreenVram,
@@ -88,24 +87,17 @@ impl Rom {
 
     let tv_system = TVSystem::to_enum(flag_tv_system);
 
-    let title_bytes = bytes.take(0x80).collect::<Vec<u8>>();
-    let title = String::from_utf8_lossy(&title_bytes).to_string();
-
-    if bytes.next().is_some() {
-      panic!("Unexpected end of file");
-    }
-
     let rom_header = RomHeader {
-      prg_rom_len: prg_rom,
-      chr_rom_len: chr_rom,
-      prg_ram_len: 0,
-      chr_ram_len: 0,
-      mirroring: Mirroring::Vertical,
+      prg_rom_len,
+      chr_rom_len,
+      prg_ram_len,
+      chr_ram_len,
+      mirroring,
       mapper,
       flag_persistent,
       flag_trainer,
       flag_vs_unisystem,
-      flag_playchoice_10: flag_playchoice,
+      flag_playchoice_10,
       tv_system,
       flag_bus_conflicts,
     };
@@ -116,8 +108,15 @@ impl Rom {
     }
 
     let chr_rom = bytes.take(rom_header.chr_rom_len).collect::<Vec<u8>>();
-    if chr_rom.len() != rom_header.prg_rom_len {
+    if chr_rom.len() != rom_header.chr_rom_len {
       panic!("Couldn't read chr rom");
+    }
+
+    let title_bytes = bytes.take(0x80).collect::<Vec<u8>>();
+    let title = String::from_utf8_lossy(&title_bytes).to_string();
+
+    if bytes.next().is_some() {
+      panic!("Unexpected ROM size");
     }
 
     Rom {
