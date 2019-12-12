@@ -14,6 +14,7 @@ mod cartridge;
 mod cpu;
 mod mapper;
 mod nes;
+mod ppu;
 
 fn print_usage() {
   println!("USAGE:\nnes-emulator [FLAGS]\n\nFLAGS:\n-h, --help\t\t\tPrints help information\n-v, --version\t\t\tPrints version information\n-r, --rom\t\t\tRom filename to load");
