@@ -169,7 +169,7 @@ impl<'a> Nes<'a> {
   }
 
   fn draw_help(&mut self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
-    write!(stdout, "{}Exec next instruction: X\tIRQ: I\t\tNMI: N\t\tRESET: r", cursor::Goto(x,y)).unwrap();
+    write!(stdout, "{}Exec next instruction: X\tIRQ: I\t\tNMI: N\t\tRESET: R", cursor::Goto(x,y)).unwrap();
   }
 
   fn draw(&mut self, stdout: &mut RawTerminal<Stdout>) {
