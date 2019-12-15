@@ -1,20 +1,55 @@
+extern crate getopts;
 extern crate termion;
 
 use std::env;
 
+use getopts::Options;
+
 use crate::bus::Bus;
+use crate::mapper::Mapper;
 use crate::nes::Nes;
 
 mod bus;
+mod cartridge;
 mod cpu;
+mod mapper;
 mod nes;
-mod rom;
+mod ppu;
+
+fn print_usage() {
+  println!("USAGE:\nnes-emulator [FLAGS]\n\nFLAGS:\n-h, --help\t\t\tPrints help information\n-v, --version\t\t\tPrints version information\n-r, --rom\t\t\tRom filename to load");
+}
+
+fn print_version() {
+  println!("0.1.0");
+}
 
 fn main() {
   let args: Vec<String> = env::args().collect();
   println!("Args {:?}", args);
 
-  let mut bus = Bus::new();
+  let mut opts = Options::new();
+  opts.optflag("r", "rom", "ROM file name");
+  opts.optflag("h", "help", "print help");
+  opts.optflag("v", "version", "print version number");
+  let matches = match opts.parse(&args[1..]) {
+    Ok(m) => m,
+    Err(e) => panic!(e.to_string()),
+  };
+
+  if matches.opt_present("h") {
+    print_usage();
+    return;
+  }
+
+  if matches.opt_present("v") {
+    print_version();
+    return;
+  }
+
+  let rom_file = if !matches.free.is_empty() { matches.free[0].clone() } else { panic!("No ROM file paremeter given") };
+
+  let mut bus = Bus::new(&rom_file);
   let mut nes = Nes::new(&mut bus);
 
   nes.create_program();

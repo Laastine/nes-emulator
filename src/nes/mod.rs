@@ -2,14 +2,15 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::io::{stdin, stdout, Stdout, Write};
 
+use termion::{clear, color, cursor, style};
 use termion::event::Key;
 use termion::input::TermRead;
 use termion::raw::{IntoRawMode, RawTerminal};
-use termion::{color, cursor, clear, style};
 
 use crate::bus::Bus;
+use crate::cpu::{Cpu, hex};
 use crate::cpu::instruction_table::FLAGS6502;
-use crate::cpu::{hex, Cpu};
+use crate::mapper::Mapper;
 
 const RED: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(196));
 const GREEN: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(46));
@@ -25,7 +26,10 @@ impl<'a> Nes<'a> {
     let cpu = Cpu::new(bus);
     let map_asm: HashMap<u16, String> = HashMap::new();
 
-    Nes { cpu, map_asm }
+    Nes {
+      cpu,
+      map_asm,
+    }
   }
 
   fn draw_ram(
@@ -160,27 +164,12 @@ impl<'a> Nes<'a> {
   }
 
   pub fn create_program(&mut self) {
-    let hex_str =
-      "A2 0A 8E 00 00 A2 03 8E 01 00 AC 00 00 A9 00 18 6D 01 00 88 D0 FA 8D 02 00 EA EA EA";
-    let mut offset = 0x8000;
-    for s in hex_str.split_ascii_whitespace() {
-      self
-        .cpu
-        .bus
-        .write_u8(offset, u8::from_str_radix(s, 16).unwrap());
-      offset += 1;
-    }
-
-    self.cpu.bus.write_u8(0xFFFC, 0x00);
-    self.cpu.bus.write_u8(0xFFFD, 0x80);
-
     self.map_asm = self.cpu.disassemble(0x0000, 0xFFFF);
-
     self.cpu.reset();
   }
 
   fn draw_help(&mut self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
-    write!(stdout, "{}Exec next instruction: X\tIRQ: I\t\tNMI: N\t\tRESET: r", cursor::Goto(x,y)).unwrap();
+    write!(stdout, "{}Exec next instruction: X\tIRQ: I\t\tNMI: N\t\tRESET: R", cursor::Goto(x,y)).unwrap();
   }
 
   fn draw(&mut self, stdout: &mut RawTerminal<Stdout>) {
