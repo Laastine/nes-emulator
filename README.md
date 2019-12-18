@@ -12,7 +12,7 @@ Nintendo Entertainment System emulator.
 ## TODO
 
 - [x] CPU
-- [ ] ROM reader & mapper
+- [x] ROM reader & mapper
 - [ ] PPU (Pixel Processing Unit)
 - [ ] APU (Audio Processing Unit)
 
