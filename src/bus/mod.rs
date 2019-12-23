@@ -10,21 +10,18 @@ pub struct Bus {
   cartridge: Cartridge,
   pub ram: [u8; MEM_SIZE],
   mapper: Mapper,
-  ppu: Ppu,
 }
 
 impl Bus {
   pub fn new(rom_file: &str) -> Bus {
     let ram = [0u8; MEM_SIZE];
     let mapper = Mapper::new();
-    let ppu = Ppu::new();
     let cartridge = Cartridge::new(rom_file);
 
     Bus {
       cartridge,
       ram,
       mapper,
-      ppu,
     }
   }
 
@@ -34,7 +31,7 @@ impl Bus {
         self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
       },
       0x2000..=0x3FFF => {
-        self.ppu.write_cpu_u8(address & 0x0007, data);
+//        self.ppu.write_cpu_u8(address & 0x0007, data);
       }
       0x8000..=0xFFFF => {
         let mapped_addr = self.mapper.write_cpu_u8(address);
@@ -51,7 +48,8 @@ impl Bus {
         u16::try_from(self.ram[idx]).unwrap()
       }
       0x2000..=0x3FFF => {
-        self.ppu.read_cpu_u8(address & 0x0007).into()
+//        self.ppu.read_cpu_u8(address & 0x0007).into()
+        0x00
       },
       0x8000..=0xFFFF => {
         let mapped_addr = self.mapper.read_cpu_u8(address);

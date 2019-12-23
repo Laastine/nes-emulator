@@ -10,7 +10,6 @@ use termion::raw::{IntoRawMode, RawTerminal};
 use crate::bus::Bus;
 use crate::cpu::{Cpu, hex};
 use crate::cpu::instruction_table::FLAGS6502;
-use crate::mapper::Mapper;
 
 const RED: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(196));
 const GREEN: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(46));

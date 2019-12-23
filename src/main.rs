@@ -6,7 +6,6 @@ use std::env;
 use getopts::Options;
 
 use crate::bus::Bus;
-use crate::mapper::Mapper;
 use crate::nes::Nes;
 
 mod bus;

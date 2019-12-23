@@ -39,7 +39,7 @@ impl Rom {
     let flags_6 = bytes.next().unwrap_or_else(|| panic!("flags_6 read error"));
     let flags_7 = bytes.next().unwrap_or_else(|| panic!("flags_7 read error"));
     let prg_ram_size = bytes.next().unwrap_or_else(|| panic!("flags_8 read error"));
-    let flags_9 = bytes.next().unwrap_or_else(|| panic!("flags_9 read error"));
+    let _flags_9 = bytes.next().unwrap_or_else(|| panic!("flags_9 read error"));
     let flags_10 = bytes.next().unwrap_or_else(|| panic!("flags_10 read error"));
 
     let zeros = (&mut bytes).take(5);
@@ -142,7 +142,7 @@ impl TVSystem {
     match value {
       0 => TVSystem::NTSC,
       1 => TVSystem::PAL,
-      1 | 3 => TVSystem::DualCompatible,
+      3 => TVSystem::DualCompatible,
       _ => panic!("Unrecognized TV system value: {}", value),
     }
   }

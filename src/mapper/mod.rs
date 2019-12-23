@@ -1,6 +1,3 @@
-use std::convert::TryFrom;
-
-use crate::cartridge::Cartridge;
 
 /// NROM mapper
 pub struct Mapper {
