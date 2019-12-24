@@ -1,7 +1,8 @@
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 
 use crate::bus::Bus;
+use std::convert::TryFrom;
 
 pub struct Ppu {
   bus: Rc<RefCell<Bus>>,
@@ -20,12 +21,19 @@ impl Ppu {
     }
   }
 
-  pub fn write_cpu_u8(&self, address: u16, data: u8) {
-    unimplemented!()
+  pub fn get_mut_bus(&mut self) -> RefMut<Bus> {
+    self.bus.borrow_mut()
   }
 
-  pub fn read_cpu_u8(&self, address: u16) -> u8 {
-    match address {
+  pub fn write_cpu_u8(&mut self, address: u16, data: u8) {
+    {
+      let mut bus = self.get_mut_bus();
+      bus.write_u8(address, data);
+    }
+  }
+
+  pub fn read_cpu_u8(&mut self, address: u16) -> u8 {
+    let addr = match address {
       0x00 => 0x00,
       0x01 => 0x00,
       0x02 => 0x00,
@@ -36,6 +44,10 @@ impl Ppu {
       0x07 => 0x00,
       0x08 => 0x00,
       _ => 0x00,
+    };
+    {
+      let mut bus = self.get_mut_bus();
+      u8::try_from(bus.read_u8(addr)).unwrap()
     }
   }
 
