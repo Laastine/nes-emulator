@@ -1,27 +1,28 @@
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 
-use crate::mapper::Mapper;
-use crate::ppu::Ppu;
 use crate::cartridge::Cartridge;
+use crate::mapper::Mapper;
 
 pub const MEM_SIZE: usize = 0x0800;
 
+#[derive(Clone)]
 pub struct Bus {
   cartridge: Cartridge,
   pub ram: [u8; MEM_SIZE],
   mapper: Mapper,
+  system_cycles: u64
 }
 
 impl Bus {
-  pub fn new(rom_file: &str) -> Bus {
+  pub fn new(cartridge: Cartridge, mapper: Mapper) -> Bus {
     let ram = [0u8; MEM_SIZE];
-    let mapper = Mapper::new();
-    let cartridge = Cartridge::new(rom_file);
+    let system_cycles = 0;
 
     Bus {
       cartridge,
-      ram,
       mapper,
+      ram,
+      system_cycles,
     }
   }
 
@@ -29,19 +30,22 @@ impl Bus {
     match address {
       0x0000..=0x1FFF => {
         self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
-      },
+      }
       0x2000..=0x3FFF => {
 //        self.ppu.write_cpu_u8(address & 0x0007, data);
       }
       0x8000..=0xFFFF => {
-        let mapped_addr = self.mapper.write_cpu_u8(address);
-        self.cartridge.rom.prg_rom[usize::try_from(mapped_addr).unwrap()] = data;
-      },
+        let mapped_addr = usize::try_from(self.mapper.write_cpu_u8(address)).unwrap();
+        {
+          let prg_rom = self.cartridge.get_prg_rom();
+          prg_rom[mapped_addr] = data
+        };
+      }
       _ => (),
     }
   }
 
-  pub fn read_u8(&self, address: u16) -> u16 {
+  pub fn read_u8(&mut self, address: u16) -> u16 {
     match address {
       0x0000..=0x1FFF => {
         let idx = usize::try_from(address & 0x07FF).unwrap();
@@ -52,10 +56,23 @@ impl Bus {
         0x00
       },
       0x8000..=0xFFFF => {
-        let mapped_addr = self.mapper.read_cpu_u8(address);
-        u16::try_from(self.cartridge.rom.prg_rom[usize::try_from(mapped_addr).unwrap()]).unwrap()
-      },
+        let mapped_addr = usize::try_from(self.mapper.read_cpu_u8(address)).unwrap();
+        u16::try_from({
+          let prg_rom = self.cartridge.get_prg_rom();
+          prg_rom[mapped_addr]
+        }).unwrap()
+      }
       _ => 0,
     }
   }
+
+//  fn clock(&mut self) {
+//    self.ppu.clock();
+//
+//    if self.system_cycles % 3 == 0 {
+//      unimplemented!("Cpu clock call here");
+//    }
+//
+//    self.system_cycles += 1;
+//  }
 }

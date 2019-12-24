@@ -1,17 +1,20 @@
-use crate::bus::Bus;
+use std::cell::RefCell;
 use std::rc::Rc;
-use std::cell::Cell;
+
+use crate::bus::Bus;
 
 pub struct Ppu {
+  bus: Rc<RefCell<Bus>>,
   cycles: u32,
   scan_line: u32,
 }
 
 impl Ppu {
-  pub fn new() -> Ppu {
+  pub fn new(bus: Rc<RefCell<Bus>>) -> Ppu {
     let cycles = 0;
     let scan_line = 0;
     Ppu {
+      bus,
       cycles,
       scan_line,
     }

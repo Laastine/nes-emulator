@@ -1,6 +1,8 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::io::{stdin, stdout, Stdout, Write};
+use std::rc::Rc;
 
 use termion::{clear, color, cursor, style};
 use termion::event::Key;
@@ -8,25 +10,40 @@ use termion::input::TermRead;
 use termion::raw::{IntoRawMode, RawTerminal};
 
 use crate::bus::Bus;
+use crate::cartridge::Cartridge;
 use crate::cpu::{Cpu, hex};
 use crate::cpu::instruction_table::FLAGS6502;
+use crate::mapper::Mapper;
+use crate::ppu::Ppu;
 
 const RED: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(196));
 const GREEN: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(46));
 const BLUE: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(21));
 
-pub struct Nes<'a> {
-  cpu: Cpu<'a>,
+pub struct Nes {
+  cartridge: Cartridge,
+  cpu: Cpu,
+  ppu: Ppu,
   map_asm: HashMap<u16, String>,
 }
 
-impl<'a> Nes<'a> {
-  pub fn new(bus: &'a mut Bus) -> Nes<'a> {
-    let cpu = Cpu::new(bus);
+impl Nes {
+  pub fn new(rom_file: &str) -> Nes {
+    let mapper = Mapper::new();
+    let cartridge = Cartridge::new(rom_file);
     let map_asm: HashMap<u16, String> = HashMap::new();
 
+    let bus = Bus::new(cartridge.clone(), mapper);
+
+    let bus_pointer = Rc::new(RefCell::new(bus));
+
+    let cpu = Cpu::new(bus_pointer.clone());
+    let ppu = Ppu::new(bus_pointer.clone());
+
     Nes {
+      cartridge,
       cpu,
+      ppu,
       map_asm,
     }
   }
@@ -48,7 +65,10 @@ impl<'a> Nes<'a> {
         offset = format!(
           "{} {}",
           offset,
-          hex(self.cpu.bus.read_u8(addr).try_into().unwrap(), 2)
+          hex({
+                let mut bus = self.cpu.get_mut_bus();
+                bus.read_u8(addr).try_into().unwrap()
+              }, 2)
         );
         addr += 1;
       }

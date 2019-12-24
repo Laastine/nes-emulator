@@ -4,6 +4,7 @@ use crate::cartridge::rom::Rom;
 
 mod rom;
 
+#[derive(Clone)]
 pub struct Cartridge {
   pub rom: Rom,
 }
@@ -16,5 +17,9 @@ impl Cartridge {
     Cartridge {
       rom,
     }
+  }
+
+  pub fn get_prg_rom(&mut self) -> &mut Vec<u8> {
+    &mut self.rom.prg_rom
   }
 }

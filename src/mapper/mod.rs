@@ -1,5 +1,5 @@
-
 /// NROM mapper
+#[derive(Copy, Clone)]
 pub struct Mapper {
 }
 
