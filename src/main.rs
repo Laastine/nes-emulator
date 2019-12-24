@@ -46,7 +46,7 @@ fn main() {
     return;
   }
 
-  let rom_file = if !matches.free.is_empty() { matches.free[0].clone() } else { panic!("No ROM file paremeter given") };
+  let rom_file = if !matches.free.is_empty() { matches.free[0].clone() } else { panic!("No ROM file parameter given") };
 
   let mut bus = Bus::new(&rom_file);
   let mut nes = Nes::new(&mut bus);
