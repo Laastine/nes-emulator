@@ -38,7 +38,7 @@ impl Nes {
     let bus_pointer = Rc::new(RefCell::new(bus));
 
     let cpu = Cpu::new(bus_pointer.clone());
-    let ppu = Ppu::new(bus_pointer.clone());
+    let ppu = Ppu::new(bus_pointer);
 
     Nes {
       cartridge,
