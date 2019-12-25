@@ -8,6 +8,7 @@ pub struct Ppu {
   bus: Rc<RefCell<Bus>>,
   cycles: u32,
   scan_line: u32,
+  pub is_frame_ready: bool,
 }
 
 impl Ppu {
@@ -18,6 +19,7 @@ impl Ppu {
       bus,
       cycles,
       scan_line,
+      is_frame_ready: false,
     }
   }
 
@@ -26,9 +28,21 @@ impl Ppu {
   }
 
   pub fn write_cpu_u8(&mut self, address: u16, data: u8) {
+    let addr = match address {
+      0x00 => 0x00,
+      0x01 => 0x00,
+      0x02 => 0x00,
+      0x03 => 0x00,
+      0x04 => 0x00,
+      0x05 => 0x00,
+      0x06 => 0x00,
+      0x07 => 0x00,
+      0x08 => 0x00,
+      _ => 0x00,
+    };
     {
       let mut bus = self.get_mut_bus();
-      bus.write_u8(address, data);
+      bus.write_u8(addr, data);
     }
   }
 
@@ -53,5 +67,14 @@ impl Ppu {
 
   pub fn clock(&mut self) {
     self.cycles += 1;
+
+    if self.cycles > 340 {
+      self.cycles = 0;
+      self.scan_line += 1;
+      if self.scan_line > 260 {
+        self.scan_line -= 1;
+        self.is_frame_ready = true;
+      }
+    }
   }
 }

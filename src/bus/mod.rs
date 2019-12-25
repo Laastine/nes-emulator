@@ -9,20 +9,17 @@ pub const MEM_SIZE: usize = 0x0800;
 pub struct Bus {
   cartridge: Cartridge,
   pub ram: [u8; MEM_SIZE],
-  mapper: Mapper,
-  system_cycles: u64
+  mapper: Mapper
 }
 
 impl Bus {
   pub fn new(cartridge: Cartridge, mapper: Mapper) -> Bus {
     let ram = [0u8; MEM_SIZE];
-    let system_cycles = 0;
 
     Bus {
       cartridge,
       mapper,
       ram,
-      system_cycles,
     }
   }
 
@@ -82,19 +79,5 @@ impl Bus {
       0x08 => 0x00,
       _ => 0x00,
     }
-  }
-
-  pub fn reset(&mut self) {
-    self.system_cycles = 0;
-  }
-
-  fn clock(&mut self) {
-//    self.ppu.clock();
-
-    if self.system_cycles % 3 == 0 {
-      unimplemented!("Cpu clock call here");
-    }
-
-    self.system_cycles += 1;
   }
 }

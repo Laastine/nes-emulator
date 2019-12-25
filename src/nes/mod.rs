@@ -25,6 +25,7 @@ pub struct Nes {
   cpu: Cpu,
   ppu: Ppu,
   map_asm: HashMap<u16, String>,
+  system_cycles: u64,
 }
 
 impl Nes {
@@ -39,12 +40,14 @@ impl Nes {
 
     let cpu = Cpu::new(bus_pointer.clone());
     let ppu = Ppu::new(bus_pointer);
+    let system_cycles = 0;
 
     Nes {
       cartridge,
       cpu,
       ppu,
       map_asm,
+      system_cycles,
     }
   }
 
@@ -228,13 +231,14 @@ impl Nes {
           break;
         }
         Key::Char('x') => loop {
-          self.cpu.clock();
+          self.clock();
           if !self.cpu.complete() {
+            self.clock();
             break;
           }
         },
         Key::Char('r') => {
-          self.cpu.reset();
+          self.reset();
         }
         Key::Char('i') => {
           self.cpu.irq();
@@ -246,5 +250,20 @@ impl Nes {
       }
       self.draw(&mut stdout);
     }
+  }
+
+  fn reset(&mut self) {
+    self.system_cycles = 0;
+    self.cpu.reset();
+  }
+
+  fn clock(&mut self) {
+    self.ppu.clock();
+
+    if self.system_cycles % 3 == 0 {
+      self.cpu.clock();
+    }
+
+    self.system_cycles = self.system_cycles.wrapping_add(1);
   }
 }
