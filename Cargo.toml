@@ -6,4 +6,8 @@ edition = "2018"
 
 [dependencies]
 getopts = "0.2.21"
+image = "0.22.3"
+luminance = "0.37.1"
+luminance-derive = "0.5"
+luminance-glutin = "0.6"
 termion = "1.5.4"

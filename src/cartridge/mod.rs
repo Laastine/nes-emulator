@@ -14,9 +14,7 @@ impl Cartridge {
     let rom_bytes = fs::read(rom_file).expect("Rom file read error");
     let rom = Rom::read_from_file(rom_bytes.into_iter());
 
-    Cartridge {
-      rom,
-    }
+    Cartridge { rom }
   }
 
   pub fn get_prg_rom(&mut self) -> &mut Vec<u8> {

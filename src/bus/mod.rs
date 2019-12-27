@@ -9,7 +9,7 @@ pub const MEM_SIZE: usize = 0x0800;
 pub struct Bus {
   cartridge: Cartridge,
   pub ram: [u8; MEM_SIZE],
-  mapper: Mapper
+  mapper: Mapper,
 }
 
 impl Bus {
@@ -48,15 +48,14 @@ impl Bus {
         let idx = usize::try_from(address & 0x07FF).unwrap();
         u16::try_from(self.ram[idx]).unwrap()
       }
-      0x2000..=0x3FFF => {
-        self.read_cpu_u8(address & 0x0007).into()
-      },
+      0x2000..=0x3FFF => self.read_cpu_u8(address & 0x0007).into(),
       0x8000..=0xFFFF => {
         let mapped_addr = usize::try_from(self.mapper.read_cpu_u8(address)).unwrap();
         u16::try_from({
           let prg_rom = self.cartridge.get_prg_rom();
           prg_rom[mapped_addr]
-        }).unwrap()
+        })
+        .unwrap()
       }
       _ => 0,
     }

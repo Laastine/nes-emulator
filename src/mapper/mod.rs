@@ -1,12 +1,10 @@
 /// NROM mapper
 #[derive(Copy, Clone)]
-pub struct Mapper {
-}
+pub struct Mapper {}
 
 impl Mapper {
   pub fn new() -> Mapper {
-    Mapper {
-    }
+    Mapper {}
   }
 
   pub fn read_cpu_u8(self, address: u16) -> u16 {

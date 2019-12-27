@@ -26,7 +26,7 @@ pub struct Rom {
 }
 
 impl Rom {
-  pub fn read_from_file(mut rom_bytes: impl Iterator<Item=u8>) -> Rom {
+  pub fn read_from_file(mut rom_bytes: impl Iterator<Item = u8>) -> Rom {
     let mut bytes = &mut rom_bytes;
 
     let first_4_bytes = (&mut bytes).take(4);
@@ -40,7 +40,9 @@ impl Rom {
     let flags_7 = bytes.next().unwrap_or_else(|| panic!("flags_7 read error"));
     let prg_ram_size = bytes.next().unwrap_or_else(|| panic!("flags_8 read error"));
     let _flags_9 = bytes.next().unwrap_or_else(|| panic!("flags_9 read error"));
-    let flags_10 = bytes.next().unwrap_or_else(|| panic!("flags_10 read error"));
+    let flags_10 = bytes
+      .next()
+      .unwrap_or_else(|| panic!("flags_10 read error"));
 
     let zeros = (&mut bytes).take(5);
     if [0, 0, 0, 0, 0].iter().cloned().ne(zeros) {
@@ -73,7 +75,8 @@ impl Rom {
       (_, false) => 0,
       (0, true) => 0x2000,
       (_, true) => prg_ram_size as usize * 0x2000,
-    }).unwrap();
+    })
+    .unwrap();
 
     let chr_ram_len = if chr_rom_size == 0 { 0x2000 } else { 0 };
 

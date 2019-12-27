@@ -6,7 +6,7 @@ use std::io::prelude::*;
 use std::rc::Rc;
 
 use crate::bus::Bus;
-use crate::cpu::instruction_table::{ADDRMODE6502, FLAGS6502, LookUpTable, OPCODES6502};
+use crate::cpu::instruction_table::{LookUpTable, ADDRMODE6502, FLAGS6502, OPCODES6502};
 
 pub mod instruction_table;
 
@@ -121,7 +121,7 @@ impl Cpu {
             self.get_flag(&FLAGS6502::C),
             self.stack_pointer
           )
-            .as_bytes(),
+          .as_bytes(),
         )
         .expect("File write error");
     }
@@ -135,7 +135,10 @@ impl Cpu {
     let addr_mode = self.addr_mode();
     if addr_mode == ADDRMODE6502::IMP {
       let addr = u16::try_from(self.addr_mode_value(addr_mode)).unwrap();
-      self.fetched = {let mut bus = self.get_mut_bus(); bus.read_u8(addr).try_into().unwrap()};
+      self.fetched = {
+        let mut bus = self.get_mut_bus();
+        bus.read_u8(addr).try_into().unwrap()
+      };
     }
     self.fetched
   }
@@ -170,7 +173,7 @@ impl Cpu {
 
   /// Interrupt
   pub fn irq(&mut self) {
-      self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     if self.get_flag(&FLAGS6502::I) == 0x00 {
       {
         let stack_pointer = self.stack_pointer;
@@ -253,7 +256,10 @@ impl Cpu {
       let stack_pointer = self.stack_pointer;
       let status_register = self.status_register;
       let mut bus = self.get_mut_bus();
-      bus.write_u8(0x100 + u16::try_from(stack_pointer).unwrap(), status_register)
+      bus.write_u8(
+        0x100 + u16::try_from(stack_pointer).unwrap(),
+        status_register,
+      )
     };
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
 
@@ -348,7 +354,8 @@ impl Cpu {
       let pc = self.pc;
       let mut bus = self.get_mut_bus();
       bus.read_u8(pc)
-    }).unwrap();
+    })
+    .unwrap();
     self.pc = self.pc.wrapping_add(1);
     if self.addr_rel & 0x80 != 0 {
       self.addr_rel |= 0xFF00;
@@ -397,14 +404,14 @@ impl Cpu {
 
     self.addr_abs = if lo_byte == 0x00FF {
       (({
-        let mut  bus =self.get_mut_bus();
+        let mut bus = self.get_mut_bus();
         bus.read_u8(byte & 0xFF00).wrapping_shl(8)
       }) | {
         let mut bus = self.get_mut_bus();
         bus.read_u8(byte)
       })
-        .try_into()
-        .unwrap()
+      .try_into()
+      .unwrap()
     } else {
       ({
         let mut bus = self.get_mut_bus();
@@ -413,8 +420,8 @@ impl Cpu {
         let mut bus = self.get_mut_bus();
         bus.read_u8(byte)
       })
-        .try_into()
-        .unwrap()
+      .try_into()
+      .unwrap()
     };
 
     0
@@ -729,13 +736,14 @@ impl Cpu {
     self.pc = u16::try_from({
       let mut bus = self.get_mut_bus();
       bus.read_u8(0xFFFE)
-    }).unwrap()
-      |
-      (u16::try_from({
+    })
+    .unwrap()
+      | (u16::try_from({
         let mut bus = self.get_mut_bus();
         bus.read_u8(0xFFFF)
-      }).unwrap()
-      ).wrapping_shl(8);
+      })
+      .unwrap())
+      .wrapping_shl(8);
     0
   }
 
@@ -900,7 +908,7 @@ impl Cpu {
   pub fn jsr(&mut self) -> u8 {
     self.pc = self.pc.wrapping_sub(1);
     {
-      let stack_pointer =self.stack_pointer;
+      let stack_pointer = self.stack_pointer;
       let pc = self.pc;
       let mut bus = self.get_mut_bus();
       bus.write_u8(
@@ -910,8 +918,8 @@ impl Cpu {
     };
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     {
-      let stack_pointer =self.stack_pointer;
-      let pc = u8::try_from( self.pc).unwrap();
+      let stack_pointer = self.stack_pointer;
+      let pc = u8::try_from(self.pc).unwrap();
       let mut bus = self.get_mut_bus();
       bus.write_u8(0x0100 & u16::try_from(stack_pointer).unwrap(), pc)
     };
@@ -992,7 +1000,10 @@ impl Cpu {
       let acc = self.acc;
       let stack_pointer = self.stack_pointer;
       let mut bus = self.get_mut_bus();
-      bus.write_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()), acc)
+      bus.write_u8(
+        0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()),
+        acc,
+      )
     };
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     0
@@ -1004,8 +1015,9 @@ impl Cpu {
       let stack_pointer = self.stack_pointer;
       let status_register = self.status_register;
       let mut bus = self.get_mut_bus();
-      bus.write_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()),
-                   status_register | FLAGS6502::B.value() | FLAGS6502::U.value(),
+      bus.write_u8(
+        0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()),
+        status_register | FLAGS6502::B.value() | FLAGS6502::U.value(),
       )
     };
     self.set_flag(&FLAGS6502::B, false);
@@ -1020,7 +1032,8 @@ impl Cpu {
     self.acc = {
       let stack_pointer = self.stack_pointer;
       let mut bus = self.get_mut_bus();
-      bus.read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
+      bus
+        .read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
         .try_into()
         .unwrap()
     };
@@ -1035,7 +1048,8 @@ impl Cpu {
     self.status_register = {
       let stack_pointer = self.stack_pointer;
       let mut bus = self.get_mut_bus();
-      bus.read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
+      bus
+        .read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
         .try_into()
         .unwrap()
     };
@@ -1094,9 +1108,10 @@ impl Cpu {
   pub fn rti(&mut self) -> u8 {
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
     self.status_register = {
-      let stack_pointer= self.stack_pointer;
+      let stack_pointer = self.stack_pointer;
       let mut bus = self.get_mut_bus();
-      bus.read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
+      bus
+        .read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
         .try_into()
         .unwrap()
     };
@@ -1105,19 +1120,20 @@ impl Cpu {
 
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
     self.pc = {
-      let stack_pointer= self.stack_pointer;
+      let stack_pointer = self.stack_pointer;
       let mut bus = self.get_mut_bus();
-      bus.read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
+      bus
+        .read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
         .try_into()
         .unwrap()
     };
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
     self.pc |= ({
-      let stack_pointer= self.stack_pointer;
+      let stack_pointer = self.stack_pointer;
       let mut bus = self.get_mut_bus();
       bus.read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()) as u16)
     })
-      .wrapping_shl(8);
+    .wrapping_shl(8);
     0
   }
 
@@ -1125,17 +1141,18 @@ impl Cpu {
   pub fn rts(&mut self) -> u8 {
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
     self.pc = {
-      let stack_pointer= self.stack_pointer;
+      let stack_pointer = self.stack_pointer;
       let mut bus = self.get_mut_bus();
       bus.read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
     };
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
-      self.pc |= {
-        let stack_pointer = self.stack_pointer;
-        let mut bus = self.get_mut_bus();
-        bus.read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
-          .wrapping_shl(8)
-      };
+    self.pc |= {
+      let stack_pointer = self.stack_pointer;
+      let mut bus = self.get_mut_bus();
+      bus
+        .read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
+        .wrapping_shl(8)
+    };
 
     self.pc = self.pc.wrapping_add(1);
     0
@@ -1146,8 +1163,9 @@ impl Cpu {
     self.fetch();
     let value = self.fetched as u16 ^ 0x00FF;
 
-    self.temp =
-      u16::try_from(self.acc).unwrap() + value + u16::try_from(self.get_flag(&FLAGS6502::C)).unwrap();
+    self.temp = u16::try_from(self.acc).unwrap()
+      + value
+      + u16::try_from(self.get_flag(&FLAGS6502::C)).unwrap();
     self.set_flag(&FLAGS6502::C, self.temp & 0xFF00 != 0x00);
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
     self.set_flag(
@@ -1272,9 +1290,7 @@ impl Cpu {
       let name = self.lookup.get_name(opcode.try_into().unwrap());
       codes = format!("{} {} ", codes, name);
 
-      let addr_mode = *self
-        .lookup
-        .get_addr_mode(opcode.try_into().unwrap());
+      let addr_mode = *self.lookup.get_addr_mode(opcode.try_into().unwrap());
 
       match addr_mode {
         ADDRMODE6502::IMP => {

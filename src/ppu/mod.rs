@@ -1,25 +1,42 @@
 use std::cell::{RefCell, RefMut};
+use std::convert::TryFrom;
 use std::rc::Rc;
 
+use image::{ImageBuffer, Luma};
+use luminance::pixel::NormRGB8UI;
+use luminance::texture::{Dim2, Flat, GenMipmaps, Sampler, Texture};
+
 use crate::bus::Bus;
-use std::convert::TryFrom;
+use crate::nes::constants::{SCREEN_RES_X, SCREEN_RES_Y};
+use luminance_glutin::GlutinSurface;
 
 pub struct Ppu {
   bus: Rc<RefCell<Bus>>,
   cycles: u32,
   scan_line: u32,
   pub is_frame_ready: bool,
+  image_buffer: ImageBuffer<Luma<u8>, Vec<u8>>,
+  pub texture: Texture<Flat, Dim2, NormRGB8UI>,
 }
 
 impl Ppu {
-  pub fn new(bus: Rc<RefCell<Bus>>) -> Ppu {
+  pub fn new(bus: Rc<RefCell<Bus>>, surface: &mut GlutinSurface) -> Ppu {
     let cycles = 0;
     let scan_line = 0;
+
+    let image_buffer = ImageBuffer::from_fn(SCREEN_RES_X, SCREEN_RES_Y, |_, _| image::Luma([0u8]));
+
+    let texture: Texture<Flat, Dim2, NormRGB8UI> =
+      Texture::new(surface, [SCREEN_RES_X, SCREEN_RES_Y], 0, Sampler::default())
+        .expect("Texture create error");
+
     Ppu {
       bus,
       cycles,
       scan_line,
       is_frame_ready: false,
+      image_buffer,
+      texture,
     }
   }
 
@@ -66,6 +83,20 @@ impl Ppu {
   }
 
   pub fn clock(&mut self) {
+    let bw_img_tex = ImageBuffer::from_fn(SCREEN_RES_X * 2, SCREEN_RES_Y * 2, |x, _y| {
+      if x % 2 == 0 && self.cycles % 3 == 0 {
+        image::Luma([68u8])
+      } else {
+        image::Luma([255u8])
+      }
+    });
+
+    let texels = bw_img_tex.into_raw();
+    self
+      .texture
+      .upload_raw(GenMipmaps::No, &texels)
+      .expect("Upload error");
+
     self.cycles += 1;
 
     if self.cycles > 340 {
