@@ -7,7 +7,7 @@ Learning project to build Nintendo Entertainment System emulator.
 `x` - Exectute next instruction<br>
 `I` - Interrupt<br>
 `n` - Non-maskable interrupt<br>
-`q or Esc` - Quit  
+`Esc` - Quit  
 
 ## TODO
 
