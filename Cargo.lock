@@ -519,6 +519,7 @@ dependencies = [
 name = "nes-emulator"
 version = "0.1.0"
 dependencies = [
+ "bitflags 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "getopts 0.2.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "image 0.22.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "luminance 0.37.1 (registry+https://github.com/rust-lang/crates.io-index)",
