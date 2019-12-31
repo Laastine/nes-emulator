@@ -1,6 +1,6 @@
 # NES-emulator
 
-Nintendo Entertainment System emulator.
+Learning project to build Nintendo Entertainment System emulator.
 
 ## Controls
 
@@ -12,13 +12,16 @@ Nintendo Entertainment System emulator.
 ## TODO
 
 - [x] CPU
+- [x] Display RAM & CPU status in terminal for debugging
 - [x] ROM reader & mapper
+- [ ] Graphics screen
 - [ ] PPU (Pixel Processing Unit)
 - [ ] APU (Audio Processing Unit)
 
 
-## Referencies
+## References
 
-[Nesdev Wiki](http://wiki.nesdev.com/w/index.php/Nesdev_Wiki)<br>
-[javidx9 NES-tutorial](https://www.youtube.com/watch?v=nViZg02IMQo&list=PLrOv9FMX8xJHqMvSGB_9G9nZZ_4IgteYf)<br>
-[6502 Assembler](https://www.masswerk.at/6502/assembler.html)
+- [Nesdev Wiki](http://wiki.nesdev.com/w/index.php/Nesdev_Wiki)<br>
+- [javidx9 NES-tutorial](https://www.youtube.com/watch?v=nViZg02IMQo&list=PLrOv9FMX8xJHqMvSGB_9G9nZZ_4IgteYf)<br>
+- [6502 Assembler](https://www.masswerk.at/6502/assembler.html)
+- Lot's of other emulators
