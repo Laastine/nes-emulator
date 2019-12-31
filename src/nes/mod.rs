@@ -8,8 +8,8 @@ use std::time;
 use luminance::framebuffer::Framebuffer;
 use luminance::render_state::RenderState;
 use luminance_glutin::{ElementState, Event, KeyboardInput, Surface, VirtualKeyCode, WindowEvent};
-use termion::{clear, color, cursor, style};
 use termion::raw::{IntoRawMode, RawTerminal};
+use termion::{clear, color, cursor, style};
 
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
@@ -17,7 +17,7 @@ use crate::cpu::instruction_table::FLAGS6502;
 use crate::cpu::{hex, Cpu};
 use crate::gfx::WindowContext;
 use crate::mapper::Mapper;
-use crate::ppu::Ppu;
+use crate::ppu::{Ppu, registers::Registers};
 use luminance::context::GraphicsContext;
 
 pub mod constants;
@@ -43,12 +43,14 @@ impl Nes {
 
     let mut window_context = WindowContext::new();
 
-    let bus = Bus::new(cartridge.clone(), mapper);
+    let foo = Registers::new();
+    let registers = Rc::new(RefCell::new(foo));
 
+    let bus = Bus::new(cartridge.clone(), mapper, registers.clone());
     let bus_pointer = Rc::new(RefCell::new(bus));
 
     let cpu = Cpu::new(bus_pointer.clone());
-    let ppu = Ppu::new(bus_pointer, &mut window_context.surface);
+    let ppu = Ppu::new(bus_pointer, registers, &mut window_context.surface);
     let system_cycles = 0;
 
     Nes {
@@ -289,7 +291,7 @@ impl Nes {
         }
       }
 
-      if delta >= 0.0167 && self.system_cycles != previous_cycle {
+      if delta >= 0.016667 && self.system_cycles != previous_cycle {
         previous_cycle = self.system_cycles;
         self.draw_terminal(&mut stdout);
         self.render_screen();

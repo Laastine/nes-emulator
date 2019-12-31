@@ -1,14 +1,18 @@
-use std::cell::{RefCell, RefMut};
+use std::cell::{RefCell, RefMut, Ref};
 use std::convert::TryFrom;
 use std::rc::Rc;
 
 use image::{ImageBuffer, Luma};
 use luminance::pixel::NormRGB8UI;
 use luminance::texture::{Dim2, Flat, GenMipmaps, Sampler, Texture};
+use luminance_glutin::GlutinSurface;
 
 use crate::bus::Bus;
-use crate::nes::constants::{SCREEN_RES_X, SCREEN_RES_Y};
-use luminance_glutin::GlutinSurface;
+use crate::nes::constants::{COLORS, RGB, SCREEN_RES_X, SCREEN_RES_Y};
+use crate::ppu::registers::{Registers, PpuCtrlFlags, PpuMaskFlags, PpuStatusFlags, ScrollRegister};
+use bitflags::_core::borrow::Borrow;
+
+pub mod registers;
 
 pub struct Ppu {
   bus: Rc<RefCell<Bus>>,
@@ -17,10 +21,11 @@ pub struct Ppu {
   pub is_frame_ready: bool,
   image_buffer: ImageBuffer<Luma<u8>, Vec<u8>>,
   pub texture: Texture<Flat, Dim2, NormRGB8UI>,
+  registers: Rc<RefCell<Registers>>,
 }
 
 impl Ppu {
-  pub fn new(bus: Rc<RefCell<Bus>>, surface: &mut GlutinSurface) -> Ppu {
+  pub fn new(bus: Rc<RefCell<Bus>>, registers: Rc<RefCell<Registers>>, surface: &mut GlutinSurface) -> Ppu {
     let cycles = 0;
     let scan_line = 0;
 
@@ -37,65 +42,77 @@ impl Ppu {
       is_frame_ready: false,
       image_buffer,
       texture,
+      registers,
     }
+  }
+
+  pub fn get_mut_registers(&mut self) -> RefMut<Registers> {
+    self.registers.borrow_mut()
   }
 
   pub fn get_mut_bus(&mut self) -> RefMut<Bus> {
     self.bus.borrow_mut()
   }
 
-  pub fn write_cpu_u8(&mut self, address: u16, data: u8) {
-    let addr = match address {
-      0x00 => 0x00,
-      0x01 => 0x00,
-      0x02 => 0x00,
-      0x03 => 0x00,
-      0x04 => 0x00,
-      0x05 => 0x00,
-      0x06 => 0x00,
-      0x07 => 0x00,
-      0x08 => 0x00,
-      _ => 0x00,
-    };
-    {
+  fn get_color(&mut self, palette: u8, pixel: u8) -> RGB {
+    let addr = {
       let mut bus = self.get_mut_bus();
-      bus.write_u8(addr, data);
+      u8::try_from(bus.read_u8(u16::try_from(palette.wrapping_shl(2) + pixel).unwrap() + 0x3F00)).unwrap()
+    };
+    COLORS[usize::try_from(addr & 0x3F).unwrap()]
+  }
+
+  fn get_pattern_table(&mut self, index: usize, palette: u8) {
+    for tile_y in 0..16 {
+      for tile_x in 0..16 {
+        let offset = tile_x * 256 * 16;
+
+        for row in 0..8 {
+          let mut tile_lsb = {
+            let mut bus = self.get_mut_bus();
+            u8::try_from(bus.read_u8(u16::try_from(index * 4096 + offset + row).unwrap())).unwrap()
+          };
+          let mut tile_msb = {
+            let mut bus = self.get_mut_bus();
+            u8::try_from(bus.read_u8(u16::try_from(index * 4096 + offset + row + 8).unwrap())).unwrap()
+          };
+
+          for col in 0..8 {
+            let pixel = (tile_lsb & 0x01) + (tile_msb & 0x01);
+
+            tile_lsb >>= 1;
+            tile_msb >>= 1;
+
+            // TODO: Set pixel to texture
+          }
+        }
+      }
     }
   }
 
-  pub fn read_cpu_u8(&mut self, address: u16) -> u8 {
-    let addr = match address {
-      0x00 => 0x00,
-      0x01 => 0x00,
-      0x02 => 0x00,
-      0x03 => 0x00,
-      0x04 => 0x00,
-      0x05 => 0x00,
-      0x06 => 0x00,
-      0x07 => 0x00,
-      0x08 => 0x00,
-      _ => 0x00,
-    };
-    {
-      let mut bus = self.get_mut_bus();
-      u8::try_from(bus.read_u8(addr)).unwrap()
-    }
+  pub fn reset(&mut self) {
+    self.scan_line = 0;
+    self.cycles = 0;
+    self.get_mut_registers().status_flags = PpuStatusFlags::from_bits_truncate(0x00);
+    self.get_mut_registers().mask_flags = PpuMaskFlags::from_bits_truncate(0x00);
+    self.get_mut_registers().ctrl_flags = PpuCtrlFlags::from_bits_truncate(0x00);
+    self.get_mut_registers().vram_addr = ScrollRegister::from_bits_truncate(0x0000);
+    self.get_mut_registers().tram_addr = ScrollRegister::from_bits_truncate(0x0000);
   }
 
   pub fn clock(&mut self) {
-    let bw_img_tex = ImageBuffer::from_fn(SCREEN_RES_X * 2, SCREEN_RES_Y * 2, |x, _y| {
+    let texels = ImageBuffer::from_fn(SCREEN_RES_X * 2, SCREEN_RES_Y * 2, |x, _y| {
       if x % 2 == 0 && self.cycles % 3 == 0 {
         image::Luma([68u8])
       } else {
         image::Luma([255u8])
       }
-    });
+    }).into_raw();
 
-    let texels = bw_img_tex.into_raw();
     self
       .texture
       .upload_raw(GenMipmaps::No, &texels)
-      .expect("Upload error");
+      .expect("Texture update error");
 
     self.cycles += 1;
 
