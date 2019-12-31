@@ -199,21 +199,11 @@ impl Nes {
     self.cpu.reset();
   }
 
-  fn draw_help(&mut self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
-    write!(
-      stdout,
-      "{}Exec next instruction: X\tIRQ: I\t\tNMI: N\t\tRESET: R",
-      cursor::Goto(x, y)
-    )
-    .unwrap();
-  }
-
   fn draw_terminal(&mut self, stdout: &mut RawTerminal<Stdout>) {
     self.draw_ram(stdout, 0x0000, 2, 2, 16, 16);
     self.draw_ram(stdout, 0x8000, 2, 20, 16, 16);
     self.draw_cpu(stdout, 64, 2);
     self.draw_code(stdout, 64, 9);
-    self.draw_help(stdout, 2, 37)
   }
 
   pub fn render_loop(&mut self) {
@@ -250,8 +240,8 @@ impl Nes {
             WindowEvent::KeyboardInput {
               input:
                 KeyboardInput {
-                  state: ElementState::Released,
-                  virtual_keycode: Some(VirtualKeyCode::X),
+                  state: ElementState::Pressed,
+                  virtual_keycode: Some(VirtualKeyCode::Space),
                   ..
                 },
               ..
