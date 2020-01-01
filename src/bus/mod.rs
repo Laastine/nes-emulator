@@ -41,7 +41,7 @@ impl Bus {
         self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
       }
       0x2000..=0x3FFF => {
-        self.write_ppu_registers(address, data)
+        self.write_ppu_registers(address & 0x0007, data)
       }
       0x8000..=0xFFFF => {
         let mapped_addr = usize::try_from(self.mapper.write_cpu_u8(address)).unwrap();
@@ -108,7 +108,7 @@ impl Bus {
         u16::try_from(self.ram[idx]).unwrap()
       }
       0x2000..=0x3FFF => {
-        self.read_ppu_u8(address, true).into()
+        self.read_ppu_u8(address & 0x0007, true).into()
       },
       0x4016..=0x4016 => {
         let res = if (self.controller[usize::try_from(address & 0x0001).unwrap()] & 0x80) > 0 { 1u8 } else { 0u8 };
