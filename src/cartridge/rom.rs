@@ -83,7 +83,7 @@ impl Rom {
     let mirroring = match (flag_mirror, flag_four_screen_vram) {
       (true, false) => Mirroring::Vertical,
       (false, false) => Mirroring::Horizontal,
-      (_, true) => Mirroring::FourSreenVram,
+      _ => panic!("Mirroring mode {}, {} not supported", flag_mirror, flag_four_screen_vram)
     };
 
     let mapper = mapper_lo | mapper_hi.wrapping_shl(4);
@@ -155,7 +155,6 @@ impl TVSystem {
 pub enum Mirroring {
   Vertical,
   Horizontal,
-  FourSreenVram,
 }
 
 impl Mirroring {
@@ -163,7 +162,6 @@ impl Mirroring {
     match value {
       0 => Mirroring::Vertical,
       1 => Mirroring::Horizontal,
-      2 => Mirroring::FourSreenVram,
       _ => panic!("Unrecognized Mirroring value: {}", value),
     }
   }

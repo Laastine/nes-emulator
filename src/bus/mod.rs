@@ -10,7 +10,7 @@ pub const MEM_SIZE: usize = 0x0800;
 
 #[derive(Clone)]
 pub struct Bus {
-  cartridge: Cartridge,
+  pub cartridge: Cartridge,
   pub ram: [u8; MEM_SIZE],
   mapper: Mapper,
   controller: [u8; 2],

@@ -11,6 +11,7 @@ use luminance_glutin::GlutinSurface;
 
 use crate::bus::Bus;
 use crate::nes::constants::{COLORS, RGB, SCREEN_RES_X, SCREEN_RES_Y, SCREEN_WIDTH, SCREEN_HEIGHT};
+use crate::cartridge::rom::Mirroring;
 use crate::ppu::registers::{PpuCtrlFlags, PpuMaskFlags, PpuStatusFlags, Registers, ScrollRegister};
 
 pub mod registers;
@@ -23,6 +24,9 @@ pub struct Ppu {
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
   pub texture: Texture<Flat, Dim2, NormRGB8UI>,
   registers: Rc<RefCell<Registers>>,
+  table_pattern: [[u8; 4096]; 2],
+  table_palette: [u8; 32],
+  table_name: [[u8; 1024]; 2],
 }
 
 impl Ppu {
@@ -44,6 +48,9 @@ impl Ppu {
       image_buffer,
       texture,
       registers,
+      table_pattern: [[0; 4096]; 2],
+      table_palette: [0; 32],
+      table_name: [[0; 1024]; 2],
     }
   }
 
@@ -98,6 +105,106 @@ impl Ppu {
           }
         }
       }
+    }
+  }
+
+  fn ppu_read(&mut self, address: u16) -> u8 {
+    let mut addr = address & 0x3FFF;
+
+    match addr {
+      0x0000..=0x1FFF => {
+        let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
+        let second_idx = usize::try_from(addr & 0x0FFF).unwrap();
+        self.table_name[first_idx][second_idx]
+      }
+      0x2000..=0x3EFF => {
+        addr &= 0x0FFF;
+        let mirror_mode = self.get_mut_bus().cartridge.rom.rom_header.mirroring;
+        let idx = usize::try_from(addr & 0x03FF).unwrap();
+        match mirror_mode {
+          Mirroring::Vertical => {
+            match addr {
+              0x0000..=0x03FF => self.table_name[0][idx],
+              0x0400..=0x07FF => self.table_name[1][idx],
+              0x0800..=0x0BFF => self.table_name[0][idx],
+              0x0C00..=0x0FFF => self.table_name[1][idx],
+              _ => panic!("Unknown vertical mode table address"),
+            }
+          }
+          Mirroring::Horizontal => {
+            match addr {
+              0x0000..=0x03FF => self.table_name[0][idx],
+              0x0400..=0x07FF => self.table_name[0][idx],
+              0x0800..=0x0BFF => self.table_name[1][idx],
+              0x0C00..=0x0FFF => self.table_name[1][idx],
+              _ => panic!("Unknown horizontal mode table address"),
+            }
+          }
+        }
+      }
+      0x3F00..=0x3FFF => {
+        addr &= 0x001F;
+        let idx = match addr {
+          0x0010 => 0x0000,
+          0x0014 => 0x0004,
+          0x0018 => 0x0008,
+          0x001C => 0x000C,
+          _ => panic!("No palette idx found")
+        };
+        let mask_flags = self.get_mut_registers().mask_flags.bits();
+        self.table_palette[idx] & (if mask_flags > 0x00 { 0x30 } else { 0x3F })
+      }
+      _ => panic!("Address {} not in range", addr)
+    }
+  }
+
+  fn ppu_write(&mut self, address: u16, data: u8) {
+    let mut addr = address & 0x3FFF;
+
+    match addr {
+      0x0000..=0x1FFF => {
+        let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
+        let second_idx = usize::try_from(addr & 0x0FFF).unwrap();
+        self.table_name[first_idx][second_idx] = data;
+      }
+      0x2000..=0x3EFF => {
+        addr &= 0x0FFF;
+        let mirror_mode = self.get_mut_bus().cartridge.rom.rom_header.mirroring;
+        let idx = usize::try_from(addr & 0x03FF).unwrap();
+        match mirror_mode {
+          Mirroring::Vertical => {
+            match addr {
+              0x0000..=0x03FF => self.table_name[0][idx] = data,
+              0x0400..=0x07FF => self.table_name[1][idx] = data,
+              0x0800..=0x0BFF => self.table_name[0][idx] = data,
+              0x0C00..=0x0FFF => self.table_name[1][idx] = data,
+              _ => panic!("Unknown vertical mode table address"),
+            }
+          }
+          Mirroring::Horizontal => {
+            match addr {
+              0x0000..=0x03FF => self.table_name[0][idx] = data,
+              0x0400..=0x07FF => self.table_name[0][idx] = data,
+              0x0800..=0x0BFF => self.table_name[1][idx] = data,
+              0x0C00..=0x0FFF => self.table_name[1][idx] = data,
+              _ => panic!("Unknown horizontal mode table address"),
+            }
+          }
+        }
+      }
+      0x3F00..=0x3FFF => {
+        addr &= 0x001F;
+        let idx = match addr {
+          0x0010 => 0x0000,
+          0x0014 => 0x0004,
+          0x0018 => 0x0008,
+          0x001C => 0x000C,
+          _ => panic!("No palette idx found")
+        };
+        let mask_flags = self.get_mut_registers().mask_flags.bits();
+        self.table_palette[idx] = data;
+      }
+      _ => panic!("Address {} not in range", addr)
     }
   }
 

@@ -2,7 +2,7 @@ use std::fs;
 
 use crate::cartridge::rom::Rom;
 
-mod rom;
+pub mod rom;
 
 #[derive(Clone)]
 pub struct Cartridge {
