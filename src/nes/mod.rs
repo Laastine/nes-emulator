@@ -5,20 +5,20 @@ use std::io::{stdout, Stdout, Write};
 use std::rc::Rc;
 use std::time;
 
+use luminance::context::GraphicsContext;
 use luminance::framebuffer::Framebuffer;
 use luminance::render_state::RenderState;
 use luminance_glutin::{ElementState, Event, KeyboardInput, Surface, VirtualKeyCode, WindowEvent};
-use termion::raw::{IntoRawMode, RawTerminal};
 use termion::{clear, color, cursor, style};
+use termion::raw::{IntoRawMode, RawTerminal};
 
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
+use crate::cpu::{Cpu, hex};
 use crate::cpu::instruction_table::FLAGS6502;
-use crate::cpu::{hex, Cpu};
 use crate::gfx::WindowContext;
 use crate::mapper::Mapper;
 use crate::ppu::{Ppu, registers::Registers};
-use luminance::context::GraphicsContext;
 
 pub mod constants;
 
@@ -33,6 +33,7 @@ pub struct Nes {
   map_asm: HashMap<u16, String>,
   system_cycles: u64,
   window_context: WindowContext,
+  debug_mode: bool,
 }
 
 impl Nes {
@@ -43,7 +44,7 @@ impl Nes {
 
     let mut window_context = WindowContext::new();
 
-    let foo = Registers::new();
+    let foo = Registers::new(cartridge.rom.rom_header.mirroring);
     let registers = Rc::new(RefCell::new(foo));
 
     let bus = Bus::new(cartridge.clone(), mapper, registers.clone());
@@ -53,6 +54,8 @@ impl Nes {
     let ppu = Ppu::new(bus_pointer, registers, &mut window_context.surface);
     let system_cycles = 0;
 
+    let debug_mode = false;
+
     Nes {
       cartridge,
       cpu,
@@ -60,6 +63,7 @@ impl Nes {
       map_asm,
       system_cycles,
       window_context,
+      debug_mode,
     }
   }
 
@@ -83,7 +87,7 @@ impl Nes {
           hex(
             {
               let mut bus = self.cpu.get_mut_bus();
-              bus.read_u8(addr).try_into().unwrap()
+              bus.read_u8(addr, true).try_into().unwrap()
             },
             2,
           )
@@ -211,7 +215,7 @@ impl Nes {
       .into_raw_mode()
       .unwrap_or_else(|err| panic!("stdout raw mode error {:?}", err));
 
-    write!(stdout, "{}{}", cursor::Goto(1, 1), clear::AfterCursor).unwrap();
+//    write!(stdout, "{}{}", cursor::Goto(1, 1), clear::AfterCursor).unwrap();
 
     let last_time = time::Instant::now();
     let mut previous_cycle = 0;
@@ -246,21 +250,7 @@ impl Nes {
                 },
               ..
             } => {
-              self.ppu.clock();
-              if self.system_cycles % 3 == 0 {
-                self.cpu.clock();
-              }
-              self.system_cycles = self.system_cycles.wrapping_add(1);
-
-              if !self.cpu.complete() {
-                self.ppu.clock();
-                if self.system_cycles % 3 == 0 {
-                  self.cpu.clock();
-                }
-                self.system_cycles = self.system_cycles.wrapping_add(1);
-
-                break;
-              }
+              self.debug_mode = !self.debug_mode;
             }
             WindowEvent::KeyboardInput {
               input:
@@ -281,12 +271,24 @@ impl Nes {
         }
       }
 
+      if !self.debug_mode {
+        self.clock();
+      }
+
       if delta >= 0.016667 && self.system_cycles != previous_cycle {
         previous_cycle = self.system_cycles;
-        self.draw_terminal(&mut stdout);
+//        self.draw_terminal(&mut stdout);
         self.render_screen();
       }
     }
+  }
+
+  fn clock(&mut self) {
+    self.ppu.clock();
+    if self.system_cycles % 3 == 0 {
+      self.cpu.clock();
+    }
+    self.system_cycles = self.system_cycles.wrapping_add(1);
   }
 
   fn render_screen(&mut self) {
