@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::iter::Iterator;
 
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct RomHeader {
   pub prg_rom_len: usize,
   pub chr_rom_len: usize,

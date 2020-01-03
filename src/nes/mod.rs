@@ -27,7 +27,6 @@ const GREEN: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(46));
 const BLUE: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(21));
 
 pub struct Nes {
-  cartridge: Cartridge,
   cpu: Cpu,
   ppu: Ppu,
   map_asm: HashMap<u16, String>,
@@ -38,16 +37,17 @@ pub struct Nes {
 
 impl Nes {
   pub fn new(rom_file: &str) -> Nes {
-    let mapper = Mapper::new();
     let cartridge = Cartridge::new(rom_file);
+    let cart = Rc::new(RefCell::new((cartridge)));
+
     let map_asm: HashMap<u16, String> = HashMap::new();
 
     let mut window_context = WindowContext::new();
 
-    let foo = Registers::new(cartridge.rom.rom_header.mirroring);
-    let registers = Rc::new(RefCell::new(foo));
+    let reg = Registers::new(cart.clone());
+    let registers = Rc::new(RefCell::new(reg));
 
-    let bus = Bus::new(cartridge.clone(), mapper, registers.clone());
+    let bus = Bus::new(cart, registers.clone());
     let bus_pointer = Rc::new(RefCell::new(bus));
 
     let cpu = Cpu::new(bus_pointer.clone());
@@ -57,7 +57,6 @@ impl Nes {
     let debug_mode = false;
 
     Nes {
-      cartridge,
       cpu,
       ppu,
       map_asm,
@@ -200,7 +199,7 @@ impl Nes {
 
   pub fn create_program(&mut self) {
     self.map_asm = self.cpu.disassemble(0x0000, 0xFFFF);
-    self.cpu.reset();
+    self.reset();
   }
 
   fn draw_terminal(&mut self, stdout: &mut RawTerminal<Stdout>) {
@@ -274,9 +273,9 @@ impl Nes {
         self.clock();
       }
 
-      if delta > 2.0 {
+      if delta > 1.0 {
         last_time = time::Instant::now();
-//        self.draw_terminal(&mut stdout);
+        self.draw_terminal(&mut stdout);
         self.render_screen();
       }
     }
@@ -287,6 +286,12 @@ impl Nes {
     if self.system_cycles % 3 == 0 {
       self.cpu.clock();
     }
+
+    if self.ppu.nmi {
+      self.ppu.nmi = false;
+      self.cpu.nmi();
+    }
+
     self.system_cycles = self.system_cycles.wrapping_add(1);
   }
 
@@ -340,5 +345,6 @@ impl Nes {
   fn reset(&mut self) {
     self.system_cycles = 0;
     self.cpu.reset();
+    self.ppu.reset();
   }
 }

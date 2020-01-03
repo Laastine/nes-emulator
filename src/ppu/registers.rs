@@ -1,6 +1,9 @@
+use std::cell::{RefCell, RefMut};
 use std::convert::TryFrom;
+use std::rc::Rc;
 
-use crate::cartridge::rom::Mirroring;
+use crate::cartridge::Cartridge;
+use crate::cartridge::rom_reading::{Mirroring, RomHeader};
 
 bitfield! {
   #[derive(Copy, Clone)]
@@ -51,7 +54,7 @@ bitfield! {
     pub u16,  bits,         _:                14, 0;
 }
 
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub struct Registers {
   pub ctrl_flags: PpuCtrlFlags,
   pub mask_flags: PpuMaskFlags,
@@ -64,11 +67,11 @@ pub struct Registers {
   pub ppu_data_buffer: u8,
   pub fine_x: u8,
   pub fine_y: u8,
-  mirror_mode: Mirroring,
+  pub cartridge: Rc<RefCell<Cartridge>>,
 }
 
 impl Registers {
-  pub fn new(mirror_mode: Mirroring) -> Registers {
+  pub fn new(cartridge: Rc<RefCell<Cartridge>>) -> Registers {
     Registers {
       ctrl_flags: PpuCtrlFlags(0x00),
       mask_flags: PpuMaskFlags(0x00),
@@ -81,12 +84,21 @@ impl Registers {
       ppu_data_buffer: 0x00,
       fine_x: 0x00,
       fine_y: 0x00,
-      mirror_mode,
+      cartridge,
     }
+  }
+
+  fn get_mut_cartridge(&mut self) -> RefMut<Cartridge> {
+    self.cartridge.borrow_mut()
   }
 
   pub fn ppu_read(&mut self, address: u16) -> u8 {
     let mut addr = address & 0x3FFF;
+
+    if (0x0000..=0x1FFF).contains(&addr) {
+      let idx = usize::try_from(addr).unwrap();
+      return self.get_mut_cartridge().rom.chr_rom[idx];
+    }
 
     match addr {
       0x0000..=0x1FFF => {
@@ -97,7 +109,8 @@ impl Registers {
       0x2000..=0x3EFF => {
         addr &= 0x0FFF;
         let idx = usize::try_from(addr & 0x03FF).unwrap();
-        match self.mirror_mode {
+        let mirror_mode = self.get_mut_cartridge().get_mirror_mode();
+        match mirror_mode {
           Mirroring::Vertical => {
             match addr {
               0x0000..=0x03FF => self.table_name[0][idx],
@@ -136,50 +149,54 @@ impl Registers {
   pub fn ppu_write(&mut self, address: u16, data: u8) {
     let mut addr = address & 0x3FFF;
 
-    dbg!("ppu_write");
-
-    match addr {
-      0x0000..=0x1FFF => {
-        let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
-        let second_idx = usize::try_from(addr & 0x0FFF).unwrap();
-        self.table_name[first_idx][second_idx] = data;
-      }
-      0x2000..=0x3EFF => {
-        addr &= 0x0FFF;
-        let idx = usize::try_from(addr & 0x03FF).unwrap();
-        match self.mirror_mode {
-          Mirroring::Vertical => {
-            match addr {
-              0x0000..=0x03FF => self.table_name[0][idx] = data,
-              0x0400..=0x07FF => self.table_name[1][idx] = data,
-              0x0800..=0x0BFF => self.table_name[0][idx] = data,
-              0x0C00..=0x0FFF => self.table_name[1][idx] = data,
-              _ => panic!("Unknown vertical mode table address"),
+    if (0x0000..=0x1FFF).contains(&addr) {
+      let idx = usize::try_from(addr).unwrap();
+      self.get_mut_cartridge().rom.chr_rom[idx] = data
+    } else {
+      match addr {
+        0x0000..=0x1FFF => {
+          let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
+          let second_idx = usize::try_from(addr & 0x0FFF).unwrap();
+          self.table_name[first_idx][second_idx] = data;
+        }
+        0x2000..=0x3EFF => {
+          addr &= 0x0FFF;
+          let idx = usize::try_from(addr & 0x03FF).unwrap();
+          let mirror_mode = self.get_mut_cartridge().get_mirror_mode();
+          match mirror_mode {
+            Mirroring::Vertical => {
+              match addr {
+                0x0000..=0x03FF => self.table_name[0][idx] = data,
+                0x0400..=0x07FF => self.table_name[1][idx] = data,
+                0x0800..=0x0BFF => self.table_name[0][idx] = data,
+                0x0C00..=0x0FFF => self.table_name[1][idx] = data,
+                _ => panic!("Unknown vertical mode table address"),
+              }
             }
-          }
-          Mirroring::Horizontal => {
-            match addr {
-              0x0000..=0x03FF => self.table_name[0][idx] = data,
-              0x0400..=0x07FF => self.table_name[0][idx] = data,
-              0x0800..=0x0BFF => self.table_name[1][idx] = data,
-              0x0C00..=0x0FFF => self.table_name[1][idx] = data,
-              _ => panic!("Unknown horizontal mode table address"),
+            Mirroring::Horizontal => {
+              match addr {
+                0x0000..=0x03FF => self.table_name[0][idx] = data,
+                0x0400..=0x07FF => self.table_name[0][idx] = data,
+                0x0800..=0x0BFF => self.table_name[1][idx] = data,
+                0x0C00..=0x0FFF => self.table_name[1][idx] = data,
+                _ => panic!("Unknown horizontal mode table address"),
+              }
             }
           }
         }
+        0x3F00..=0x3FFF => {
+          addr &= 0x001F;
+          let idx = match addr {
+            0x0010 => 0x0000,
+            0x0014 => 0x0004,
+            0x0018 => 0x0008,
+            0x001C => 0x000C,
+            _ => panic!("No palette idx found")
+          };
+          self.table_palette[idx] = data;
+        }
+        _ => panic!("Address {} not in range", addr)
       }
-      0x3F00..=0x3FFF => {
-        addr &= 0x001F;
-        let idx = match addr {
-          0x0010 => 0x0000,
-          0x0014 => 0x0004,
-          0x0018 => 0x0008,
-          0x001C => 0x000C,
-          _ => panic!("No palette idx found")
-        };
-        self.table_palette[idx] = data;
-      }
-      _ => panic!("Address {} not in range", addr)
     }
   }
 }

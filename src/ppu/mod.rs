@@ -21,7 +21,7 @@ pub struct Ppu {
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
   pub texture: Texture<Flat, Dim2, NormRGB8UI>,
   registers: Rc<RefCell<Registers>>,
-  nmi: bool,
+  pub nmi: bool,
   fine_x: u8,
   bg_next_tile_id: u8,
   bg_next_tile_attrib: u8,
@@ -76,8 +76,8 @@ impl Ppu {
   }
 
   fn get_color(&mut self, palette: u8, pixel: u8) -> Color {
-    let addr = u8::try_from(self.read_u8(u16::try_from(palette.wrapping_shl(2) + pixel).unwrap() + 0x3F00)).unwrap();
-    COLORS[usize::try_from(addr & 0x3F).unwrap()]
+    let idx = u8::try_from(self.read_u8(u16::try_from(palette.wrapping_shl(2) + pixel).unwrap() + 0x3F00)).unwrap();
+    COLORS[usize::try_from(idx & 0x3F).unwrap()]
   }
 
   pub fn reset(&mut self) {
@@ -217,8 +217,7 @@ impl Ppu {
             let coarse_x = u16::try_from(vram_addr.coarse_x()).unwrap();
             let coarse_y = u16::try_from(vram_addr.coarse_y()).unwrap();
 
-            let new_tile_id = self.get_mut_registers().ppu_read(0x23C0 | (vram_addr.bits() & 0x0FFF)
-              | (nametable_y << 11)
+            let new_tile_id = self.get_mut_registers().ppu_read(0x23C0 | (nametable_y << 11)
               | (nametable_x << 10)
               | ((coarse_y >> 2) << 3)
               | (coarse_x >> 2));
@@ -238,7 +237,9 @@ impl Ppu {
             let pattern_background: u8 = if ctrl_flags.pattern_background_table_addr() { 1 } else { 0 };
             let fine_y = u16::try_from(vram_addr.fine_y()).unwrap();
 
-            let addr = u16::try_from(pattern_background.wrapping_shl(12)).unwrap() + u16::try_from(self.bg_next_tile_id).unwrap() + fine_y + 8;
+            let addr = u16::try_from(pattern_background.wrapping_shl(12)).unwrap()
+              + u16::try_from(self.bg_next_tile_id.wrapping_shl(12)).unwrap()
+              + fine_y + 8;
 
             let new_tile_lsb = self.get_mut_registers().ppu_read(addr);
             self.bg_next_tile_lsb = new_tile_lsb;
@@ -249,7 +250,10 @@ impl Ppu {
             let pattern_background: u8 = if ctrl_flags.pattern_background_table_addr() { 1 } else { 0 };
             let fine_y = u16::try_from(vram_addr.fine_y()).unwrap();
 
-            let addr = u16::try_from(pattern_background.wrapping_shl(12)).unwrap() + u16::try_from(self.bg_next_tile_id).unwrap() + fine_y + 8;
+            let addr = u16::try_from(pattern_background.wrapping_shl(12)).unwrap()
+              + u16::try_from(self.bg_next_tile_id).unwrap()
+              + fine_y + 8;
+
             let new_tile_msb = self.get_mut_registers().ppu_read(addr);
             self.bg_next_tile_msb = new_tile_msb;
           }

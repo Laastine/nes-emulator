@@ -10,25 +10,27 @@ pub const MEM_SIZE: usize = 0x0800;
 
 #[derive(Clone)]
 pub struct Bus {
-  pub cartridge: Cartridge,
+  pub cartridge: Rc<RefCell<Cartridge>>,
   pub ram: [u8; MEM_SIZE],
-  mapper: Mapper,
   controller: [u8; 2],
   registers: Rc<RefCell<Registers>>
 }
 
 impl Bus {
-  pub fn new(cartridge: Cartridge, mapper: Mapper, registers: Rc<RefCell<Registers>>) -> Bus {
+  pub fn new(cartridge: Rc<RefCell<Cartridge>>, registers: Rc<RefCell<Registers>>, ) -> Bus {
     let ram = [0u8; MEM_SIZE];
     let controller = [0u8; 2];
 
     Bus {
       cartridge,
-      mapper,
       ram,
       controller,
       registers
     }
+  }
+
+  pub fn get_mut_cartridge(&mut self) -> RefMut<Cartridge> {
+    self.cartridge.borrow_mut()
   }
 
   pub fn get_mut_registers(&mut self) -> RefMut<Registers> {
@@ -44,10 +46,9 @@ impl Bus {
         self.write_ppu_registers(address & 0x0007, data)
       }
       0x8000..=0xFFFF => {
-        let mapped_addr = usize::try_from(self.mapper.write_cpu_u8(address)).unwrap();
+        let mapped_addr = usize::try_from(self.get_mut_cartridge().mapper.mapped_write_cpu_u8(address)).unwrap();
         {
-          let prg_rom = self.cartridge.get_prg_rom();
-          prg_rom[mapped_addr] = data
+          self.get_mut_cartridge().get_prg_rom()[mapped_addr] = data
         };
       }
       _ => panic!("write_u8 address: {} not in range", address),
@@ -86,7 +87,7 @@ impl Bus {
       0x06 => { // PPU address
         let tram_addr = self.get_mut_registers().tram_addr.bits();
         if self.get_mut_registers().address_latch == 0 {
-          self.get_mut_registers().tram_addr = ScrollRegister(u16::try_from((data & 0x3F) << 8).unwrap() | tram_addr & 0x00FF);
+          self.get_mut_registers().tram_addr = ScrollRegister(u16::try_from((data & 0x3F).wrapping_shl(8)).unwrap() | tram_addr & 0x00FF);
           self.get_mut_registers().address_latch = 1;
         } else {
           self.get_mut_registers().tram_addr = ScrollRegister(tram_addr & 0xFF00 | u16::try_from(data).unwrap());
@@ -109,7 +110,7 @@ impl Bus {
     match address {
       0x0000..=0x1FFF => {
         let idx = usize::try_from(address & 0x07FF).unwrap();
-        u16::try_from(self.ram[idx]).unwrap()
+        self.ram[idx].into()
       }
       0x2000..=0x3FFF => {
         self.read_ppu_u8(address & 0x0007, read_only).into()
@@ -120,10 +121,9 @@ impl Bus {
         res.into()
       }
       0x8000..=0xFFFF => {
-        let mapped_addr = usize::try_from(self.mapper.read_cpu_u8(address)).unwrap();
+        let mapped_addr = usize::try_from(self.get_mut_cartridge().mapper.mapped_read_cpu_u8(address)).unwrap();
         u16::try_from({
-          let prg_rom = self.cartridge.get_prg_rom();
-          prg_rom[mapped_addr]
+          self.get_mut_cartridge().get_prg_rom()[mapped_addr]
         })
         .unwrap()
       }
