@@ -211,18 +211,17 @@ impl Nes {
   }
 
   pub fn render_loop(&mut self) {
-    let mut stdout = stdout()
-      .into_raw_mode()
-      .unwrap_or_else(|err| panic!("stdout raw mode error {:?}", err));
+//    let mut stdout = stdout()
+//      .into_raw_mode()
+//      .unwrap_or_else(|err| panic!("stdout raw mode error {:?}", err));
 
 //    write!(stdout, "{}{}", cursor::Goto(1, 1), clear::AfterCursor).unwrap();
 
-    let last_time = time::Instant::now();
-    let mut previous_cycle = 0;
+    let mut last_time = time::Instant::now();
 
     'app: loop {
       let elapsed = last_time.elapsed();
-      let delta = f64::from(elapsed.subsec_nanos()) / 1e9 + elapsed.as_secs() as f64;
+      let mut delta = f64::from(elapsed.subsec_nanos()) / 1e9 + elapsed.as_secs() as f64;
 
       for event in self.window_context.surface.poll_events() {
         if let Event::WindowEvent { event, .. } = event {
@@ -238,7 +237,7 @@ impl Nes {
                 },
               ..
             } => {
-              write!(stdout, "{}{}", cursor::Goto(1, 1), clear::AfterCursor).unwrap();
+//              write!(stdout, "{}{}", cursor::Goto(1, 1), clear::AfterCursor).unwrap();
               break 'app;
             }
             WindowEvent::KeyboardInput {
@@ -275,8 +274,8 @@ impl Nes {
         self.clock();
       }
 
-      if delta >= 0.016667 && self.system_cycles != previous_cycle {
-        previous_cycle = self.system_cycles;
+      if delta > 2.0 {
+        last_time = time::Instant::now();
 //        self.draw_terminal(&mut stdout);
         self.render_screen();
       }

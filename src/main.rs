@@ -1,3 +1,5 @@
+#[macro_use]
+extern crate bitfield;
 extern crate bitflags;
 extern crate getopts;
 extern crate image;

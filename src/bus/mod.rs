@@ -57,13 +57,15 @@ impl Bus {
   fn write_ppu_registers(&mut self, address: u16, data: u8) {
     match address {
       0x00 => {
-        self.get_mut_registers().ctrl_flags = PpuCtrlFlags::from_bits_truncate(data);
-        let ctrl_flags = u16::try_from(self.get_mut_registers().ctrl_flags.bits()).unwrap();
-        self.get_mut_registers().tram_addr = ScrollRegister::from_bits_truncate(ctrl_flags);
-
-      },
+        self.get_mut_registers().ctrl_flags = PpuCtrlFlags::from_bits(data).unwrap();
+        let ctrl_flags = self.get_mut_registers().ctrl_flags;
+        let new_x = ctrl_flags.contains(PpuCtrlFlags::NAMETABLE_X);
+        self.get_mut_registers().tram_addr.set_nametable_x(new_x);
+        let new_y = ctrl_flags.contains(PpuCtrlFlags::NAMETABLE_Y);
+        self.get_mut_registers().tram_addr.set_nametable_y(new_y);
+      }
       0x01 => {
-        self.get_mut_registers().mask_flags = PpuMaskFlags::from_bits_truncate(data)
+        self.get_mut_registers().mask_flags = PpuMaskFlags::from_bits(data).unwrap();
       },
       0x02 => {},
       0x03 => {},
@@ -73,23 +75,21 @@ impl Bus {
         if self.get_mut_registers().address_latch == 0 { // X
           self.get_mut_registers().fine_x = data & 0x07;
 
-          self.get_mut_registers().tram_addr.set(ScrollRegister::COARSE_X, data >> 3 > 0x00);
-
-          self.get_mut_registers().tram_addr = ScrollRegister::from_bits_truncate(tram_addr.bits() + u16::try_from(data.wrapping_shr(3)).unwrap());
+          self.get_mut_registers().tram_addr.set_coarse_x(data >> 3);
           self.get_mut_registers().address_latch = 1;
         } else {                    // Y
-          self.get_mut_registers().fine_y = data & 0x07;
-          self.get_mut_registers().tram_addr.set(ScrollRegister::COARSE_Y, data >> 3 > 0x00);
+          self.get_mut_registers().tram_addr.set_fine_y(data & 0x07);
+          self.get_mut_registers().tram_addr.set_coarse_y(data >> 3);
           self.get_mut_registers().address_latch = 0;
         }
       },
       0x06 => { // PPU address
         let tram_addr = self.get_mut_registers().tram_addr.bits();
         if self.get_mut_registers().address_latch == 0 {
-          self.get_mut_registers().tram_addr = ScrollRegister::from_bits_truncate(u16::try_from((data & 0x3F) << 8).unwrap() | tram_addr & 0x00FF);
+          self.get_mut_registers().tram_addr = ScrollRegister(u16::try_from((data & 0x3F) << 8).unwrap() | tram_addr & 0x00FF);
           self.get_mut_registers().address_latch = 1;
         } else {
-          self.get_mut_registers().tram_addr = ScrollRegister::from_bits_truncate(tram_addr & 0xFF00 | u16::try_from(data).unwrap());
+          self.get_mut_registers().tram_addr = ScrollRegister(tram_addr & 0xFF00 | u16::try_from(data).unwrap());
           let new_tram_addr = self.get_mut_registers().tram_addr;
           self.get_mut_registers().vram_addr = new_tram_addr;
           self.get_mut_registers().address_latch = 0;
@@ -99,7 +99,7 @@ impl Bus {
         let vram_addr = self.get_mut_registers().vram_addr.bits();
         self.write_u8(vram_addr, data);
         let val = if self.get_mut_registers().ctrl_flags.contains(PpuCtrlFlags::VRAM_ADDR_INCREMENT_MODE) { 32 } else { 1 };
-        self.get_mut_registers().vram_addr = ScrollRegister::from_bits_truncate(vram_addr + val);
+        self.get_mut_registers().vram_addr = ScrollRegister(vram_addr + val);
       },
       _ => panic!("write_ppu_registers address: {} not in range", address),
     };
@@ -171,7 +171,7 @@ impl Bus {
           }
           let vram_addr = self.get_mut_registers().vram_addr;
           let val = if self.get_mut_registers().ctrl_flags.contains(PpuCtrlFlags::VRAM_ADDR_INCREMENT_MODE) { 32 } else { 1 };
-          self.get_mut_registers().vram_addr = ScrollRegister::from_bits_truncate(vram_addr.bits() + val);
+          self.get_mut_registers().vram_addr = ScrollRegister(vram_addr.bits() + val);
           res
         }
         _ => panic!("read_ppu_u8 address: {} not in range", address),

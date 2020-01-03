@@ -16,7 +16,7 @@ pub mod registers;
 pub struct Ppu {
   bus: Rc<RefCell<Bus>>,
   cycles: u32,
-  scan_line: i32,
+  scan_line: u32,
   pub is_frame_ready: bool,
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
   pub texture: Texture<Flat, Dim2, NormRGB8UI>,
@@ -86,8 +86,8 @@ impl Ppu {
     self.get_mut_registers().status_flags = PpuStatusFlags::from_bits_truncate(0x00);
     self.get_mut_registers().mask_flags = PpuMaskFlags::from_bits_truncate(0x00);
     self.get_mut_registers().ctrl_flags = PpuCtrlFlags::from_bits_truncate(0x00);
-    self.get_mut_registers().vram_addr = ScrollRegister::from_bits_truncate(0x0000);
-    self.get_mut_registers().tram_addr = ScrollRegister::from_bits_truncate(0x0000);
+    self.get_mut_registers().vram_addr = ScrollRegister(0x0000);
+    self.get_mut_registers().tram_addr = ScrollRegister(0x0000);
     self.bg_next_tile_id = 0;
     self.bg_next_tile_attrib = 0;
     self.bg_next_tile_lsb = 0;
@@ -122,13 +122,13 @@ impl Ppu {
     let vram_addr = self.get_mut_registers().vram_addr;
 
     if show_background || show_sprites {
-      if vram_addr.contains(ScrollRegister::COARSE_X) {
-        self.get_mut_registers().vram_addr.set(ScrollRegister::COARSE_X, false);
-        let new_val = !self.get_mut_registers().vram_addr.contains(ScrollRegister::NAMETABLE_X);
-        self.get_mut_registers().vram_addr.set(ScrollRegister::NAMETABLE_X, new_val);
+      if vram_addr.coarse_x() > 30 {
+        self.get_mut_registers().vram_addr.set_coarse_x(0);
+        let new_val = !self.get_mut_registers().vram_addr.nametable_x();
+        self.get_mut_registers().vram_addr.set_nametable_x(new_val);
       } else {
-        let vram_addr = self.get_mut_registers().vram_addr.bits();
-        self.get_mut_registers().vram_addr.insert(ScrollRegister::from_bits(vram_addr + 1).unwrap());
+        let vram_addr = self.get_mut_registers().vram_addr;
+        self.get_mut_registers().vram_addr.set_coarse_x(vram_addr.coarse_x() + 1);
       }
     }
   }
@@ -150,24 +150,37 @@ impl Ppu {
     let show_background = mask_flags.contains(PpuMaskFlags::SHOW_BACKGROUND);
     let show_sprites = mask_flags.contains(PpuMaskFlags::SHOW_SPRITES);
 
-    let vram_addr = self.get_mut_registers().vram_addr;
+    let mut vram_addr = self.get_mut_registers().vram_addr;
+    let tram_addr = self.get_mut_registers().tram_addr;
 
     if show_background || show_sprites {
-
+      vram_addr.set_nametable_x(tram_addr.nametable_x());
+      vram_addr.set_coarse_x(tram_addr.coarse_x());
     }
   }
 
   fn transfer_address_y(&mut self) {
-    unimplemented!()
+    let mask_flags = self.get_mut_registers().mask_flags;
+    let show_background = mask_flags.contains(PpuMaskFlags::SHOW_BACKGROUND);
+    let show_sprites = mask_flags.contains(PpuMaskFlags::SHOW_SPRITES);
+
+    let mut vram_addr = self.get_mut_registers().vram_addr;
+    let tram_addr = self.get_mut_registers().tram_addr;
+
+    if show_background || show_sprites {
+      vram_addr.set_fine_y(tram_addr.FINE_Y());
+      vram_addr.set_nametable_y(tram_addr.nametable_y());
+      vram_addr.set_coarse_y(tram_addr.coarse_y());
+    }
   }
 
   pub fn clock(&mut self) {
-    if self.scan_line > -2 && self.scan_line < 240 {
+    if /*self.scan_line > -2 &&*/ self.scan_line < 240 {
       if self.scan_line == 0 && self.cycles == 0 {
         self.cycles = 1;
       }
 
-      if self.scan_line == -1 && self.cycles == 1 {
+      if /*self.scan_line == -1 &&*/ self.cycles == 1 {
         self.get_mut_registers().status_flags.set(PpuStatusFlags::VERTICAL_BLANK_STARTED, false)
       }
 
@@ -185,10 +198,10 @@ impl Ppu {
           0x02 => {
             let vram_addr = self.get_mut_registers().vram_addr;
 
-            let nametable_x: u16 = if vram_addr.contains(ScrollRegister::NAMETABLE_X) { 1 } else { 0 };
-            let nametable_y: u16 = if vram_addr.contains(ScrollRegister::NAMETABLE_Y) { 1 } else { 0 };
-            let coarse_x: u16 = if vram_addr.contains(ScrollRegister::COARSE_X) { 1 } else { 0 };
-            let coarse_y: u16 = if vram_addr.contains(ScrollRegister::COARSE_Y) { 1 } else { 0 };
+            let nametable_x = u16::try_from(vram_addr.nametable_x()).unwrap();
+            let nametable_y = u16::try_from(vram_addr.nametable_y()).unwrap();
+            let coarse_x = u16::try_from(vram_addr.coarse_x()).unwrap();
+            let coarse_y = u16::try_from(vram_addr.coarse_y()).unwrap();
 
             let new_tile_id = self.get_mut_registers().ppu_read(0x23C0 | (vram_addr.bits() & 0x0FFF)
               | (nametable_y << 11)
@@ -209,7 +222,7 @@ impl Ppu {
             let ctrl_flags = self.get_mut_registers().ctrl_flags;
             let vram_addr = self.get_mut_registers().vram_addr;
             let pattern_background: u8 = if ctrl_flags.contains(PpuCtrlFlags::PATTERN_BACKGROUND_TABLE_ADDR) { 1 } else { 0 };
-            let fine_y = if vram_addr.contains(ScrollRegister::FINE_Y) { 1 } else { 0 };
+            let fine_y = u16::try_from(vram_addr.FINE_Y()).unwrap();
 
             let addr = u16::try_from(pattern_background.wrapping_shl(12)).unwrap() + u16::try_from(self.bg_next_tile_id).unwrap() + fine_y + 8;
 
@@ -220,7 +233,7 @@ impl Ppu {
             let ctrl_flags = self.get_mut_registers().ctrl_flags;
             let vram_addr = self.get_mut_registers().vram_addr;
             let pattern_background: u8 = if ctrl_flags.contains(PpuCtrlFlags::PATTERN_BACKGROUND_TABLE_ADDR) { 1 } else { 0 };
-            let fine_y = if vram_addr.contains(ScrollRegister::FINE_Y) { 1 } else { 0 };
+            let fine_y = u16::try_from(vram_addr.FINE_Y()).unwrap();
 
             let addr = u16::try_from(pattern_background.wrapping_shl(12)).unwrap() + u16::try_from(self.bg_next_tile_id).unwrap() + fine_y + 8;
             let new_tile_msb = self.get_mut_registers().ppu_read(addr);
@@ -248,7 +261,7 @@ impl Ppu {
         self.bg_next_tile_id = new_tile_id;
       }
 
-      if self.scan_line == -1 && (280..=304).contains(&self.cycles) {
+      if /*self.scan_line == -1 &&*/ (280..=304).contains(&self.cycles) {
         self.transfer_address_y()
       }
     }
@@ -257,7 +270,7 @@ impl Ppu {
       // do nothing
     }
 
-    if self.cycles == 1 && (241..=260).contains(&self.scan_line) {
+    if self.cycles == 1 && 241 == self.scan_line {
       self.get_mut_registers().status_flags.set(PpuStatusFlags::VERTICAL_BLANK_STARTED, true);
 
       if self.get_mut_registers().ctrl_flags.contains(PpuCtrlFlags::ENABLE_NMI) {
@@ -269,7 +282,8 @@ impl Ppu {
     let mut bg_palette: u8 = 0x00;
 
     if self.get_mut_registers().mask_flags.contains(PpuMaskFlags::SHOW_BACKGROUND) {
-      let bit_mux = u16::try_from((0x8000_i32).wrapping_shr(self.fine_x.into())).unwrap();
+      dbg!("SHOW_BACKGROUND");
+      let bit_mux = u16::try_from((0x8000 >> self.fine_x)).unwrap();
 
       let p0_pixel = if (self.bg_shifter_pattern_lo & bit_mux) > 0x00 { 1 } else { 0 };
       let p1_pixel = if (self.bg_shifter_pattern_hi & bit_mux) > 0x00 { 1 } else { 0 };
@@ -279,27 +293,31 @@ impl Ppu {
       let p0_palette = if (self.bg_shifter_attrib_lo & bit_mux) > 0x00 { 1 } else { 0 };
       let p1_palette = if (self.bg_shifter_attrib_hi & bit_mux) > 0x00 { 1 } else { 0 };
 
-      bg_palette = (p0_palette << 1) | p1_palette;
+      bg_palette = (p1_palette << 1) | p0_palette;
     }
 
 //    dbg!(bg_palette, bg_pixel);
     let pixel = self.get_color(bg_palette, bg_pixel);
 
-    let x = self.cycles - 1;
+    let x = self.cycles.wrapping_sub(1);
     let y = u32::try_from(self.scan_line).unwrap();
 
-//    dbg!(self.scan_line, y);
+//    println!("{}\t{}", self.cycles, y);
 
-    self.image_buffer.put_pixel(x, y, Rgb(pixel.val));
+//    dbg!(pixel.val);
+
+    if (0..256).contains(&x) && (0..240).contains(&y) {
+      self.image_buffer.put_pixel(x, y, Rgb(pixel.val));
+    }
 
     self.cycles += 1;
     if self.cycles > 340 {
       self.cycles = 0;
-      dbg!("increment scan_line");
       self.scan_line += 1;
 
       if self.scan_line > 260 {
-        self.scan_line = -1;
+        self.scan_line = 0;
+        println!("Texture ready");
         self
           .texture
           .upload_raw(GenMipmaps::No, &self.image_buffer)

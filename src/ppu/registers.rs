@@ -38,15 +38,19 @@ bitflags! {
 }
 
 // https://wiki.nesdev.com/w/index.php/PPU_scrolling
-bitflags! {
-  pub struct ScrollRegister: u16 {
-      const COARSE_X = 1 << 4;
-      const COARSE_Y = 1 << 9;
-      const NAMETABLE_X = 1 << 10;
-      const NAMETABLE_Y = 1 << 11;
-      const FINE_Y = 1 << 14;
-      const UNUSED = 1 << 15;
-  }
+bitfield! {
+  #[derive(Copy, Clone, PartialEq)]
+  pub struct ScrollRegister(u16);
+  impl Debug;
+  pub u8,   coarse_x,     set_coarse_x:     4,  0;
+  pub u8,   coarse_y,     set_coarse_y:     9,  5;
+  pub u8,   nametable_x,  set_nametable_x:  10;
+  pub u8,   nametable_y,  set_nametable_y:  11;
+  pub u8,   FINE_Y,       set_fine_y:       14, 12;
+  pub u16,  ADDRESS,      _:                13, 0;
+  pub u8,   LO_BYTE,      set_lo_byte:      7, 0;
+  pub u8,   HI_BYTE,      set_hi_byte:      13, 8;
+  pub u16,  bits,         _:                14, 0;
 }
 
 #[derive(Copy, Clone)]
@@ -71,8 +75,8 @@ impl Registers {
       ctrl_flags: PpuCtrlFlags::from_bits_truncate(0x00),
       mask_flags: PpuMaskFlags::from_bits_truncate(0x00),
       status_flags: PpuStatusFlags::from_bits_truncate(0x00),
-      vram_addr: ScrollRegister::from_bits_truncate(0x00),
-      tram_addr: ScrollRegister::from_bits_truncate(0x00),
+      vram_addr: ScrollRegister(0x00),
+      tram_addr: ScrollRegister(0x00),
       table_palette: [0; 32],
       table_name: [[0; 1024]; 2],
       address_latch: 0x00,
