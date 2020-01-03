@@ -1,56 +1,54 @@
-use bitflags::bitflags;
 use std::convert::TryFrom;
+
 use crate::cartridge::rom::Mirroring;
 
-
-bitflags! {
-    pub struct PpuCtrlFlags: u8 {
-        const NAMETABLE_X = 1 << 0;
-        const NAMETABLE_Y = 1 << 1;
-        const VRAM_ADDR_INCREMENT_MODE = 1 << 2;
-        const PATTERN_SPRITE_TABLE_ADDR = 1 << 3;
-        const PATTERN_BACKGROUND_TABLE_ADDR = 1 << 4;
-        const SPRITE_SIZE = 1 << 5;
-        const SLAVE_MODE = 1 << 6;
-        const ENABLE_NMI = 1 << 7;
-    }
+bitfield! {
+  #[derive(Copy, Clone)]
+  pub struct PpuCtrlFlags(u8); impl Debug;
+    pub nametable_x, _: 0;
+    pub nametable_y, _: 1;
+    pub vram_addr_increment_mode, _: 2;
+    pub pattern_sprite_table_addr, _: 3;
+    pub pattern_background_table_addr, _: 4;
+    pub sprite_size, _: 5;
+    pub slave_mode, _: 6;
+    pub enable_nmi, _: 7;
+    pub bits, _: 7, 0;
 }
 
-bitflags! {
-    pub struct PpuMaskFlags: u8 {
-        const GRAYSCALE = 1 << 0;
-        const SHOW_BACKGROUND_IN_LEFT_MARGIN = 1 << 1;
-        const SHOW_SPRITES_IN_LEFT_MARGIN = 1 << 2;
-        const SHOW_BACKGROUND = 1 << 3;
-        const SHOW_SPRITES = 1 << 4;
-        const EMPHASIZE_RED = 1 << 5;
-        const EMPHASIZE_GREEN = 1 << 6;
-        const EMPHASIZE_BLUE = 1 << 7;
-    }
+bitfield! {
+  #[derive(Copy, Clone)]
+  pub struct PpuMaskFlags(u8); impl Debug;
+    pub grayscale, _: 0;
+    pub show_background_in_left_margin, _: 1;
+    pub show_sprites_in_left_margin, _: 2;
+    pub show_background, _: 3;
+    pub show_sprites, _: 4;
+    pub emphasize_red, _: 5;
+    pub emphasize_green, _: 6;
+    pub emphasize_blue, _: 7;
+    pub bits, _: 7, 0;
 }
 
-bitflags! {
-    pub struct PpuStatusFlags: u8 {
-        const SPRITE_OVERFLOW = 1 << 5;
-        const SPRITE_ZERO_HIT = 1 << 6;
-        const VERTICAL_BLANK_STARTED = 1 << 7;
-    }
+bitfield! {
+  #[derive(Copy, Clone)]
+  pub struct PpuStatusFlags(u8); impl Debug;
+    pub sprite_overflow, set_sprite_overflow:               5;
+    pub sprite_zero_hit, set_sprite_zero_hit:               6;
+    pub vertical_blank_started, set_vertical_blank_started: 7;
+    pub bits,         _:                                    7, 0;
 }
 
 // https://wiki.nesdev.com/w/index.php/PPU_scrolling
 bitfield! {
   #[derive(Copy, Clone, PartialEq)]
-  pub struct ScrollRegister(u16);
-  impl Debug;
-  pub u8,   coarse_x,     set_coarse_x:     4,  0;
-  pub u8,   coarse_y,     set_coarse_y:     9,  5;
-  pub u8,   nametable_x,  set_nametable_x:  10;
-  pub u8,   nametable_y,  set_nametable_y:  11;
-  pub u8,   FINE_Y,       set_fine_y:       14, 12;
-  pub u16,  ADDRESS,      _:                13, 0;
-  pub u8,   LO_BYTE,      set_lo_byte:      7, 0;
-  pub u8,   HI_BYTE,      set_hi_byte:      13, 8;
-  pub u16,  bits,         _:                14, 0;
+  pub struct ScrollRegister(u16); impl Debug;
+    pub u8,   coarse_x,     set_coarse_x:     4,  0;
+    pub u8,   coarse_y,     set_coarse_y:     9,  5;
+    pub u8,   nametable_x,  set_nametable_x:  10;
+    pub u8,   nametable_y,  set_nametable_y:  11;
+    pub u8,   fine_y,       set_fine_y:       14, 12;
+    pub u16,  bits,         _:                14, 0;
 }
 
 #[derive(Copy, Clone)]
@@ -72,9 +70,9 @@ pub struct Registers {
 impl Registers {
   pub fn new(mirror_mode: Mirroring) -> Registers {
     Registers {
-      ctrl_flags: PpuCtrlFlags::from_bits_truncate(0x00),
-      mask_flags: PpuMaskFlags::from_bits_truncate(0x00),
-      status_flags: PpuStatusFlags::from_bits_truncate(0x00),
+      ctrl_flags: PpuCtrlFlags(0x00),
+      mask_flags: PpuMaskFlags(0x00),
+      status_flags: PpuStatusFlags(0x00),
       vram_addr: ScrollRegister(0x00),
       tram_addr: ScrollRegister(0x00),
       table_palette: [0; 32],
@@ -129,7 +127,7 @@ impl Registers {
           0x001C => 0x000C,
           _ => panic!("No palette idx found")
         };
-        self.table_palette[idx] & (if self.mask_flags.contains(PpuMaskFlags::GRAYSCALE) { 0x30 } else { 0x3F })
+        self.table_palette[idx] & (if self.mask_flags.grayscale() { 0x30 } else { 0x3F })
       }
       _ => panic!("Address {} not in range", addr)
     }
@@ -137,6 +135,8 @@ impl Registers {
 
   pub fn ppu_write(&mut self, address: u16, data: u8) {
     let mut addr = address & 0x3FFF;
+
+    dbg!("ppu_write");
 
     match addr {
       0x0000..=0x1FFF => {

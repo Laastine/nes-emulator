@@ -211,11 +211,11 @@ impl Nes {
   }
 
   pub fn render_loop(&mut self) {
-//    let mut stdout = stdout()
-//      .into_raw_mode()
-//      .unwrap_or_else(|err| panic!("stdout raw mode error {:?}", err));
+    let mut stdout = stdout()
+      .into_raw_mode()
+      .unwrap_or_else(|err| panic!("stdout raw mode error {:?}", err));
 
-//    write!(stdout, "{}{}", cursor::Goto(1, 1), clear::AfterCursor).unwrap();
+    write!(stdout, "{}{}", cursor::Goto(1, 1), clear::AfterCursor).unwrap();
 
     let mut last_time = time::Instant::now();
 
@@ -237,7 +237,7 @@ impl Nes {
                 },
               ..
             } => {
-//              write!(stdout, "{}{}", cursor::Goto(1, 1), clear::AfterCursor).unwrap();
+              write!(stdout, "{}{}", cursor::Goto(1, 1), clear::AfterCursor).unwrap();
               break 'app;
             }
             WindowEvent::KeyboardInput {
