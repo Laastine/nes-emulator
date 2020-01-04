@@ -30,6 +30,7 @@ pub struct Ppu {
   bg_shifter_pattern_hi: u16,
   bg_shifter_attrib_lo: u16,
   bg_shifter_attrib_hi: u16,
+  pub frame_ready: bool,
 }
 
 impl Ppu {
@@ -57,6 +58,7 @@ impl Ppu {
       bg_shifter_pattern_hi: 0,
       bg_shifter_attrib_lo: 0,
       bg_shifter_attrib_hi: 0,
+      frame_ready: false
     }
   }
 
@@ -74,8 +76,8 @@ impl Ppu {
   }
 
   fn get_color(&mut self, palette: u8, pixel: u8) -> Color {
-    let idx = u8::try_from(self.read_u8(0x3F + u16::try_from((palette << 2) + pixel).unwrap())).unwrap();
-    COLORS[usize::try_from(idx & 0x3F).unwrap()]
+    let idx = u8::try_from(self.read_u8(0x3F + (u16::try_from((palette << 2) + pixel).unwrap()) & 0x3F)).unwrap();
+    COLORS[usize::try_from(idx).unwrap()]
   }
 
   pub fn reset(&mut self) {
@@ -301,12 +303,11 @@ impl Ppu {
       bg_palette = (p1_palette << 1) | p0_palette;
     }
 
-    let pixel = self.get_color(bg_palette, bg_pixel);
-
     let x = self.cycles.wrapping_sub(1);
-    let y = u32::try_from(self.scan_line).unwrap();
+    let y = if self.scan_line > -1 { u32::try_from(self.scan_line).unwrap() } else { 0 };
 
-    if (0..256).contains(&x) && (0..240).contains(&y) {
+    if (0..=255).contains(&x) && (0..=239).contains(&y) {
+      let pixel = self.get_color(bg_palette, bg_pixel);
       self.image_buffer.put_pixel(x, y, Rgb(pixel.val));
     }
 
@@ -316,7 +317,8 @@ impl Ppu {
       self.scan_line += 1;
 
       if self.scan_line > 260 {
-        self.scan_line = 0;
+        self.scan_line = -1;
+        self.frame_ready = true;
         self
           .texture
           .upload_raw(GenMipmaps::No, &self.image_buffer)

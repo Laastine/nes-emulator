@@ -48,7 +48,7 @@ impl Bus {
         let mapped_addr = usize::try_from(self.get_mut_cartridge().mapper.mapped_write_cpu_u8(address)).unwrap();
         self.get_mut_cartridge().get_prg_rom()[mapped_addr] = data;
       }
-      _ => panic!("write_u8 address: {} not in range", address),
+      _ => (),
     }
   }
 
@@ -105,16 +105,15 @@ impl Bus {
   pub fn read_u8(&mut self, address: u16, read_only: bool) -> u16 {
     match address {
       0x0000..=0x1FFF => {
-        let idx = usize::try_from(address & 0x07FF).unwrap();
-        self.ram[idx].into()
+        self.ram[usize::try_from(address & 0x07FF).unwrap()].into()
       }
       0x2000..=0x3FFF => {
         self.read_ppu_registers(address & 0x0007, read_only).into()
       },
       0x4016..=0x4017 => {
-        let res: u8 = if (self.controller[usize::try_from(address & 0x0001).unwrap()] & 0x80) > 0x00 { 1 } else { 0 };
+        let res: u16 = if (self.controller[usize::try_from(address & 0x0001).unwrap()] & 0x80) > 0x00 { 1 } else { 0 };
         self.controller[usize::try_from(address & 0x0001).unwrap()] <<= 1;
-        res.into()
+        res
       }
       0x8000..=0xFFFF => {
         let mapped_addr = usize::try_from(self.get_mut_cartridge().mapper.mapped_read_cpu_u8(address)).unwrap();

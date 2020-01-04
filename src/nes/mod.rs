@@ -183,7 +183,8 @@ impl Nes {
   }
 
   pub fn draw_code(&self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
-    let val = self.map_asm.get(&self.cpu.pc).unwrap();
+    let val = self.map_asm.get(&self.cpu.pc)
+      .unwrap_or_else(|| panic!("No ASM-code in idx {}", &self.cpu.pc));
     write!(stdout, "{}{}", cursor::Goto(x, y), clear::AfterCursor).unwrap();
     write!(
       stdout,
@@ -272,7 +273,8 @@ impl Nes {
         self.clock();
       }
 
-      if delta > 1.0 {
+      if delta > 0.334 && self.ppu.frame_ready {
+        self.ppu.frame_ready = false;
         last_time = time::Instant::now();
         self.draw_terminal(&mut stdout);
         self.render_screen();
