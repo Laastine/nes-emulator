@@ -1685,4 +1685,6 @@ impl LookUpTable {
   pub fn get_name(&self, index: usize) -> &'static str {
     &self.instructions[index].name
   }
+
+  pub fn get_cycles(&self, index: usize) -> u8 { self.instructions[index].cycles }
 }

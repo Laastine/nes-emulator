@@ -1,7 +1,7 @@
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::prelude::*;
 use std::rc::Rc;
 
@@ -24,13 +24,16 @@ pub struct Cpu {
   addr_rel: u16,
   opcode: u8,
   cycles: u8,
-  clock_count: usize,
+  clock_count: u32,
   lookup: LookUpTable,
 }
 
 impl Cpu {
   pub fn new(bus: Rc<RefCell<Bus>>) -> Cpu {
     let lookup = LookUpTable::new();
+
+    let mut file = OpenOptions::new().write(true).append(false).open("log.txt").expect("File open error");
+    file.set_len(0);
 
     Cpu {
       bus,
@@ -52,7 +55,7 @@ impl Cpu {
   }
 
   pub fn complete(&self) -> bool {
-    self.cycles == 0 || self.cycles as char == '\0'
+    self.cycles == 0//|| self.cycles as char == '\0'
   }
 
   fn set_flag(&mut self, flag: &FLAGS6502, val: bool) {
@@ -98,44 +101,51 @@ impl Cpu {
   }
 
   pub fn clock(&mut self) {
-    if !self.complete() {
+    if self.complete() {
       self.opcode = self.bus_mut_read_u8(self.pc).try_into().unwrap();
 
       self.set_flag(&FLAGS6502::U, true);
 
-      self.pc = self.pc.wrapping_add(1);
-
       let log_pc = self.pc;
 
+      self.pc = self.pc.wrapping_add(1);
+
       let idx = usize::try_from(self.opcode).unwrap();
+
+      self.cycles = self.lookup.get_cycles(idx);
+
       let addr_mode = *self.lookup.get_addr_mode(idx);
 
       let operate = *self.lookup.get_operate(idx);
 
-      let new_cycles = self.addr_mode_value(addr_mode) & self.op_code_value(operate);
-      self.cycles = self.cycles.wrapping_add(new_cycles);
+      self.cycles += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
 
       self.set_flag(&FLAGS6502::U, true);
 
-      let mut file = File::create("log.txt").expect("File create error");
+      let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open("log.txt")
+        .expect("File append error");
+
       file
-        .write_all(
+        .write(
           format!(
-            "{} PC:{} XXX {} {} {} N:{}, V:{}, U:{}, B:{}, D:{}, I:{}, Z:{}, C:{} stack_pointer:{}",
+            "{} PC:{}\t A:{} X:{} Y:{} {}{}{}{}{}{}{}{} STKP:{}\n",
             self.clock_count,
-            log_pc,
+            hex(usize::try_from(log_pc).unwrap(), 4),
             hex(u8::try_into(self.acc).unwrap(), 2),
             hex(u8::try_into(self.x).unwrap(), 2),
             hex(u8::try_into(self.y).unwrap(), 2),
-            self.get_flag(&FLAGS6502::N),
-            self.get_flag(&FLAGS6502::V),
-            self.get_flag(&FLAGS6502::U),
-            self.get_flag(&FLAGS6502::B),
-            self.get_flag(&FLAGS6502::D),
-            self.get_flag(&FLAGS6502::I),
-            self.get_flag(&FLAGS6502::Z),
-            self.get_flag(&FLAGS6502::C),
-            self.stack_pointer
+            if self.get_flag(&FLAGS6502::N) > 0 { "N" } else { "." },
+            if self.get_flag(&FLAGS6502::V) > 0 { "V" } else { "." },
+            if self.get_flag(&FLAGS6502::U) > 0 { "U" } else { "." },
+            if self.get_flag(&FLAGS6502::B) > 0 { "B" } else { "." },
+            if self.get_flag(&FLAGS6502::D) > 0 { "D" } else { "." },
+            if self.get_flag(&FLAGS6502::I) > 0 { "I" } else { "." },
+            if self.get_flag(&FLAGS6502::Z) > 0 { "Z" } else { "." },
+            if self.get_flag(&FLAGS6502::C) > 0 { "C" } else { "." },
+            hex(usize::try_from(self.stack_pointer).unwrap(), 2),
           )
             .as_bytes(),
         )
@@ -162,12 +172,12 @@ impl Cpu {
     let lo_byte = self.bus_mut_read_u8(self.addr_abs);
     let hi_byte = self.bus_mut_read_u8(self.addr_abs + 1);
 
-    self.pc = (hi_byte.wrapping_shl(8)) | lo_byte;
+    self.pc = (hi_byte << 8) | lo_byte;
     self.acc = 0;
     self.x = 0;
     self.y = 0;
-    self.status_register = FLAGS6502::U.value();
     self.stack_pointer = 0xFD;
+    self.status_register = 0x00 | FLAGS6502::U.value();
 
     self.addr_abs = 0x0000;
     self.addr_rel = 0x0000;
@@ -180,37 +190,29 @@ impl Cpu {
   pub fn irq(&mut self) {
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     if self.get_flag(&FLAGS6502::I) == 0x00 {
-      let stack_pointer = self.stack_pointer;
-      let pc = self.pc.wrapping_shr(8);
-      self.bus_write_u8(
-        0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()),
-        u8::try_from(pc & 0x00FF).unwrap(),
+      self.bus_write_u8(0x0100u16 + u16::try_from(self.stack_pointer).unwrap(),
+                        u8::try_from((self.pc >> 8) & 0x00FF).unwrap(),
       );
-      let pc = self.pc;
-      let stack_pointer = self.stack_pointer;
+      self.stack_pointer = self.stack_pointer.wrapping_sub(1);
 
-      self.bus_write_u8(
-        0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()),
-        u8::try_from(pc & 0x00FF).unwrap(),
-      );
+      self.bus_write_u8(0x0100u16 + u16::try_from(self.stack_pointer).unwrap(),
+                        u8::try_from(self.pc & 0x00FF).unwrap());
       self.stack_pointer = self.stack_pointer.wrapping_sub(1);
 
       self.set_flag(&FLAGS6502::B, false);
       self.set_flag(&FLAGS6502::U, true);
       self.set_flag(&FLAGS6502::I, true);
-      let stack_pointer = self.stack_pointer;
-      let status_register = self.status_register;
 
       self.bus_write_u8(
-        0x100 + u16::try_from(stack_pointer).unwrap(),
-        status_register,
+        0x100 + u16::try_from(self.stack_pointer).unwrap(),
+        self.status_register,
       );
       self.stack_pointer = self.stack_pointer.wrapping_sub(1);
 
       self.addr_abs = 0xFFFE;
       let lo_byte = self.bus_mut_read_u8(self.addr_abs);
       let hi_byte = self.bus_mut_read_u8(self.addr_abs + 1);
-      self.pc = u16::try_from((hi_byte.wrapping_shl(8)) | lo_byte).unwrap();
+      self.pc = u16::try_from((hi_byte << 8) | lo_byte).unwrap();
 
       self.cycles = 7;
     }
@@ -946,9 +948,9 @@ impl Cpu {
 
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
     self.pc = self
-        .read_u8(0x0100u16.wrapping_add(u16::try_from(self.stack_pointer).unwrap()))
-        .try_into()
-        .unwrap();
+      .read_u8(0x0100u16.wrapping_add(u16::try_from(self.stack_pointer).unwrap()))
+      .try_into()
+      .unwrap();
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
     self.pc |= ({
       let stack_pointer = self.stack_pointer;
