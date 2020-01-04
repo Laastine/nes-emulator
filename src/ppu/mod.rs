@@ -17,7 +17,6 @@ pub struct Ppu {
   bus: Rc<RefCell<Bus>>,
   cycles: u32,
   scan_line: i32,
-  pub is_frame_ready: bool,
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
   pub texture: Texture<Flat, Dim2, NormRGB8UI>,
   registers: Rc<RefCell<Registers>>,
@@ -45,7 +44,6 @@ impl Ppu {
       bus,
       cycles: 0,
       scan_line: 0,
-      is_frame_ready: false,
       image_buffer,
       texture,
       registers,
@@ -76,7 +74,7 @@ impl Ppu {
   }
 
   fn get_color(&mut self, palette: u8, pixel: u8) -> Color {
-    let idx = u8::try_from(self.read_u8(u16::try_from(palette.wrapping_shl(2) + pixel).unwrap() + 0x3F00)).unwrap();
+    let idx = u8::try_from(self.read_u8(0x3F + u16::try_from((palette << 2) + pixel).unwrap())).unwrap();
     COLORS[usize::try_from(idx & 0x3F).unwrap()]
   }
 
@@ -99,11 +97,13 @@ impl Ppu {
   }
 
   fn update_shifters(&mut self) {
-    self.bg_shifter_pattern_lo <<= 1;
-    self.bg_shifter_pattern_hi <<= 1;
+    if self.get_mut_registers().mask_flags.show_background() {
+      self.bg_shifter_pattern_lo <<= 1;
+      self.bg_shifter_pattern_hi <<= 1;
 
-    self.bg_shifter_attrib_lo <<= 1;
-    self.bg_shifter_attrib_hi <<= 1;
+      self.bg_shifter_attrib_lo <<= 1;
+      self.bg_shifter_attrib_hi <<= 1;
+    }
   }
 
   fn load_background_shifters(&mut self) {
@@ -116,18 +116,15 @@ impl Ppu {
 
   fn increment_scroll_x(&mut self) {
     let mask_flags = self.get_mut_registers().mask_flags;
-    let show_background = mask_flags.grayscale();
-    let show_sprites = mask_flags.show_sprites();
 
-    let vram_addr = self.get_mut_registers().vram_addr;
+    if mask_flags.show_background() || mask_flags.show_sprites() {
+      let vram_addr = self.get_mut_registers().vram_addr;
 
-    if show_background || show_sprites {
-      if vram_addr.coarse_x() > 30 {
+      if vram_addr.coarse_x() == 31 {
         self.get_mut_registers().vram_addr.set_coarse_x(0);
         let new_x_val = !self.get_mut_registers().vram_addr.nametable_x();
         self.get_mut_registers().vram_addr.set_nametable_x(new_x_val);
       } else {
-        let vram_addr = self.get_mut_registers().vram_addr;
         self.get_mut_registers().vram_addr.set_coarse_x(vram_addr.coarse_x() + 1);
       }
     }
@@ -135,10 +132,8 @@ impl Ppu {
 
   fn increment_scroll_y(&mut self) {
     let mask_flags = self.get_mut_registers().mask_flags;
-    let show_background = mask_flags.grayscale();
-    let show_sprites = mask_flags.show_sprites();
 
-    if show_background || show_sprites {
+    if mask_flags.show_background() || mask_flags.show_sprites() {
       let mut vram_addr = self.get_mut_registers().vram_addr;
 
       if vram_addr.fine_y() < 7 {
@@ -161,30 +156,23 @@ impl Ppu {
 
   fn transfer_address_x(&mut self) {
     let mask_flags = self.get_mut_registers().mask_flags;
-    let show_background = mask_flags.grayscale();
-    let show_sprites = mask_flags.show_sprites();
 
-    let mut vram_addr = self.get_mut_registers().vram_addr;
     let tram_addr = self.get_mut_registers().tram_addr;
 
-    if show_background || show_sprites {
-      vram_addr.set_nametable_x(tram_addr.nametable_x());
-      vram_addr.set_coarse_x(tram_addr.coarse_x());
+    if mask_flags.show_background() || mask_flags.show_sprites() {
+      self.get_mut_registers().vram_addr.set_nametable_x(tram_addr.nametable_x());
+      self.get_mut_registers().vram_addr.set_coarse_x(tram_addr.coarse_x());
     }
   }
 
   fn transfer_address_y(&mut self) {
     let mask_flags = self.get_mut_registers().mask_flags;
-    let show_background = mask_flags.grayscale();
-    let show_sprites = mask_flags.show_sprites();
-
-    let mut vram_addr = self.get_mut_registers().vram_addr;
     let tram_addr = self.get_mut_registers().tram_addr;
 
-    if show_background || show_sprites {
-      vram_addr.set_fine_y(tram_addr.fine_y());
-      vram_addr.set_nametable_y(tram_addr.nametable_y());
-      vram_addr.set_coarse_y(tram_addr.coarse_y());
+    if mask_flags.show_background() || mask_flags.show_sprites() {
+      self.get_mut_registers().vram_addr.set_fine_y(tram_addr.fine_y());
+      self.get_mut_registers().vram_addr.set_nametable_y(tram_addr.nametable_y());
+      self.get_mut_registers().vram_addr.set_coarse_y(tram_addr.coarse_y());
     }
   }
 
@@ -333,7 +321,6 @@ impl Ppu {
           .texture
           .upload_raw(GenMipmaps::No, &self.image_buffer)
           .expect("Texture update error");
-        self.is_frame_ready = true;
       }
     }
   }

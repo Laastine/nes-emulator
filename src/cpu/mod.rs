@@ -89,7 +89,7 @@ impl Cpu {
 
   fn read_u8(&mut self, address: u16) -> u16 {
     let mut bus = self.get_mut_bus();
-    bus.read_u8(address, true).try_into().unwrap()
+    bus.read_u8(address, false).try_into().unwrap()
   }
 
   fn bus_write_u8(&mut self, address: u16, data: u8) {

@@ -38,7 +38,7 @@ pub struct Nes {
 impl Nes {
   pub fn new(rom_file: &str) -> Nes {
     let cartridge = Cartridge::new(rom_file);
-    let cart = Rc::new(RefCell::new((cartridge)));
+    let cart = Rc::new(RefCell::new(cartridge));
 
     let map_asm: HashMap<u16, String> = HashMap::new();
 

@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
 use crate::mapper::Mapper;
-use crate::ppu::registers::{PpuCtrlFlags, PpuMaskFlags, PpuStatusFlags, Registers, ScrollRegister};
+use crate::ppu::registers::{PpuCtrlFlags, PpuMaskFlags, Registers, ScrollRegister};
 
 pub const MEM_SIZE: usize = 0x0800;
 
@@ -59,11 +59,11 @@ impl Bus {
     match address {
       0x00 => {
         self.get_mut_registers().ctrl_flags = PpuCtrlFlags(data);
+
         let ctrl_flags = self.get_mut_registers().ctrl_flags;
-        let new_x = ctrl_flags.nametable_x();
-        self.get_mut_registers().tram_addr.set_nametable_x(new_x);
-        let new_y = ctrl_flags.nametable_y();
-        self.get_mut_registers().tram_addr.set_nametable_y(new_y);
+        self.get_mut_registers().tram_addr.set_nametable_x(ctrl_flags.nametable_x());
+
+        self.get_mut_registers().tram_addr.set_nametable_y(ctrl_flags.nametable_y());
       }
       0x01 => {
         self.get_mut_registers().mask_flags = PpuMaskFlags(data);
@@ -113,7 +113,7 @@ impl Bus {
         self.ram[idx].into()
       }
       0x2000..=0x3FFF => {
-        self.read_ppu_u8(address & 0x0007, read_only).into()
+        self.read_ppu_registers(address & 0x0007, read_only).into()
       },
       0x4016..=0x4017 => {
         let res: u8 = if (self.controller[usize::try_from(address & 0x0001).unwrap()] & 0x80) > 0x00 { 1 } else { 0 };
@@ -131,7 +131,7 @@ impl Bus {
     }
   }
 
-  fn read_ppu_u8(&mut self, address: u16, read_only: bool) -> u8 {
+  fn read_ppu_registers(&mut self, address: u16, read_only: bool) -> u8 {
     if read_only {
       match address {
         0x00 => self.get_mut_registers().ctrl_flags.bits(),
@@ -149,9 +149,9 @@ impl Bus {
       match address {
         0x00 => 0x00,
         0x01 => 0x00,
-        0x02 => {
+        0x02 => {   // Status
           let status_flags = self.get_mut_registers().status_flags.bits();
-          let res = status_flags & 0xE0 | self.get_mut_registers().ppu_data_buffer & 0x1F;
+          let res = (status_flags & 0xE0) | (self.get_mut_registers().ppu_data_buffer & 0x1F);
           self.get_mut_registers().status_flags.set_vertical_blank_started(false);
           self.get_mut_registers().address_latch = 0x00;
           res
@@ -160,18 +160,18 @@ impl Bus {
         0x04 => 0x00,
         0x05 => 0x00,
         0x06 => 0x00,
-        0x07 => {
+        0x07 => {   // PPU data
           let mut res = self.get_mut_registers().ppu_data_buffer;
           let vram_addr = self.get_mut_registers().vram_addr;
           let ppu_val = self.get_mut_registers().ppu_read(vram_addr.bits());
           self.get_mut_registers().ppu_data_buffer = u8::try_from(ppu_val).unwrap();
 
-          if self.get_mut_registers().vram_addr.bits() >= 0x3F00 {
+          if self.get_mut_registers().vram_addr.bits() > 0x3EFF {
             res = self.get_mut_registers().ppu_data_buffer;
           }
           let vram_addr = self.get_mut_registers().vram_addr;
-          let val = if self.get_mut_registers().ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
-          self.get_mut_registers().vram_addr = ScrollRegister(vram_addr.bits() + val);
+          let increment_val = if self.get_mut_registers().ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
+          self.get_mut_registers().vram_addr = ScrollRegister(vram_addr.bits() + increment_val);
           res
         }
         _ => panic!("read_ppu_u8 address: {} not in range", address),
