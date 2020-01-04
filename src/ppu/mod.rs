@@ -287,7 +287,7 @@ impl Ppu {
     let mut bg_pixel: u8 = 0x00;
     let mut bg_palette: u8 = 0x00;
 
-    if self.get_mut_registers().mask_flags.grayscale() {
+    if self.get_mut_registers().mask_flags.show_background() {
       let bit_mux = u16::try_from(0x8000 >> self.fine_x).unwrap();
 
       let p0_pixel = if (self.bg_shifter_pattern_lo & bit_mux) > 0x00 { 1 } else { 0 };

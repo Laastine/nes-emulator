@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
-use crate::cartridge::rom_reading::{Mirroring, RomHeader};
+use crate::cartridge::rom_reading::Mirroring;
 
 bitfield! {
   #[derive(Copy, Clone)]

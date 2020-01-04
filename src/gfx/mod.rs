@@ -11,7 +11,7 @@ use crate::gfx::gxf_util::{Semantics, VertexColor, VertexData, VertexPosition};
 use crate::nes::constants::{SCREEN_RES_X, SCREEN_RES_Y};
 
 mod gxf_util;
-pub mod texture;
+//pub mod texture;
 
 const SHADER_VERT: &str = include_str!("emulator.v.glsl");
 const SHADER_FRAG: &str = include_str!("emulator.f.glsl");

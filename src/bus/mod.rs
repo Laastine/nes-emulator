@@ -3,7 +3,6 @@ use std::convert::TryFrom;
 use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
-use crate::mapper::Mapper;
 use crate::ppu::registers::{PpuCtrlFlags, PpuMaskFlags, Registers, ScrollRegister};
 
 pub const MEM_SIZE: usize = 0x0800;
@@ -47,9 +46,7 @@ impl Bus {
       }
       0x8000..=0xFFFF => {
         let mapped_addr = usize::try_from(self.get_mut_cartridge().mapper.mapped_write_cpu_u8(address)).unwrap();
-        {
-          self.get_mut_cartridge().get_prg_rom()[mapped_addr] = data
-        };
+        self.get_mut_cartridge().get_prg_rom()[mapped_addr] = data;
       }
       _ => panic!("write_u8 address: {} not in range", address),
     }
@@ -72,7 +69,6 @@ impl Bus {
       0x03 => {},
       0x04 => {},
       0x05 => { // Scroll
-        let tram_addr = self.get_mut_registers().tram_addr;
         if self.get_mut_registers().address_latch == 0 { // X
           self.get_mut_registers().fine_x = data & 0x07;
 

@@ -17,7 +17,6 @@ use crate::cartridge::Cartridge;
 use crate::cpu::{Cpu, hex};
 use crate::cpu::instruction_table::FLAGS6502;
 use crate::gfx::WindowContext;
-use crate::mapper::Mapper;
 use crate::ppu::{Ppu, registers::Registers};
 
 pub mod constants;
@@ -220,7 +219,7 @@ impl Nes {
 
     'app: loop {
       let elapsed = last_time.elapsed();
-      let mut delta = f64::from(elapsed.subsec_nanos()) / 1e9 + elapsed.as_secs() as f64;
+      let delta = f64::from(elapsed.subsec_nanos()) / 1e9 + elapsed.as_secs() as f64;
 
       for event in self.window_context.surface.poll_events() {
         if let Event::WindowEvent { event, .. } = event {
