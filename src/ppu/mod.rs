@@ -88,6 +88,9 @@ impl Ppu {
     self.get_mut_registers().ctrl_flags = PpuCtrlFlags(0x00);
     self.get_mut_registers().vram_addr = ScrollRegister(0x0000);
     self.get_mut_registers().tram_addr = ScrollRegister(0x0000);
+    self.get_mut_registers().ppu_data_buffer = 0;
+    self.get_mut_registers().fine_x = 0;
+    self.get_mut_registers().fine_y = 0;
     self.bg_next_tile_id = 0;
     self.bg_next_tile_attrib = 0;
     self.bg_next_tile_lsb = 0;
