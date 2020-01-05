@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::iter::Iterator;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct RomHeader {
   pub prg_rom_len: usize,
   pub chr_rom_len: usize,
@@ -17,7 +17,7 @@ pub struct RomHeader {
   pub flag_bus_conflicts: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Rom {
   pub rom_header: RomHeader,
   pub prg_rom: Vec<u8>,
@@ -86,7 +86,7 @@ impl Rom {
       _ => panic!("Mirroring mode {}, {} not supported", flag_mirror, flag_four_screen_vram)
     };
 
-    let mapper = mapper_lo | mapper_hi.wrapping_shl(4);
+    let mapper = mapper_lo | (mapper_hi << 4);
 
     let tv_system = TVSystem::to_enum(flag_tv_system);
 
