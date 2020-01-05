@@ -37,18 +37,23 @@ impl Bus {
   }
 
   pub fn write_u8(&mut self, address: u16, data: u8) {
-    match address {
-      0x0000..=0x1FFF => {
-        self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
+    let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_write_cpu_u8(address);
+    if is_address_in_range {
+      self.get_mut_cartridge().get_prg_rom()[mapped_addr] = data;
+    } else {
+      match address {
+        0x0000..=0x1FFF => {
+          self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
+        }
+        0x2000..=0x3FFF => {
+          self.write_ppu_registers(address & 0x0007, data)
+        }
+        0x4016..=0x4017 => {
+          let idx = usize::try_from(address & 0x0001).unwrap();
+          self.controller[idx] = self.controller[idx];
+        }
+        _ => (),
       }
-      0x2000..=0x3FFF => {
-        self.write_ppu_registers(address & 0x0007, data)
-      }
-      0x8000..=0xFFFF => {
-        let mapped_addr = usize::try_from(self.get_mut_cartridge().mapper.mapped_write_cpu_u8(address)).unwrap();
-        self.get_mut_cartridge().get_prg_rom()[mapped_addr] = data;
-      }
-      _ => (),
     }
   }
 
@@ -103,26 +108,24 @@ impl Bus {
   }
 
   pub fn read_u8(&mut self, address: u16, read_only: bool) -> u16 {
-    match address {
-      0x0000..=0x1FFF => {
-        self.ram[usize::try_from(address & 0x07FF).unwrap()].into()
+    let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_cpu_u8(address);
+    if is_address_in_range {
+      u16::try_from(self.get_mut_cartridge().get_prg_rom()[mapped_addr]).unwrap()
+    } else {
+      match address {
+        0x0000..=0x1FFF => {
+          self.ram[usize::try_from(address & 0x07FF).unwrap()].into()
+        }
+        0x2000..=0x3FFF => {
+          self.read_ppu_registers(address & 0x0007, read_only).into()
+        },
+        0x4016..=0x4017 => {
+          let res: u16 = if (self.controller[usize::try_from(address & 0x0001).unwrap()] & 0x80) > 0x00 { 1 } else { 0 };
+          self.controller[usize::try_from(address & 0x0001).unwrap()] <<= 1;
+          res
+        }
+        _ => 0,
       }
-      0x2000..=0x3FFF => {
-        self.read_ppu_registers(address & 0x0007, read_only).into()
-      },
-      0x4016..=0x4017 => {
-        let res: u16 = if (self.controller[usize::try_from(address & 0x0001).unwrap()] & 0x80) > 0x00 { 1 } else { 0 };
-        self.controller[usize::try_from(address & 0x0001).unwrap()] <<= 1;
-        res
-      }
-      0x8000..=0xFFFF => {
-        let mapped_addr = usize::try_from(self.get_mut_cartridge().mapper.mapped_read_cpu_u8(address)).unwrap();
-        u16::try_from({
-          self.get_mut_cartridge().get_prg_rom()[mapped_addr]
-        })
-        .unwrap()
-      }
-      _ => 0x0000,
     }
   }
 
