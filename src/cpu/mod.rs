@@ -156,11 +156,10 @@ impl Cpu {
     self.cycles = self.cycles.wrapping_sub(1);
   }
 
-  pub fn fetch(&mut self) -> u8 {
-    if self.addr_mode() != ADDRMODE6502::IMP {
-      self.fetched = self.bus_mut_read_u8(self.addr_abs).try_into().unwrap();
+  pub fn fetch(&mut self) {
+    if !(self.addr_mode() == ADDRMODE6502::IMP) {
+      self.fetched = u8::try_from(self.bus_mut_read_u8(self.addr_abs)).unwrap();
     }
-    self.fetched
   }
 
   pub fn reset(&mut self) {
@@ -186,12 +185,12 @@ impl Cpu {
   /// Interrupt
   pub fn irq(&mut self) {
     if self.get_flag(&FLAGS6502::I) == 0x00 {
-      self.bus_write_u8(0x0100u16 + u16::try_from(self.stack_pointer).unwrap(),
+      self.bus_write_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap(),
                         u8::try_from((self.pc >> 8) & 0x00FF).unwrap(),
       );
       self.stack_pointer = self.stack_pointer.wrapping_sub(1);
 
-      self.bus_write_u8(0x0100u16 + u16::try_from(self.stack_pointer).unwrap(),
+      self.bus_write_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap(),
                         u8::try_from(self.pc & 0x00FF).unwrap());
       self.stack_pointer = self.stack_pointer.wrapping_sub(1);
 
@@ -200,7 +199,7 @@ impl Cpu {
       self.set_flag(&FLAGS6502::I, true);
 
       self.bus_write_u8(
-        0x100 + u16::try_from(self.stack_pointer).unwrap(),
+        0x0100 + u16::try_from(self.stack_pointer).unwrap(),
         self.status_register,
       );
       self.stack_pointer = self.stack_pointer.wrapping_sub(1);
@@ -217,13 +216,13 @@ impl Cpu {
   /// Non-maskable interrupt
   pub fn nmi(&mut self) {
     self.bus_write_u8(
-      0x0100u16.wrapping_add(u16::try_from(self.stack_pointer).unwrap()),
+      0x0100 + u16::try_from(self.stack_pointer).unwrap(),
       u8::try_from((self.pc >> 8) & 0x00FF).unwrap(),
     );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
 
     self.bus_write_u8(
-      0x0100u16.wrapping_add(u16::try_from(self.stack_pointer).unwrap()),
+      0x0100 + u16::try_from(self.stack_pointer).unwrap(),
       u8::try_from(self.pc & 0x00FF).unwrap(),
     );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
@@ -232,7 +231,7 @@ impl Cpu {
     self.set_flag(&FLAGS6502::U, true);
     self.set_flag(&FLAGS6502::I, true);
     self.bus_write_u8(
-      0x100 + u16::try_from(self.stack_pointer).unwrap(),
+      0x0100 + u16::try_from(self.stack_pointer).unwrap(),
       self.status_register,
     );
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
@@ -488,9 +487,7 @@ impl Cpu {
     self.set_flag(&FLAGS6502::Z, (self.temp & 0xFF00) == 0x00);
     self.set_flag(&FLAGS6502::N, (self.temp & 0x80) > 0x00);
 
-    let addr_mode = self.addr_mode();
-    let addr_val = self.addr_mode_value(addr_mode);
-    if addr_val == self.imp() {
+    if self.addr_mode() == ADDRMODE6502::IMP {
       self.acc = (self.temp & 0x00FF).try_into().unwrap();
     } else {
       self.bus_write_u8(self.addr_abs, (self.temp & 0x00FF) as u8);
@@ -819,10 +816,7 @@ impl Cpu {
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
     self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);
 
-    let addr_mode = self.addr_mode();
-    let addr_val = self.addr_mode_value(addr_mode);
-
-    if addr_val == self.imp() {
+    if self.addr_mode() == ADDRMODE6502::IMP {
       self.acc = u8::try_from(self.temp & 0x00FF).unwrap();
     } else {
       self.bus_write_u8(self.addr_abs, u8::try_from(self.temp & 0x00FF).unwrap());
@@ -939,7 +933,7 @@ impl Cpu {
 
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
     self.pc = self
-      .read_u8(0x0100u16.wrapping_add(u16::try_from(self.stack_pointer).unwrap()))
+      .read_u8(0x0100 + u16::try_from(self.stack_pointer).unwrap())
       .try_into()
       .unwrap();
     self.stack_pointer = self.stack_pointer.wrapping_add(1);
@@ -1155,6 +1149,7 @@ impl Cpu {
     let lo_byte = self.bus_read_u8(addr.try_into().unwrap());
     addr += 1;
     let hi_byte = self.bus_read_u8(addr.try_into().unwrap());
+    addr += 1;
     (lo_byte, hi_byte)
   }
 }

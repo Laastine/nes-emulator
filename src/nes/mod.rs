@@ -344,8 +344,8 @@ impl Nes {
   }
 
   fn reset(&mut self) {
-    self.system_cycles = 0;
     self.cpu.reset();
     self.ppu.reset();
+    self.system_cycles = 0;
   }
 }

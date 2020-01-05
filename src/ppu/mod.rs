@@ -76,7 +76,7 @@ impl Ppu {
   }
 
   fn get_color(&mut self, palette: u8, pixel: u8) -> Color {
-    let idx = u8::try_from(self.read_u8(0x3F + (u16::try_from((palette << 2) + pixel).unwrap()) & 0x3F)).unwrap();
+    let idx = u8::try_from(self.read_u8(0x3F + (u16::try_from((palette << 2) + pixel).unwrap())) & 0x3F).unwrap();
     COLORS[usize::try_from(idx).unwrap()]
   }
 
