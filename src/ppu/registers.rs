@@ -6,7 +6,7 @@ use crate::cartridge::Cartridge;
 use crate::cartridge::rom_reading::Mirroring;
 
 bitfield! {
-  #[derive(Copy, Clone)]
+  #[derive(Copy, Clone, PartialEq)]
   pub struct PpuCtrlFlags(u8); impl Debug;
     pub nametable_x, _: 0;
     pub nametable_y, _: 1;
@@ -20,7 +20,7 @@ bitfield! {
 }
 
 bitfield! {
-  #[derive(Copy, Clone)]
+  #[derive(Copy, Clone, PartialEq)]
   pub struct PpuMaskFlags(u8); impl Debug;
     pub grayscale, _: 0;
     pub show_background_in_left_margin, _: 1;
@@ -34,7 +34,7 @@ bitfield! {
 }
 
 bitfield! {
-  #[derive(Copy, Clone)]
+  #[derive(Copy, Clone, PartialEq)]
   pub struct PpuStatusFlags(u8); impl Debug;
     pub sprite_overflow, set_sprite_overflow:               5;
     pub sprite_zero_hit, set_sprite_zero_hit:               6;
@@ -95,63 +95,63 @@ impl Registers {
   pub fn ppu_read(&mut self, address: u16) -> u8 {
     let mut addr = address & 0x3FFF;
 
-    if (0x0000..=0x1FFF).contains(&addr) {
-      let idx = usize::try_from(addr).unwrap();
-      return self.get_mut_cartridge().rom.chr_rom[idx];
-    }
-
-    match addr {
-      0x0000..=0x1FFF => {
-        let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
-        let second_idx = usize::try_from(addr & 0x0FFF).unwrap();
-        self.table_name[first_idx][second_idx]
-      }
-      0x2000..=0x3EFF => {
-        addr &= 0x0FFF;
-        let idx = usize::try_from(addr & 0x03FF).unwrap();
-        let mirror_mode = self.get_mut_cartridge().get_mirror_mode();
-        match mirror_mode {
-          Mirroring::Vertical => {
-            match addr {
-              0x0000..=0x03FF => self.table_name[0][idx],
-              0x0400..=0x07FF => self.table_name[1][idx],
-              0x0800..=0x0BFF => self.table_name[0][idx],
-              0x0C00..=0x0FFF => self.table_name[1][idx],
-              _ => panic!("Unknown vertical mode table address"),
+    let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_ppu_u8(address);
+    if is_address_in_range {
+      self.get_mut_cartridge().rom.chr_rom[mapped_addr]
+    } else {
+      match addr {
+        0x0000..=0x1FFF => {
+          let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
+          let second_idx = usize::try_from(addr & 0x0FFF).unwrap();
+          self.table_name[first_idx][second_idx]
+        }
+        0x2000..=0x3EFF => {
+          addr &= 0x0FFF;
+          let idx = usize::try_from(addr & 0x03FF).unwrap();
+          let mirror_mode = self.get_mut_cartridge().get_mirror_mode();
+          match mirror_mode {
+            Mirroring::Vertical => {
+              match addr {
+                0x0000..=0x03FF => self.table_name[0][idx],
+                0x0400..=0x07FF => self.table_name[1][idx],
+                0x0800..=0x0BFF => self.table_name[0][idx],
+                0x0C00..=0x0FFF => self.table_name[1][idx],
+                _ => panic!("Unknown vertical mode table address"),
+              }
             }
-          }
-          Mirroring::Horizontal => {
-            match addr {
-              0x0000..=0x03FF => self.table_name[0][idx],
-              0x0400..=0x07FF => self.table_name[0][idx],
-              0x0800..=0x0BFF => self.table_name[1][idx],
-              0x0C00..=0x0FFF => self.table_name[1][idx],
-              _ => panic!("Unknown horizontal mode table address"),
+            Mirroring::Horizontal => {
+              match addr {
+                0x0000..=0x03FF => self.table_name[0][idx],
+                0x0400..=0x07FF => self.table_name[0][idx],
+                0x0800..=0x0BFF => self.table_name[1][idx],
+                0x0C00..=0x0FFF => self.table_name[1][idx],
+                _ => panic!("Unknown horizontal mode table address"),
+              }
             }
           }
         }
+        0x3F00..=0x3FFF => {
+          addr &= 0x001F;
+          let idx = match addr {
+            0x0010 => 0x0000,
+            0x0014 => 0x0004,
+            0x0018 => 0x0008,
+            0x001C => 0x000C,
+            _ => panic!("No palette idx found")
+          };
+          self.table_palette[idx] & (if self.mask_flags.grayscale() { 0x30 } else { 0x3F })
+        }
+        _ => panic!("Address {} not in range", addr)
       }
-      0x3F00..=0x3FFF => {
-        addr &= 0x001F;
-        let idx = match addr {
-          0x0010 => 0x0000,
-          0x0014 => 0x0004,
-          0x0018 => 0x0008,
-          0x001C => 0x000C,
-          _ => panic!("No palette idx found")
-        };
-        self.table_palette[idx] & (if self.mask_flags.grayscale() { 0x30 } else { 0x3F })
-      }
-      _ => panic!("Address {} not in range", addr)
     }
   }
 
   pub fn ppu_write(&mut self, address: u16, data: u8) {
     let mut addr = address & 0x3FFF;
 
-    if (0x0000..=0x1FFF).contains(&addr) {
-      let idx = usize::try_from(addr).unwrap();
-      self.get_mut_cartridge().rom.chr_rom[idx] = data
+    let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_write_ppu_u8(address);
+    if is_address_in_range {
+      self.get_mut_cartridge().rom.chr_rom[mapped_addr] = data;
     } else {
       match addr {
         0x0000..=0x1FFF => {
@@ -199,4 +199,31 @@ impl Registers {
       }
     }
   }
+}
+
+#[test]
+fn ppu_table_write_and_read() {
+  let cart = Cartridge::mock_cartridge();
+  let mut registers = Registers::new(Rc::new(RefCell::new(cart)));
+
+  registers.ppu_write(0x2000u16, 1u8);
+  let res = registers.ppu_read(0x2000u16);
+
+  assert_eq!(res, 1u8)
+}
+
+#[test]
+fn ppu_status_register_write_and_read() {
+  let cart = Cartridge::mock_cartridge();
+  let mut registers = Registers::new(Rc::new(RefCell::new(cart)));
+
+  registers.status_flags.set_sprite_overflow(true);
+
+  assert_eq!(registers.status_flags.sprite_overflow(), true);
+  assert_eq!(registers.status_flags.bits(), 0b00_10_00_00);
+
+  registers.status_flags.set_sprite_overflow(false);
+
+  assert_eq!(registers.status_flags.sprite_overflow(), false);
+  assert_eq!(registers.status_flags.bits(), 0b00_00_00_00);
 }

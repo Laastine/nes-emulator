@@ -131,6 +131,30 @@ impl Rom {
       chr_rom,
     }
   }
+
+  pub fn mock_rom() -> Rom {
+    let rom_header = RomHeader {
+      prg_rom_len: 0x4000,
+      chr_rom_len: 0x2000,
+      prg_ram_len: 0x2000,
+      chr_ram_len: 0x2000,
+      mirroring: Mirroring::Horizontal,
+      mapper: 0,
+      flag_persistent: false,
+      flag_trainer: false,
+      flag_vs_unisystem: false,
+      flag_playchoice_10: false,
+      tv_system: TVSystem::NTSC,
+      flag_bus_conflicts: false,
+    };
+
+    Rom {
+      rom_header,
+      prg_rom: vec![0u8; rom_header.prg_rom_len],
+      chr_rom: vec![0u8; rom_header.chr_rom_len],
+      title: "test".to_string()
+    }
+  }
 }
 
 #[derive(Debug, Copy, Clone)]

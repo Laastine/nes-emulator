@@ -22,11 +22,15 @@ impl Mapper {
     (is_address_in_range, mapped_addr)
   }
 
-  pub fn mapped_read_ppu_u8(self, address: u16) -> u16 {
-    unimplemented!();
+  pub fn mapped_read_ppu_u8(self, address: u16) -> (bool, usize) {
+    let mapped_addr = usize::try_from(address).unwrap();
+    let is_address_in_range = (0x0000..=0x1FFF).contains(&address);
+    (is_address_in_range, mapped_addr)
   }
 
-  pub fn mapped_write_ppu_u8(self, address: u16) -> u16 {
-    unimplemented!();
+  pub fn mapped_write_ppu_u8(self, address: u16) -> (bool, usize) {
+    let mapped_addr = usize::try_from(address).unwrap();
+    let is_address_in_range = (0x0000..=0x1FFF).contains(&address);
+    (is_address_in_range, mapped_addr)
   }
 }
