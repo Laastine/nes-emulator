@@ -23,7 +23,6 @@ pub mod constants;
 
 const RED: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(196));
 const GREEN: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(46));
-const BLUE: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(21));
 
 pub struct Nes {
   cpu: Cpu,
@@ -188,9 +187,8 @@ impl Nes {
     write!(stdout, "{}{}", cursor::Goto(x, y), clear::AfterCursor).unwrap();
     write!(
       stdout,
-      "{}{}{}{}",
+      "{}{}{}",
       cursor::Goto(x, y),
-      BLUE,
       val,
       style::Reset
     )
