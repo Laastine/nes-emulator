@@ -273,11 +273,13 @@ impl Nes {
         self.clock();
       }
 
-      if delta > 0.334 && self.ppu.frame_ready {
-        self.ppu.frame_ready = false;
+      if delta > 0.033 {
         last_time = time::Instant::now();
         self.draw_terminal(&mut stdout);
-        self.render_screen();
+        if self.ppu.frame_ready {
+          self.render_screen();
+          self.ppu.frame_ready = false;
+        }
       }
     }
   }
