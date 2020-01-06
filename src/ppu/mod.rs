@@ -70,13 +70,18 @@ impl Ppu {
     self.bus.borrow_mut()
   }
 
-  fn read_u8(&mut self, address: u16) -> u16 {
+  fn read_bus_u8(&mut self, address: u16) -> u16 {
     let mut bus = self.get_mut_bus();
     bus.read_u8(address, false)
   }
 
+  fn read_ppu_u8(&mut self, address: u16) -> u8 {
+    let mut reg = self.get_mut_registers();
+    reg.ppu_read(address)
+  }
+
   fn get_color(&mut self, palette: u8, pixel: u8) -> Color {
-    let idx = u8::try_from(self.read_u8(0x3F + (u16::try_from((palette << 2) + pixel).unwrap())) & 0x3F).unwrap();
+    let idx = u8::try_from(self.read_ppu_u8(0x3F + (u16::try_from((palette << 2) + pixel).unwrap())) & 0x3F).unwrap();
     COLORS[usize::try_from(idx).unwrap()]
   }
 
@@ -99,6 +104,41 @@ impl Ppu {
     self.bg_shifter_pattern_hi = 0;
     self.bg_shifter_attrib_lo = 0;
     self.bg_shifter_attrib_hi = 0;
+  }
+
+  pub fn get_pattern_table(&mut self, index: usize, palette: u8) {
+    for tile_y in 0..16 {
+      for tile_x in 0..16 {
+        let offset = tile_y * 256 + tile_x * 16;
+
+        for row in 0..8 {
+          let mut tile_lsb = self.read_ppu_u8(u16::try_from(index * 0x1000 + offset + row).unwrap());
+          let mut tile_msb = self.read_ppu_u8(u16::try_from(index * 0x1000 + offset + row + 8).unwrap());
+
+          for col in 0..8 {
+            let pixel = (tile_lsb & 0x01) + (tile_msb & 0x01);
+
+            tile_lsb >>= 1;
+            tile_msb >>= 1;
+
+            let x = u32::try_from(tile_x * 8 + (7 - col)).unwrap();
+            let y = u32::try_from(tile_y * 8 + row).unwrap();
+            let color = self.get_color(palette, pixel);
+            self.image_buffer.put_pixel(x, y, Rgb(color.val));
+
+//            if (0..=255).contains(&x) && (0..=239).contains(&y) {
+//              let pixel = self.get_color(bg_palette, bg_pixel);
+//              self.image_buffer.put_pixel(x, y, Rgb(pixel.val));
+//            }
+
+//            self
+//              .texture
+//              .upload_raw(GenMipmaps::No, &self.image_buffer)
+//              .expect("Texture update error");
+          }
+        }
+      }
+    }
   }
 
   fn update_shifters(&mut self) {
@@ -199,7 +239,7 @@ impl Ppu {
             self.load_background_shifters();
             let vram_addr = self.get_mut_registers().vram_addr;
 
-            let new_tile_id = self.get_mut_registers().ppu_read(0x2000 | (vram_addr.bits() & 0x0FFF));
+            let new_tile_id = self.read_ppu_u8(0x2000 | (vram_addr.bits() & 0x0FFF));
             self.bg_next_tile_id = new_tile_id;
           }
           0x02 => {
@@ -210,7 +250,7 @@ impl Ppu {
             let coarse_x = u16::try_from(vram_addr.coarse_x()).unwrap();
             let coarse_y = u16::try_from(vram_addr.coarse_y()).unwrap();
 
-            let new_tile_id = self.get_mut_registers().ppu_read(0x23C0 | (nametable_y << 11)
+            let new_tile_id = self.read_ppu_u8(0x23C0 | (nametable_y << 11)
               | (nametable_x << 10)
               | ((coarse_y >> 2) << 3)
               | (coarse_x >> 2));
@@ -234,7 +274,7 @@ impl Ppu {
               + u16::try_from(self.bg_next_tile_id.wrapping_shl(12)).unwrap()
               + fine_y + 8;
 
-            let new_tile_lsb = self.get_mut_registers().ppu_read(addr);
+            let new_tile_lsb = self.read_ppu_u8(addr);
             self.bg_next_tile_lsb = new_tile_lsb;
           }
           0x06 => {
@@ -247,7 +287,7 @@ impl Ppu {
               + u16::try_from(self.bg_next_tile_id).unwrap()
               + fine_y + 8;
 
-            let new_tile_msb = self.get_mut_registers().ppu_read(addr);
+            let new_tile_msb = self.read_ppu_u8(addr);
             self.bg_next_tile_msb = new_tile_msb;
           }
           0x07 => {
@@ -268,7 +308,7 @@ impl Ppu {
 
       if self.cycles == 338 || self.cycles == 340 {
         let vram_addr = self.get_mut_registers().vram_addr;
-        let new_tile_id = self.get_mut_registers().ppu_read(0x2000 | vram_addr.bits() & 0x0FFF);
+        let new_tile_id = self.read_ppu_u8(0x2000 | vram_addr.bits() & 0x0FFF);
         self.bg_next_tile_id = new_tile_id;
       }
 
@@ -306,13 +346,13 @@ impl Ppu {
       bg_palette = (p1_palette << 1) | p0_palette;
     }
 
-    let x = self.cycles.wrapping_sub(1);
-    let y = if self.scan_line > -1 { u32::try_from(self.scan_line).unwrap() } else { 0 };
-
-    if (0..=255).contains(&x) && (0..=239).contains(&y) {
-      let pixel = self.get_color(bg_palette, bg_pixel);
-      self.image_buffer.put_pixel(x, y, Rgb(pixel.val));
-    }
+//    let x = self.cycles.wrapping_sub(1);
+//    let y = if self.scan_line > -1 { u32::try_from(self.scan_line).unwrap() } else { 0 };
+//
+//    if (0..=255).contains(&x) && (0..=239).contains(&y) {
+//      let pixel = self.get_color(bg_palette, bg_pixel);
+//      self.image_buffer.put_pixel(x, y, Rgb(pixel.val));
+//    }
 
     self.cycles += 1;
     if self.cycles > 340 {
@@ -322,6 +362,7 @@ impl Ppu {
       if self.scan_line > 260 {
         self.scan_line = -1;
         self.frame_ready = true;
+        self.get_pattern_table(0, 0);
         self
           .texture
           .upload_raw(GenMipmaps::No, &self.image_buffer)

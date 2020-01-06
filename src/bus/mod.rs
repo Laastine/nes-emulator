@@ -4,6 +4,8 @@ use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
 use crate::ppu::registers::{PpuCtrlFlags, PpuMaskFlags, Registers, ScrollRegister};
+use crate::cpu::hex;
+use std::fs::read;
 
 pub const MEM_SIZE: usize = 0x0800;
 
@@ -124,7 +126,7 @@ impl Bus {
     }
   }
 
-  fn read_ppu_registers(&mut self, address: u16, read_only: bool) -> u8 {
+  pub fn read_ppu_registers(&mut self, address: u16, read_only: bool) -> u8 {
     if read_only {
       match address {
         0x00 => self.get_mut_registers().ctrl_flags.bits(),
@@ -143,8 +145,8 @@ impl Bus {
         0x00 => 0x00,
         0x01 => 0x00,
         0x02 => {   // Status
-          let status_flags = self.get_mut_registers().status_flags.bits();
-          let res = (status_flags & 0xE0) | (self.get_mut_registers().ppu_data_buffer & 0x1F);
+          let status_flags = self.get_mut_registers().status_flags;
+          let res = (status_flags.bits() & 0xE0) | (self.get_mut_registers().ppu_data_buffer & 0x1F);
           self.get_mut_registers().status_flags.set_vertical_blank_started(false);
           self.get_mut_registers().address_latch = 0x00;
           res
