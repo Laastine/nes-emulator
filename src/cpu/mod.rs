@@ -11,7 +11,7 @@ use crate::cpu::instruction_table::{ADDRMODE6502, FLAGS6502, LookUpTable, OPCODE
 pub mod instruction_table;
 
 pub struct Cpu {
-  pub bus: Rc<RefCell<Bus>>,
+  pub bus: Bus,
   pub pc: u16,
   pub acc: u8,
   pub x: u8,
@@ -29,7 +29,7 @@ pub struct Cpu {
 }
 
 impl Cpu {
-  pub fn new(bus: Rc<RefCell<Bus>>) -> Cpu {
+  pub fn new(bus: Bus) -> Cpu {
     let lookup = LookUpTable::new();
 
     let file = OpenOptions::new().write(true).append(false).open("log.txt").expect("File open error");
@@ -72,20 +72,17 @@ impl Cpu {
     }
   }
 
-  pub fn get_mut_bus(&mut self) -> RefMut<Bus> {
-    self.bus.borrow_mut()
-  }
 
   fn bus_mut_read_u8(&mut self, address: u16) -> u16 {
-    self.get_mut_bus().read_u8(address, false).try_into().unwrap()
+    self.bus.read_u8(address, false).try_into().unwrap()
   }
 
   fn bus_read_u8(&mut self, address: u16) -> u16 {
-    self.get_mut_bus().read_u8(address, true).try_into().unwrap()
+    self.bus.read_u8(address, true).try_into().unwrap()
   }
 
   fn bus_write_u8(&mut self, address: u16, data: u8) {
-    self.get_mut_bus().write_u8(address, data);
+    self.bus.write_u8(address, data);
   }
 
   fn get_stack_address(&self) -> u16 {

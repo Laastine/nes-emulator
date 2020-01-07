@@ -46,10 +46,9 @@ impl Nes {
     let registers = Rc::new(RefCell::new(reg));
 
     let bus = Bus::new(cart, registers.clone());
-    let bus_pointer = Rc::new(RefCell::new(bus));
 
-    let cpu = Cpu::new(bus_pointer.clone());
-    let ppu = Ppu::new(bus_pointer, registers, &mut window_context.surface);
+    let cpu = Cpu::new(bus);
+    let ppu = Ppu::new(registers, &mut window_context.surface);
     let system_cycles = 0;
 
     let debug_mode = false;
@@ -81,13 +80,7 @@ impl Nes {
         offset = format!(
           "{} {}",
           offset,
-          hex(
-            {
-              let mut bus = self.cpu.get_mut_bus();
-              bus.read_u8(addr, true).try_into().unwrap()
-            },
-            2,
-          )
+          hex(self.cpu.bus.read_u8(addr, true).try_into().unwrap(), 2)
         );
         addr += 1;
       }

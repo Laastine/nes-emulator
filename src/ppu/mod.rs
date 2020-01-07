@@ -7,14 +7,12 @@ use luminance::pixel::NormRGB8UI;
 use luminance::texture::{Dim2, Flat, GenMipmaps, Sampler, Texture};
 use luminance_glutin::GlutinSurface;
 
-use crate::bus::Bus;
 use crate::nes::constants::{Color, COLORS, SCREEN_RES_X, SCREEN_RES_Y};
 use crate::ppu::registers::{PpuCtrlFlags, PpuMaskFlags, PpuStatusFlags, Registers, ScrollRegister};
 
 pub mod registers;
 
 pub struct Ppu {
-  bus: Rc<RefCell<Bus>>,
   cycles: u32,
   scan_line: i32,
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
@@ -34,7 +32,7 @@ pub struct Ppu {
 }
 
 impl Ppu {
-  pub fn new(bus: Rc<RefCell<Bus>>, registers: Rc<RefCell<Registers>>, surface: &mut GlutinSurface) -> Ppu {
+  pub fn new(registers: Rc<RefCell<Registers>>, surface: &mut GlutinSurface) -> Ppu {
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
 
     let texture: Texture<Flat, Dim2, NormRGB8UI> =
@@ -42,7 +40,6 @@ impl Ppu {
         .expect("Texture create error");
 
     Ppu {
-      bus,
       cycles: 0,
       scan_line: 0,
       image_buffer,
@@ -64,15 +61,6 @@ impl Ppu {
 
   pub fn get_mut_registers(&mut self) -> RefMut<Registers> {
     self.registers.borrow_mut()
-  }
-
-  pub fn get_mut_bus(&mut self) -> RefMut<Bus> {
-    self.bus.borrow_mut()
-  }
-
-  fn read_bus_u8(&mut self, address: u16) -> u16 {
-    let mut bus = self.get_mut_bus();
-    bus.read_u8(address, false)
   }
 
   fn read_ppu_u8(&mut self, address: u16) -> u8 {
