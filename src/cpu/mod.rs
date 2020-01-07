@@ -467,7 +467,8 @@ impl Cpu {
     self.set_flag(&FLAGS6502::Z, (self.temp & 0x00FF) > 0x00);
     self.set_flag(
       &FLAGS6502::V,
-      ((!(u16::try_from(self.acc).unwrap() ^ u16::try_from(self.fetched).unwrap())
+      ((!(u16::try_from(self.acc).unwrap()
+        ^ u16::try_from(self.fetched).unwrap())
         & (u16::try_from(self.acc).unwrap() ^ u16::try_from(self.temp).unwrap()))
         & 0x0080)
         > 0x00,
@@ -488,7 +489,7 @@ impl Cpu {
     if self.addr_mode() == ADDRMODE6502::IMP {
       self.acc = (self.temp & 0x00FF).try_into().unwrap();
     } else {
-      self.bus_write_u8(self.addr_abs, (self.temp & 0x00FF) as u8);
+      self.bus_write_u8(self.addr_abs, u8::try_from(self.temp & 0x00FF).unwrap());
     }
     0
   }
@@ -545,7 +546,7 @@ impl Cpu {
   /// Bit test
   pub fn bit(&mut self) -> u8 {
     self.fetch();
-    self.temp = (self.acc & self.fetched) as u16;
+    self.temp = (u16::try_from(self.acc).unwrap() & u16::try_from(self.fetched).unwrap());
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
     self.set_flag(&FLAGS6502::N, (self.fetched & (1 << 7)) > 0x00);
     self.set_flag(&FLAGS6502::V, (self.fetched & (1 << 6)) > 0x00);
@@ -809,7 +810,7 @@ impl Cpu {
   /// Logical shift right
   pub fn lsr(&mut self) -> u8 {
     self.fetch();
-    self.set_flag(&FLAGS6502::C, self.fetched & 0x0001 > 0x00);
+    self.set_flag(&FLAGS6502::C, (self.fetched & 1) > 0x00);
     self.temp = u16::try_from(self.fetched).unwrap() >> 1;
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
     self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);

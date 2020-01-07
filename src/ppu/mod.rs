@@ -155,8 +155,8 @@ impl Ppu {
     self.bg_shifter_pattern_lo = (self.bg_shifter_pattern_lo & 0xFF00) | u16::try_from(self.bg_next_tile_lsb).unwrap();
     self.bg_shifter_pattern_hi = (self.bg_shifter_pattern_hi & 0xFF00) | u16::try_from(self.bg_next_tile_msb).unwrap();
 
-    self.bg_shifter_attrib_lo = self.bg_shifter_attrib_lo & 0xFF00 | (if self.bg_next_tile_attrib & 0b01 > 0x00 { 0xFF } else { 0x00 });
-    self.bg_shifter_attrib_hi = self.bg_shifter_attrib_hi & 0xFF00 | (if self.bg_next_tile_attrib & 0b10 > 0x00 { 0xFF } else { 0x00 });
+    self.bg_shifter_attrib_lo = self.bg_shifter_attrib_lo & 0xFF00 | (if (self.bg_next_tile_attrib & 1) > 0x00 { 0xFF } else { 0x00 });
+    self.bg_shifter_attrib_hi = self.bg_shifter_attrib_hi & 0xFF00 | (if (self.bg_next_tile_attrib & 2) > 0x00 { 0xFF } else { 0x00 });
   }
 
   fn increment_scroll_x(&mut self) {
@@ -250,11 +250,11 @@ impl Ppu {
             let coarse_x = u16::try_from(vram_addr.coarse_x()).unwrap();
             let coarse_y = u16::try_from(vram_addr.coarse_y()).unwrap();
 
-            let new_tile_id = self.read_ppu_u8(0x23C0 | (nametable_y << 11)
+            self.bg_next_tile_id = self.read_ppu_u8(0x23C0
+              | (nametable_y << 11)
               | (nametable_x << 10)
               | ((coarse_y >> 2) << 3)
               | (coarse_x >> 2));
-            self.bg_next_tile_id = new_tile_id;
 
             if (coarse_y & 0x02) > 0x00 {
               self.bg_next_tile_attrib >>= 4;
@@ -268,11 +268,10 @@ impl Ppu {
             let ctrl_flags = self.get_mut_registers().ctrl_flags;
             let vram_addr = self.get_mut_registers().vram_addr;
             let pattern_background: u8 = if ctrl_flags.pattern_background_table_addr() { 1 } else { 0 };
-            let fine_y = u16::try_from(vram_addr.fine_y()).unwrap();
 
             let addr = u16::try_from(pattern_background.wrapping_shl(12)).unwrap()
-              + u16::try_from(self.bg_next_tile_id.wrapping_shl(12)).unwrap()
-              + fine_y + 8;
+              + u16::try_from(self.bg_next_tile_id.wrapping_shl(4)).unwrap()
+              + u16::try_from(vram_addr.fine_y()).unwrap();
 
             let new_tile_lsb = self.read_ppu_u8(addr);
             self.bg_next_tile_lsb = new_tile_lsb;
@@ -281,11 +280,10 @@ impl Ppu {
             let ctrl_flags = self.get_mut_registers().ctrl_flags;
             let vram_addr = self.get_mut_registers().vram_addr;
             let pattern_background: u8 = if ctrl_flags.pattern_background_table_addr() { 1 } else { 0 };
-            let fine_y = u16::try_from(vram_addr.fine_y()).unwrap();
 
             let addr = u16::try_from(pattern_background.wrapping_shl(12)).unwrap()
-              + u16::try_from(self.bg_next_tile_id).unwrap()
-              + fine_y + 8;
+              + u16::try_from(self.bg_next_tile_id.wrapping_shl(4)).unwrap()
+              + u16::try_from(vram_addr.fine_y()).unwrap() + 8;
 
             let new_tile_msb = self.read_ppu_u8(addr);
             self.bg_next_tile_msb = new_tile_msb;

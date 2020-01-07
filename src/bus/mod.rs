@@ -61,7 +61,6 @@ impl Bus {
 
         let ctrl_flags = self.get_mut_registers().ctrl_flags;
         self.get_mut_registers().tram_addr.set_nametable_x(ctrl_flags.nametable_x());
-
         self.get_mut_registers().tram_addr.set_nametable_y(ctrl_flags.nametable_y());
       }
       0x01 => {
@@ -72,7 +71,7 @@ impl Bus {
       0x04 => {},
       0x05 => { // Scroll
         if self.get_mut_registers().address_latch == 0 { // X
-          self.get_mut_registers().fine_x = data & 0x07;
+          self.get_mut_registers().fine_x = (data & 0x07);
 
           self.get_mut_registers().tram_addr.set_coarse_x(data >> 3);
           self.get_mut_registers().address_latch = 1;
@@ -85,10 +84,10 @@ impl Bus {
       0x06 => { // PPU address
         let tram_addr = self.get_mut_registers().tram_addr.bits();
         if self.get_mut_registers().address_latch == 0 {
-          self.get_mut_registers().tram_addr = ScrollRegister(u16::try_from((data & 0x3F).wrapping_shl(8)).unwrap() | tram_addr & 0x00FF);
+          self.get_mut_registers().tram_addr = ScrollRegister(u16::try_from((data & 0x3F).wrapping_shl(8)).unwrap() | (tram_addr & 0x00FF));
           self.get_mut_registers().address_latch = 1;
         } else {
-          self.get_mut_registers().tram_addr = ScrollRegister(tram_addr & 0xFF00 | u16::try_from(data).unwrap());
+          self.get_mut_registers().tram_addr = ScrollRegister((tram_addr & 0xFF00) | u16::try_from(data).unwrap());
           let new_tram_addr = self.get_mut_registers().tram_addr;
           self.get_mut_registers().vram_addr = new_tram_addr;
           self.get_mut_registers().address_latch = 0;
