@@ -106,7 +106,7 @@ impl Bus {
   pub fn read_u8(&mut self, address: u16, read_only: bool) -> u16 {
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_cpu_u8(address);
     if is_address_in_range {
-      u16::try_from(self.get_mut_cartridge().get_prg_rom()[mapped_addr]).unwrap()
+      u16::try_from(self.get_mut_cartridge().rom.prg_rom[mapped_addr]).unwrap()
     } else {
       match address {
         0x0000..=0x1FFF => {
@@ -136,7 +136,6 @@ impl Bus {
         0x05 => 0x00,
         0x06 => 0x00,
         0x07 => 0x00,
-        0x08 => 0x00,
         _ => 0x00,
       }
     } else {
