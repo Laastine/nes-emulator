@@ -62,6 +62,7 @@ pub struct Registers {
   pub vram_addr: ScrollRegister,
   pub tram_addr: ScrollRegister,
   pub table_palette: [u8; 32],
+  pub table_pattern: [[u8; 4096]; 2],
   pub table_name: [[u8; 1024]; 2],
   pub address_latch: u8,
   pub ppu_data_buffer: u8,
@@ -79,6 +80,7 @@ impl Registers {
       vram_addr: ScrollRegister(0x00),
       tram_addr: ScrollRegister(0x00),
       table_palette: [0; 32],
+      table_pattern: [[0; 4096]; 2],
       table_name: [[0; 1024]; 2],
       address_latch: 0x00,
       ppu_data_buffer: 0x00,
@@ -93,7 +95,7 @@ impl Registers {
   }
 
   pub fn ppu_read(&mut self, address: u16) -> u8 {
-    let mut addr = address & 0x3FFF;
+    let mut addr = (address & 0x3FFF);
 
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_ppu_u8(addr);
     if is_address_in_range {
@@ -103,7 +105,7 @@ impl Registers {
         0x0000..=0x1FFF => {
           let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
           let second_idx = usize::try_from(addr & 0x0FFF).unwrap();
-          self.table_name[first_idx][second_idx]
+          self.table_pattern[first_idx][second_idx]
         }
         0x2000..=0x3EFF => {
           addr &= 0x0FFF;
@@ -137,7 +139,7 @@ impl Registers {
             0x0014 => 0x0004,
             0x0018 => 0x0008,
             0x001C => 0x000C,
-            _ => panic!("No palette idx found")
+            _ => usize::try_from(addr).unwrap()
           };
           self.table_palette[idx] & (if self.mask_flags.grayscale() { 0x30 } else { 0x3F })
         }
@@ -147,7 +149,7 @@ impl Registers {
   }
 
   pub fn ppu_write(&mut self, address: u16, data: u8) {
-    let mut addr = address & 0x3FFF;
+    let mut addr = (address & 0x3FFF);
 
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr);
     if is_address_in_range {
@@ -157,7 +159,7 @@ impl Registers {
         0x0000..=0x1FFF => {
           let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
           let second_idx = usize::try_from(addr & 0x0FFF).unwrap();
-          self.table_name[first_idx][second_idx] = data;
+          self.table_pattern[first_idx][second_idx] = data;
         }
         0x2000..=0x3EFF => {
           addr &= 0x0FFF;
@@ -191,7 +193,7 @@ impl Registers {
             0x0014 => 0x0004,
             0x0018 => 0x0008,
             0x001C => 0x000C,
-            _ => panic!("No palette idx found")
+            _ => usize::try_from(addr).unwrap()
           };
           self.table_palette[idx] = data;
         }
