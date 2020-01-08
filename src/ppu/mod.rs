@@ -76,11 +76,11 @@ impl Ppu {
   pub fn reset(&mut self) {
     self.scan_line = 0;
     self.cycles = 0;
-    self.get_mut_registers().status_flags = PpuStatusFlags(0x00);
-    self.get_mut_registers().mask_flags = PpuMaskFlags(0x00);
-    self.get_mut_registers().ctrl_flags = PpuCtrlFlags(0x00);
-    self.get_mut_registers().vram_addr = ScrollRegister(0x0000);
-    self.get_mut_registers().tram_addr = ScrollRegister(0x0000);
+    self.get_mut_registers().status_flags = PpuStatusFlags(0);
+    self.get_mut_registers().mask_flags = PpuMaskFlags(0);
+    self.get_mut_registers().ctrl_flags = PpuCtrlFlags(0);
+    self.get_mut_registers().vram_addr = ScrollRegister(0);
+    self.get_mut_registers().tram_addr = ScrollRegister(0);
     self.get_mut_registers().ppu_data_buffer = 0;
     self.get_mut_registers().fine_x = 0;
     self.get_mut_registers().fine_y = 0;
@@ -113,16 +113,6 @@ impl Ppu {
             let y = u32::try_from(tile_y * 8 + row).unwrap();
             let color = self.get_color(palette, pixel);
             self.image_buffer.put_pixel(x, y, Rgb(color.val));
-
-//            if (0..=255).contains(&x) && (0..=239).contains(&y) {
-//              let pixel = self.get_color(bg_palette, bg_pixel);
-//              self.image_buffer.put_pixel(x, y, Rgb(pixel.val));
-//            }
-
-//            self
-//              .texture
-//              .upload_raw(GenMipmaps::No, &self.image_buffer)
-//              .expect("Texture update error");
           }
         }
       }
@@ -332,13 +322,13 @@ impl Ppu {
       bg_palette = (p1_palette << 1) | p0_palette;
     }
 
-//    let x = self.cycles.wrapping_sub(1);
-//    let y = if self.scan_line > -1 { u32::try_from(self.scan_line).unwrap() } else { 0 };
-//
-//    if (0..=255).contains(&x) && (0..=239).contains(&y) {
-//      let pixel = self.get_color(bg_palette, bg_pixel);
-//      self.image_buffer.put_pixel(x, y, Rgb(pixel.val));
-//    }
+    let x = self.cycles.wrapping_sub(1);
+    let y = if self.scan_line > -1 { u32::try_from(self.scan_line).unwrap() } else { 0 };
+
+    if (0..=255).contains(&x) && (0..=239).contains(&y) {
+      let pixel = self.get_color(bg_palette, bg_pixel);
+      self.image_buffer.put_pixel(x, y, Rgb(pixel.val));
+    }
 
     self.cycles += 1;
     if self.cycles > 340 {
@@ -348,7 +338,7 @@ impl Ppu {
       if self.scan_line > 260 {
         self.scan_line = -1;
         self.frame_ready = true;
-        self.get_pattern_table(0, 0);
+//        self.get_pattern_table(0, 0);
         self
           .texture
           .upload_raw(GenMipmaps::No, &self.image_buffer)

@@ -95,7 +95,7 @@ impl Registers {
   }
 
   pub fn ppu_read(&mut self, address: u16) -> u8 {
-    let mut addr = (address & 0x3FFF);
+    let mut addr = address & 0x3FFF;
 
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_ppu_u8(addr);
     if is_address_in_range {
@@ -149,7 +149,7 @@ impl Registers {
   }
 
   pub fn ppu_write(&mut self, address: u16, data: u8) {
-    let mut addr = (address & 0x3FFF);
+    let mut addr = address & 0x3FFF;
 
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr);
     if is_address_in_range {

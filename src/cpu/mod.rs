@@ -1,9 +1,5 @@
-use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
-use std::fs::OpenOptions;
-use std::io::prelude::*;
-use std::rc::Rc;
 
 use crate::bus::Bus;
 use crate::cpu::instruction_table::{ADDRMODE6502, FLAGS6502, LookUpTable, OPCODES6502};
@@ -461,7 +457,7 @@ impl Cpu {
       + u16::try_from(self.get_flag(&FLAGS6502::C)).unwrap();
 
     self.set_flag(&FLAGS6502::C, (self.temp) > 255);
-    self.set_flag(&FLAGS6502::Z, (self.temp & 0x00FF) > 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
     self.set_flag(
       &FLAGS6502::V,
       ((!(u16::try_from(self.acc).unwrap()
@@ -543,7 +539,7 @@ impl Cpu {
   /// Bit test
   pub fn bit(&mut self) -> u8 {
     self.fetch();
-    self.temp = (u16::try_from(self.acc).unwrap() & u16::try_from(self.fetched).unwrap());
+    self.temp = u16::try_from(self.acc).unwrap() & u16::try_from(self.fetched).unwrap();
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
     self.set_flag(&FLAGS6502::N, (self.fetched & (1 << 7)) > 0x00);
     self.set_flag(&FLAGS6502::V, (self.fetched & (1 << 6)) > 0x00);
@@ -839,9 +835,7 @@ impl Cpu {
 
   /// Push accumulator
   pub fn pha(&mut self) -> u8 {
-    self.bus_write_u8(
-      self.get_stack_address(),
-      self.acc);
+    self.bus_write_u8(self.get_stack_address(), self.acc);
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
     0
   }

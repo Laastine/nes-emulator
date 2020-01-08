@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::convert::TryInto;
+use std::convert::{TryFrom, TryInto};
+use std::fs::OpenOptions;
 use std::io::{stdout, Stdout, Write};
 use std::rc::Rc;
 use std::time;

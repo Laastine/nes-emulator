@@ -34,10 +34,6 @@ impl Cartridge {
     Cartridge { mapper, rom }
   }
 
-  pub fn get_prg_rom(&mut self) -> &mut Vec<u8> {
-    &mut self.rom.prg_rom
-  }
-
   pub fn cart_cpu_read(&self, address: u16) -> u8 {
     unimplemented!()
   }

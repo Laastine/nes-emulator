@@ -4,8 +4,6 @@ use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
 use crate::ppu::registers::{PpuCtrlFlags, PpuMaskFlags, Registers, ScrollRegister};
-use crate::cpu::hex;
-use std::fs::read;
 
 pub const MEM_SIZE: usize = 0x0800;
 
@@ -71,7 +69,7 @@ impl Bus {
       0x04 => {},
       0x05 => { // Scroll
         if self.get_mut_registers().address_latch == 0 { // X
-          self.get_mut_registers().fine_x = (data & 0x07);
+          self.get_mut_registers().fine_x = data & 0x07;
 
           self.get_mut_registers().tram_addr.set_coarse_x(data >> 3);
           self.get_mut_registers().address_latch = 1;
