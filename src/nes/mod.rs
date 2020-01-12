@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::convert::{TryFrom, TryInto};
-use std::fs::OpenOptions;
+use std::convert::TryInto;
 use std::io::{stdout, Stdout, Write};
 use std::rc::Rc;
 use std::time;
@@ -176,17 +175,18 @@ impl Nes {
   }
 
   pub fn draw_code(&self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
-    let val = self.map_asm.get(&self.cpu.pc)
-      .unwrap_or_else(|| panic!("No ASM-code in idx {}", &self.cpu.pc));
-    write!(stdout, "{}{}", cursor::Goto(x, y), clear::AfterCursor).unwrap();
-    write!(
-      stdout,
-      "{}{}{}",
-      cursor::Goto(x, y),
-      val,
-      style::Reset
-    )
-    .unwrap();
+    let val = self.map_asm.get(&self.cpu.pc);
+    if val.is_some() {
+      write!(stdout, "{}{}", cursor::Goto(x, y), clear::AfterCursor).unwrap();
+      write!(
+        stdout,
+        "{}{}{}",
+        cursor::Goto(x, y),
+        val.unwrap(),
+        style::Reset
+      )
+        .unwrap();
+    }
   }
 
   pub fn create_program(&mut self) {
@@ -267,7 +267,7 @@ impl Nes {
 
       if delta > 0.033 {
         last_time = time::Instant::now();
-        self.draw_terminal(&mut stdout);
+//        self.draw_terminal(&mut stdout);
         if self.ppu.frame_ready {
           self.render_screen();
           self.ppu.frame_ready = false;
@@ -278,7 +278,7 @@ impl Nes {
 
   fn clock(&mut self) {
     self.ppu.clock();
-    if self.system_cycles % 3 == 0 {
+    if (self.system_cycles % 3) == 0 {
       self.cpu.clock();
     }
 

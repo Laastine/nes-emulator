@@ -13,7 +13,7 @@ use crate::ppu::registers::{PpuCtrlFlags, PpuMaskFlags, PpuStatusFlags, Register
 pub mod registers;
 
 pub struct Ppu {
-  cycles: u32,
+  pub cycles: u32,
   scan_line: i32,
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
   pub texture: Texture<Flat, Dim2, NormRGB8UI>,
@@ -55,7 +55,7 @@ impl Ppu {
       bg_shifter_pattern_hi: 0,
       bg_shifter_attrib_lo: 0,
       bg_shifter_attrib_hi: 0,
-      frame_ready: false
+      frame_ready: false,
     }
   }
 
@@ -69,8 +69,8 @@ impl Ppu {
   }
 
   fn get_color(&mut self, palette: u8, pixel: u8) -> Color {
-    let idx = u8::try_from(self.read_ppu_u8(0x3F + (u16::try_from((palette << 2) + pixel).unwrap())) & 0x3F).unwrap();
-    COLORS[usize::try_from(idx).unwrap()]
+    let idx = self.read_ppu_u8(0x3F00 + u16::try_from((palette << 2) + pixel).unwrap());
+    COLORS[usize::try_from(idx).unwrap() & 0x3F]
   }
 
   pub fn reset(&mut self) {
@@ -133,8 +133,8 @@ impl Ppu {
     self.bg_shifter_pattern_lo = (self.bg_shifter_pattern_lo & 0xFF00) | u16::try_from(self.bg_next_tile_lsb).unwrap();
     self.bg_shifter_pattern_hi = (self.bg_shifter_pattern_hi & 0xFF00) | u16::try_from(self.bg_next_tile_msb).unwrap();
 
-    self.bg_shifter_attrib_lo = self.bg_shifter_attrib_lo & 0xFF00 | (if (self.bg_next_tile_attrib & 1) > 0x00 { 0xFF } else { 0x00 });
-    self.bg_shifter_attrib_hi = self.bg_shifter_attrib_hi & 0xFF00 | (if (self.bg_next_tile_attrib & 2) > 0x00 { 0xFF } else { 0x00 });
+    self.bg_shifter_attrib_lo = (self.bg_shifter_attrib_lo & 0xFF00) | (if (self.bg_next_tile_attrib & 1) > 0x00 { 0xFF } else { 0x00 });
+    self.bg_shifter_attrib_hi = (self.bg_shifter_attrib_hi & 0xFF00) | (if (self.bg_next_tile_attrib & 2) > 0x00 { 0xFF } else { 0x00 });
   }
 
   fn increment_scroll_x(&mut self) {
@@ -160,7 +160,7 @@ impl Ppu {
       let mut vram_addr = self.get_mut_registers().vram_addr;
 
       if vram_addr.fine_y() < 7 {
-        vram_addr.set_fine_y(vram_addr.fine_y() + 1);
+        vram_addr.set_fine_y(vram_addr.fine_y());
       } else {
         vram_addr.set_fine_y(0);
 
@@ -169,9 +169,9 @@ impl Ppu {
           let new_y_val = !self.get_mut_registers().vram_addr.nametable_y();
           self.get_mut_registers().vram_addr.set_nametable_y(new_y_val);
         } else if vram_addr.coarse_y() == 31 {
-          vram_addr.set_coarse_y(0);
+          self.get_mut_registers().vram_addr.set_coarse_y(0);
         } else {
-          vram_addr.set_coarse_y(vram_addr.coarse_y() + 1);
+          self.get_mut_registers().vram_addr.set_coarse_y(vram_addr.coarse_y() + 1);
         }
       }
     }
@@ -209,16 +209,15 @@ impl Ppu {
         self.get_mut_registers().status_flags.set_vertical_blank_started(false)
       }
 
-      if self.cycles > 1 && self.cycles < 258 || (self.cycles > 320 && self.cycles < 338) {
+      if (self.cycles > 1 && self.cycles < 258) || (self.cycles > 320 && self.cycles < 338) {
         self.update_shifters();
 
-        match self.cycles - 1 % 8 {
+        match (self.cycles - 1) % 8 {
           0x00 => {
             self.load_background_shifters();
             let vram_addr = self.get_mut_registers().vram_addr;
 
-            let new_tile_id = self.read_ppu_u8(0x2000 | (vram_addr.bits() & 0x0FFF));
-            self.bg_next_tile_id = new_tile_id;
+            self.bg_next_tile_id = self.read_ppu_u8(0x2000 | (vram_addr.bits() & 0x0FFF));
           }
           0x02 => {
             let vram_addr = self.get_mut_registers().vram_addr;
@@ -248,11 +247,10 @@ impl Ppu {
             let pattern_background: u8 = if ctrl_flags.pattern_background_table_addr() { 1 } else { 0 };
 
             let addr = u16::try_from(pattern_background.wrapping_shl(12)).unwrap()
-              + u16::try_from(self.bg_next_tile_id.wrapping_shl(4)).unwrap()
+              + u16::try_from(self.bg_next_tile_id).unwrap().wrapping_shl(4)
               + u16::try_from(vram_addr.fine_y()).unwrap();
 
-            let new_tile_lsb = self.read_ppu_u8(addr);
-            self.bg_next_tile_lsb = new_tile_lsb;
+            self.bg_next_tile_lsb = self.read_ppu_u8(addr);
           }
           0x06 => {
             let ctrl_flags = self.get_mut_registers().ctrl_flags;
@@ -260,11 +258,10 @@ impl Ppu {
             let pattern_background: u8 = if ctrl_flags.pattern_background_table_addr() { 1 } else { 0 };
 
             let addr = u16::try_from(pattern_background.wrapping_shl(12)).unwrap()
-              + u16::try_from(self.bg_next_tile_id.wrapping_shl(4)).unwrap()
+              + u16::try_from(self.bg_next_tile_id).unwrap().wrapping_shl(4)
               + u16::try_from(vram_addr.fine_y()).unwrap() + 8;
 
-            let new_tile_msb = self.read_ppu_u8(addr);
-            self.bg_next_tile_msb = new_tile_msb;
+            self.bg_next_tile_msb = self.read_ppu_u8(addr);
           }
           0x07 => {
             self.increment_scroll_x();
@@ -277,15 +274,14 @@ impl Ppu {
         self.increment_scroll_y();
       }
 
-      if self.cycles == 256 {
+      if self.cycles == 257 {
         self.load_background_shifters();
         self.transfer_address_x();
       }
 
       if self.cycles == 338 || self.cycles == 340 {
         let vram_addr = self.get_mut_registers().vram_addr;
-        let new_tile_id = self.read_ppu_u8(0x2000 | vram_addr.bits() & 0x0FFF);
-        self.bg_next_tile_id = new_tile_id;
+        self.bg_next_tile_id = self.read_ppu_u8(0x2000 | (vram_addr.bits() & 0x0FFF));
       }
 
       if self.scan_line == -1 && (280..=304).contains(&self.cycles) {
@@ -293,11 +289,7 @@ impl Ppu {
       }
     }
 
-    if self.scan_line == 240 {
-      // do nothing
-    }
-
-    if self.cycles == 1 && 241 == self.scan_line {
+    if self.cycles == 1 && self.scan_line == 241 {
       self.get_mut_registers().status_flags.set_vertical_blank_started(true);
 
       if self.get_mut_registers().ctrl_flags.enable_nmi() {
@@ -323,7 +315,7 @@ impl Ppu {
     }
 
     let x = self.cycles.wrapping_sub(1);
-    let y = if self.scan_line > -1 { u32::try_from(self.scan_line).unwrap() } else { 0 };
+    let y = if self.scan_line > -1 { u32::try_from(self.scan_line).unwrap() } else { 500 };
 
     if (0..=255).contains(&x) && (0..=239).contains(&y) {
       let pixel = self.get_color(bg_palette, bg_pixel);

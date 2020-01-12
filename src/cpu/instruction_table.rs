@@ -102,7 +102,7 @@ pub enum ADDRMODE6502 {
   IZY,
 }
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct Instruction6502 {
   pub name: &'static str,
   pub operate: OPCODES6502,

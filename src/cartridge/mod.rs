@@ -34,22 +34,6 @@ impl Cartridge {
     Cartridge { mapper, rom }
   }
 
-  pub fn cart_cpu_read(&self, address: u16) -> u8 {
-    unimplemented!()
-  }
-
-  pub fn cart_cpu_write(&mut self, address: u16, data: u8) {
-    unimplemented!()
-  }
-
-  pub fn cart_ppu_read(&self, address: u16) -> u8 {
-    unimplemented!()
-  }
-
-  pub fn cart_ppu_write(&mut self, address: u16, data: u8) {
-    unimplemented!()
-  }
-
   pub fn get_mirror_mode(&self) -> Mirroring {
     self.rom.rom_header.mirroring
   }
