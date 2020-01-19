@@ -49,20 +49,20 @@ impl Rom {
       panic!("Non-zero bits found on unused block")
     }
 
-    let flag_mirror = (flags_6 & 0b_0000_0001) != 0x00;
-    let flag_persistent = (flags_6 & 0b_0000_0010) != 0x00;
-    let flag_trainer = (flags_6 & 0b_0000_0100) != 0x00;
-    let flag_four_screen_vram = (flags_6 & 0b_0000_1000) != 0x00;
-    let mapper_lo = u8::try_from((flags_6 & 0b_1111_0000).wrapping_shr(4)).unwrap();
+    let flag_mirror = (flags_6 & 0x01) > 0x00;
+    let flag_persistent = (flags_6 & 0x02) > 0x00;
+    let flag_trainer = (flags_6 & 0x04) > 0x00;
+    let flag_four_screen_vram = (flags_6 & 0x08) > 0x00;
+    let mapper_lo = (flags_6 & 0xF0).wrapping_shr(4);
 
-    let flag_vs_unisystem = (flags_7 & 0b_0000_0001) != 0x00;
-    let flag_playchoice_10 = (flags_7 & 0b_0000_0010) != 0x00;
-    let flag_rom_format = u8::try_from((flags_7 & 0b_0000_1100).wrapping_shr(2)).unwrap();
-    let mapper_hi = u8::try_from((flags_7 & 0b_1111_0000).wrapping_shr(4)).unwrap();
+    let flag_vs_unisystem = (flags_7 & 0x01) > 0x00;
+    let flag_playchoice_10 = (flags_7 & 0x02) > 0x00;
+    let flag_rom_format = (flags_7 & 0x0C).wrapping_shr(2);
+    let mapper_hi = (flags_7 & 0xF0).wrapping_shr(4);
 
-    let flag_tv_system = flags_10 & 0b_0000_0011;
-    let flag_prg_ram = (flags_10 & 0b_0001_0000) != 0x00;
-    let flag_bus_conflicts = (flags_10 & 0b_0010_0000) != 0x00;
+    let flag_tv_system = flags_10 & 0x03;
+    let flag_prg_ram = (flags_10 & 0x10) > 0x00;
+    let flag_bus_conflicts = (flags_10 & 0x20) > 0x00;
 
     if flag_rom_format == 2 {
       unimplemented!("NES 2.0 ROM format not implemented");
