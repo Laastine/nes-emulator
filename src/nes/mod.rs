@@ -176,13 +176,13 @@ impl Nes {
 
   pub fn draw_code(&self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
     let val = self.map_asm.get(&self.cpu.pc);
-    if val.is_some() {
+    if let value = val.is_some() {
       write!(stdout, "{}{}", cursor::Goto(x, y), clear::AfterCursor).unwrap();
       write!(
         stdout,
         "{}{}{}",
         cursor::Goto(x, y),
-        val.unwrap(),
+        value,
         style::Reset
       )
         .unwrap();

@@ -16,7 +16,6 @@ bitfield! {
     pub u8, sprite_size, _: 5;
     pub u8, slave_mode, _: 6;
     pub u8, enable_nmi, _: 7;
-    pub u8, bits, _: 7, 0;
 }
 
 bitfield! {
@@ -30,17 +29,14 @@ bitfield! {
     pub u8, emphasize_red, _: 5;
     pub u8, emphasize_green, _: 6;
     pub u8, emphasize_blue, _: 7;
-    pub u8, bits, _: 7, 0;
 }
 
 bitfield! {
   #[derive(Copy, Clone, PartialEq)]
   pub struct PpuStatusFlags(u8); impl Debug;
-    pub u8, _unused,         _:                                 4, 0;
     pub u8, sprite_overflow, set_sprite_overflow:               5;
     pub u8, sprite_zero_hit, set_sprite_zero_hit:               6;
-    pub u8, vertical_blank_started, set_vertical_blank_started: 7;
-    pub u8, bits,         _:                                    7, 0;
+    pub u8, vertical_blank,  set_vertical_blank:                7;
 }
 
 // https://wiki.nesdev.com/w/index.php/PPU_scrolling
@@ -55,7 +51,6 @@ bitfield! {
     pub u8,    _unused,       _:                15, 15;
     pub u8,    hi_byte,      set_hi_byte:       13, 8;
     pub u8,    lo_byte,      set_lo_byte:       7,  0;
-    pub u16,   bits,          _:                14, 0;
 }
 
 #[derive(Clone)]
@@ -71,7 +66,6 @@ pub struct Registers {
   pub address_latch: bool,
   pub ppu_data_buffer: u8,
   pub fine_x: u8,
-  pub fine_y: u8,
   pub cartridge: Rc<RefCell<Cartridge>>,
 }
 
@@ -85,11 +79,10 @@ impl Registers {
       tram_addr: ScrollRegister(0x00),
       palette_table: [0; 32],
       table_pattern: [[0; 4096]; 2],
-      name_table: [[0xFF; 1024]; 2],
+      name_table: [[0; 1024]; 2],
       address_latch: false,
       ppu_data_buffer: 0x00,
       fine_x: 0x00,
-      fine_y: 0x00,
       cartridge,
     }
   }
@@ -141,12 +134,12 @@ impl Registers {
         }
         0x3F00..=0x3FFF => {
           addr &= 0x001F;
-          addr = match addr {
-            0x0010 | 0x0014 | 0x0018 | 0x001C => addr - 10,
-            _ => addr
+          let idx: usize = match addr {
+            0x0010 | 0x0014 | 0x0018 | 0x001C => usize::try_from(addr).unwrap() - 0x10,
+            _ => addr.into()
           };
-//          print!("D {},{},{} ", addr, self.table_palette[usize::try_from(addr).unwrap()], (if self.mask_flags.grayscale() { 0x30 } else { 0x3F }));
-          self.palette_table[usize::try_from(addr).unwrap()] & (if self.mask_flags.grayscale() { 0x30 } else { 0x3F })
+//          print!("D {},{},{} ", addr, self.palette_table[usize::try_from(addr).unwrap()], (if self.mask_flags.grayscale() { 0x30 } else { 0x3F }));
+          (self.palette_table[usize::try_from(idx).unwrap()] & (if self.mask_flags.grayscale() { 0x30 } else { 0x3F }))
         }
         _ => panic!("Address {} not in range", addr)
       }
@@ -195,14 +188,11 @@ impl Registers {
         }
         0x3F00..=0x3FFF => {
           addr &= 0x001F;
-          let idx = match addr {
-            0x0010 => 0x0000,
-            0x0014 => 0x0004,
-            0x0018 => 0x0008,
-            0x001C => 0x000C,
+          let idx: usize = match addr {
+            0x0010 | 0x0014 | 0x0018 | 0x001C => usize::try_from(addr).unwrap() - 0x10,
             _ => addr.into()
           };
-          println!("Dwrite:{}", data);
+//          println!("Dwrite:{}", data);
           self.palette_table[idx] = data;
         }
         _ => panic!("Address {} not in range", addr)
@@ -230,10 +220,10 @@ fn ppu_status_register_write_and_read() {
   registers.status_flags.set_sprite_overflow(true);
 
   assert_eq!(registers.status_flags.sprite_overflow(), true);
-  assert_eq!(registers.status_flags.bits(), 0b00_10_00_00);
+  assert_eq!(registers.status_flags.0, 0b00_10_00_00);
 
   registers.status_flags.set_sprite_overflow(false);
 
   assert_eq!(registers.status_flags.sprite_overflow(), false);
-  assert_eq!(registers.status_flags.bits(), 0b00_00_00_00);
+  assert_eq!(registers.status_flags.0, 0b00_00_00_00);
 }

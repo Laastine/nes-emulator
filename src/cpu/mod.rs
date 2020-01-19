@@ -14,6 +14,14 @@ fn init_log_file() {
   file.set_len(0).unwrap();
 }
 
+fn bool_to_u8(input: bool) -> u8 {
+  if input { 1 } else { 0 }
+}
+
+fn u8_to_bool(input: u8) -> bool {
+  input > 0
+}
+
 pub struct Cpu {
   pub bus: Bus,
   pub pc: u16,
@@ -64,14 +72,9 @@ impl Cpu {
     }
   }
 
-  pub fn get_flag(&self, flag: &FLAGS6502) -> u8 {
-    if (self.status_register & flag.value()) > 0 {
-      1
-    } else {
-      0
-    }
+  pub fn get_flag(&self, flag: &FLAGS6502) -> bool {
+    (self.status_register & flag.value()) > 0
   }
-
 
   fn bus_mut_read_u8(&mut self, address: u16) -> u16 {
     self.bus.read_u8(address, false).try_into().unwrap()
@@ -98,11 +101,11 @@ impl Cpu {
   }
 
   fn stack_pointer_increment(&mut self) {
-    self.stack_pointer += 1;
+    self.stack_pointer = self.stack_pointer.wrapping_add(1);
   }
 
   fn stack_pointer_decrement(&mut self) {
-    self.stack_pointer -= 1;
+    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
   }
 
   pub fn clock(&mut self) {
@@ -120,7 +123,7 @@ impl Cpu {
       let addr_mode = *self.lookup.get_addr_mode(opcode_idx);
       let operate = *self.lookup.get_operate(opcode_idx);
 
-      self.cycles += (self.addr_mode_value(addr_mode) & self.op_code_value(operate));
+      self.cycles += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
 
       self.set_flag(&FLAGS6502::U, true);
 
@@ -147,22 +150,24 @@ impl Cpu {
     file
         .write_all(
           format!(
-            "opcode:{} -> clock:{} sreg:{} PC:{} XXX A:{} X:{} Y:{} {}{}{}{}{}{}{}{} STKP:{}\n",
+            "opcode:{} -> clock:{} sreg:{} {},{} PC:{} XXX A:{} X:{} Y:{} {}{}{}{}{}{}{}{} STKP:{}\n",
             self.opcode,
             self.clock_count,
             self.status_register,
+            self.addr_abs,
+            self.addr_rel,
             hex(log_pc, 4),
             hex(u8::try_into(self.acc).unwrap(), 2),
             hex(u8::try_into(self.x).unwrap(), 2),
             hex(u8::try_into(self.y).unwrap(), 2),
-            if self.get_flag(&FLAGS6502::N) > 0 { "N" } else { "." },
-            if self.get_flag(&FLAGS6502::V) > 0 { "V" } else { "." },
-            if self.get_flag(&FLAGS6502::U) > 0 { "U" } else { "." },
-            if self.get_flag(&FLAGS6502::B) > 0 { "B" } else { "." },
-            if self.get_flag(&FLAGS6502::D) > 0 { "D" } else { "." },
-            if self.get_flag(&FLAGS6502::I) > 0 { "I" } else { "." },
-            if self.get_flag(&FLAGS6502::Z) > 0 { "Z" } else { "." },
-            if self.get_flag(&FLAGS6502::C) > 0 { "C" } else { "." },
+            if self.get_flag(&FLAGS6502::N) { "N" } else { "." },
+            if self.get_flag(&FLAGS6502::V) { "V" } else { "." },
+            if self.get_flag(&FLAGS6502::U) { "U" } else { "." },
+            if self.get_flag(&FLAGS6502::B) { "B" } else { "." },
+            if self.get_flag(&FLAGS6502::D) { "D" } else { "." },
+            if self.get_flag(&FLAGS6502::I) { "I" } else { "." },
+            if self.get_flag(&FLAGS6502::Z) { "Z" } else { "." },
+            if self.get_flag(&FLAGS6502::C) { "C" } else { "." },
             hex(usize::try_from(self.stack_pointer).unwrap(), 2),
           )
               .as_bytes(),
@@ -172,7 +177,7 @@ impl Cpu {
 
   pub fn fetch(&mut self) {
     if self.addr_mode() != ADDRMODE6502::IMP {
-      self.fetched = u8::try_from(self.bus_mut_read_u8(self.addr_abs)).unwrap();
+      self.fetched = u8::try_from(self.bus_mut_read_u8(self.addr_abs) & 0x00FF).unwrap();
     }
   }
 
@@ -187,7 +192,7 @@ impl Cpu {
     self.x = 0;
     self.y = 0;
     self.stack_pointer = 0xFD;
-    self.status_register = FLAGS6502::U.value();
+    self.status_register = 0x00 | FLAGS6502::U.value();
 
     self.addr_abs = 0x0000;
     self.addr_rel = 0x0000;
@@ -198,7 +203,7 @@ impl Cpu {
 
   /// Interrupt
   pub fn irq(&mut self) {
-    if self.get_flag(&FLAGS6502::I) == 0x00 {
+    if !self.get_flag(&FLAGS6502::I) {
       self.bus_write_u8(self.get_stack_address(),
                         u8::try_from((self.pc >> 8) & 0x00FF).unwrap(),
       );
@@ -288,22 +293,25 @@ impl Cpu {
 
   /// Zero Page
   pub fn zp0(&mut self) -> u8 {
-    self.addr_abs = (self.bus_mut_read_u8(self.pc) & 0x00FF);
+    self.addr_abs = self.bus_mut_read_u8(self.pc);
     self.pc_increment();
+    //self.addr_abs &= 0x00FF;
     0
   }
 
   /// Zero Page with X offset
   pub fn zpx(&mut self) -> u8 {
-    self.addr_abs = (self.bus_mut_read_u8(self.pc) + u16::try_from(self.x).unwrap() & 0x00FF);
+    self.addr_abs = self.bus_mut_read_u8(self.pc).wrapping_add(u16::try_from(self.x).unwrap());
     self.pc_increment();
+    //self.addr_abs &= 0x00FF;
     0
   }
 
   /// Zero Page with Y offset
   pub fn zpy(&mut self) -> u8 {
-    self.addr_abs = (self.bus_mut_read_u8(self.pc) + u16::try_from(self.y).unwrap() & 0x00FF);
+    self.addr_abs = self.bus_mut_read_u8(self.pc).wrapping_add(u16::try_from(self.y).unwrap());
     self.pc_increment();
+//    self.addr_abs &= 0x00FF;
     0
   }
 
@@ -329,7 +337,7 @@ impl Cpu {
     let (lo_byte, hi_byte) = self.read_pc();
 
     self.addr_abs = (hi_byte << 8) | lo_byte;
-    self.addr_abs += u16::try_from(self.x).unwrap();
+    self.addr_abs = self.addr_abs.wrapping_add(u16::try_from(self.x).unwrap());
     if (self.addr_abs & 0xFF00) != (hi_byte << 8) {
       1
     } else {
@@ -359,7 +367,7 @@ impl Cpu {
     self.addr_abs = if lo_byte == 0x00FF {
       (self.bus_mut_read_u8(byte & 0xFF00) << 8) | self.bus_mut_read_u8(byte)
     } else {
-      (self.bus_mut_read_u8(byte + 1) << 8) | self.bus_mut_read_u8(byte)
+      (self.bus_mut_read_u8(byte + 0x01) << 8) | self.bus_mut_read_u8(byte)
     };
 
     0
@@ -385,8 +393,8 @@ impl Cpu {
 
     let lo_byte: u16 = self.bus_mut_read_u8(byte & 0x00FF).try_into().unwrap();
     let hi_byte: u16 = self.bus_mut_read_u8((byte + 1) & 0x00FF).try_into().unwrap();
-    self.addr_abs = u16::try_from((hi_byte << 8) | lo_byte).unwrap();
-    self.addr_abs += u16::try_from(self.y).unwrap();
+    self.addr_abs = (hi_byte << 8) | lo_byte;
+    self.addr_abs = self.addr_abs.wrapping_add(u16::try_from(self.y).unwrap());
 
     if (self.addr_abs & 0xFF00) != (hi_byte << 8) {
       1
@@ -491,9 +499,9 @@ impl Cpu {
   /// Arithmetic shift left
   pub fn asl(&mut self) -> u8 {
     self.fetch();
-    self.temp = (u16::try_from(self.fetched).unwrap() << 1);
+    self.temp = u16::try_from(self.fetched << 1).unwrap();
     self.set_flag(&FLAGS6502::C, (self.temp & 0xFF00) > 0x00);
-    self.set_flag(&FLAGS6502::Z, (self.temp & 0x00FF) == 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
     self.set_flag(&FLAGS6502::N, (self.temp & 0x80) > 0x00);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
@@ -515,9 +523,9 @@ impl Cpu {
 
   /// branch on carry clear
   pub fn bcc(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::C) == 0x00 {
+    if !self.get_flag(&FLAGS6502::C) {
       self.cycles_increment();
-      self.addr_abs = self.pc + self.addr_rel;
+      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
 
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
         self.cycles_increment();
@@ -529,7 +537,7 @@ impl Cpu {
 
   /// branch on carry clear
   pub fn bcs(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::C) == 0x01 {
+    if self.get_flag(&FLAGS6502::C) {
       self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
@@ -542,7 +550,7 @@ impl Cpu {
 
   /// branch on equal
   pub fn beq(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::Z) == 0x01 {
+    if self.get_flag(&FLAGS6502::Z) {
       self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
@@ -556,7 +564,7 @@ impl Cpu {
   /// Bit test
   pub fn bit(&mut self) -> u8 {
     self.fetch();
-    self.temp = (u16::try_from(self.acc).unwrap() & u16::try_from(self.fetched).unwrap());
+    self.temp = u16::try_from(self.acc).unwrap() & u16::try_from(self.fetched).unwrap();
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
     self.set_flag(&FLAGS6502::N, (self.fetched & 0x80) > 0x00);
     self.set_flag(&FLAGS6502::V, (self.fetched & 0x40) > 0x00);
@@ -565,7 +573,7 @@ impl Cpu {
 
   /// Branch on minus (negative set)
   pub fn bmi(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::N) == 0x01 {
+    if self.get_flag(&FLAGS6502::N) {
       self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
@@ -578,7 +586,7 @@ impl Cpu {
 
   /// Branch on not equal (zero clear)
   pub fn bne(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::Z) == 0x00 {
+    if !self.get_flag(&FLAGS6502::Z) {
       self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
@@ -591,7 +599,7 @@ impl Cpu {
 
   /// Branch on plus (negative clear)
   pub fn bpl(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::N) == 0x00 {
+    if !self.get_flag(&FLAGS6502::N) {
       self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
@@ -630,7 +638,7 @@ impl Cpu {
 
   /// Branch on overflow clear
   pub fn bvc(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::V) == 0 {
+    if !self.get_flag(&FLAGS6502::V) {
       self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
@@ -643,7 +651,7 @@ impl Cpu {
 
   /// Branch on overflow clear
   pub fn bvs(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::V) == 1 {
+    if self.get_flag(&FLAGS6502::V) {
       self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
@@ -737,7 +745,7 @@ impl Cpu {
   /// Exclusive or with accumulator
   pub fn eor(&mut self) -> u8 {
     self.fetch();
-    self.acc = (self.acc ^ self.fetched);
+    self.acc ^= self.fetched;
     self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
     self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0x00);
     1
@@ -930,21 +938,16 @@ impl Cpu {
 
   /// Return form interrupt
   pub fn rti(&mut self) -> u8 {
-    self.stack_pointer += 1;
-    self.status_register = self
-      .bus_mut_read_u8(self.get_stack_address())
-      .try_into()
-      .unwrap();
-    self.status_register &= (!FLAGS6502::B.value());
-    self.status_register &= (!FLAGS6502::U.value());
+    self.stack_pointer_increment();
+    self.status_register = u8::try_from(self
+      .bus_mut_read_u8(self.get_stack_address())).unwrap();
+    self.status_register &= !FLAGS6502::B.value();
+    self.status_register &= !FLAGS6502::U.value();
 
     self.stack_pointer_increment();
-    self.pc = self
-      .bus_mut_read_u8(self.get_stack_address())
-      .try_into()
-      .unwrap();
+    self.pc = self.bus_mut_read_u8(self.get_stack_address());
     self.stack_pointer_increment();
-    self.pc |= self.bus_mut_read_u8(self.get_stack_address()) << 8;
+    self.pc |= self.bus_mut_read_u8(self.get_stack_address()).wrapping_shl(8);
     0
   }
 
@@ -954,7 +957,7 @@ impl Cpu {
     self.pc = self.bus_mut_read_u8(self.get_stack_address());
 
     self.stack_pointer_increment();
-    self.pc |= self.bus_mut_read_u8(self.get_stack_address()) << 8;
+    self.pc |= self.bus_mut_read_u8(self.get_stack_address()).wrapping_shl(8);
 
     self.pc_increment();
     0

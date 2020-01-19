@@ -95,11 +95,17 @@ impl Bus {
         }
       },
       0x07 => { // PPU data
-        let mut vram_addr = self.get_mut_registers().vram_addr.bits();
-        self.get_mut_registers().ppu_write(vram_addr, data);
+        let mut vram_addr = self.get_mut_registers().vram_addr;
+
+//        if (9150..=9160).contains(&vram_addr.0) {
+//          println!("CPU WRITE {}", data);
+//        }
+//        if 9160 == vram_addr.0 {
+//          std::process::exit(1);
+//        }
+        self.get_mut_registers().ppu_write(vram_addr.0, data);
         let val = if self.get_mut_registers().ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
-        vram_addr = self.get_mut_registers().vram_addr.bits();
-        self.get_mut_registers().vram_addr = ScrollRegister(vram_addr.wrapping_add(val));
+        self.get_mut_registers().vram_addr.0 = vram_addr.0.wrapping_add(val);
       },
       _ => panic!("write_ppu_registers address: {} not in range", address),
     };
@@ -109,24 +115,24 @@ impl Bus {
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_cpu_u8(address);
     if is_address_in_range {
       let res = u16::try_from(self.get_mut_cartridge().rom.prg_rom[mapped_addr]).unwrap();
-      println!("A PPU data: {} -> {}", address, res);
+//      println!("A PPU data: {} -> {}", address, res);
       res
     } else {
       match address {
         0x0000..=0x1FFF => {
           let res= self.ram[usize::try_from(address & 0x07FF).unwrap()].into();
-          println!("B PPU data: {} -> {}", address, res);
+//          println!("B PPU data: {} -> {}", address, res);
           res
         }
         0x2000..=0x3FFF => {
           let res = self.read_ppu_registers(address & 0x0007, read_only).into();
-          println!("C PPU data: {} -> {}", address, res);
+//          println!("C PPU data: {} -> {}", address, res);
           res
         },
         0x4016..=0x4017 => {
           let res: u16 = if (self.controller[usize::try_from(address & 0x0001).unwrap()] & 0x80) > 0x00 { 1 } else { 0 };
           self.controller[usize::try_from(address & 0x0001).unwrap()] <<= 1;
-          println!("D PPU data: {} -> {}", address, res);
+//          println!("D PPU data: {} -> {}", address, res);
           res
         }
         _ => 0,
@@ -137,9 +143,9 @@ impl Bus {
   pub fn read_ppu_registers(&mut self, address: u16, read_only: bool) -> u8 {
     if read_only {
       match address {
-        0x00 => self.get_mut_registers().ctrl_flags.bits(),
-        0x01 => self.get_mut_registers().mask_flags.bits(),
-        0x02 => self.get_mut_registers().status_flags.bits(),
+        0x00 => self.get_mut_registers().ctrl_flags.0,
+        0x01 => self.get_mut_registers().mask_flags.0,
+        0x02 => self.get_mut_registers().status_flags.0,
         0x03 => 0x00,
         0x04 => 0x00,
         0x05 => 0x00,
@@ -153,8 +159,8 @@ impl Bus {
         0x01 => 0x00,
         0x02 => {   // Status
           let status_flags = self.get_mut_registers().status_flags;
-          let res = (status_flags.bits() & 0xE0) | (self.get_mut_registers().ppu_data_buffer & 0x1F);
-          self.get_mut_registers().status_flags.set_vertical_blank_started(false);
+          let res = (status_flags.0 & 0xE0) | (self.get_mut_registers().ppu_data_buffer & 0x1F);
+          self.get_mut_registers().status_flags.set_vertical_blank(false);
           self.get_mut_registers().address_latch = false;
           res
         }
@@ -165,16 +171,16 @@ impl Bus {
         0x07 => {   // PPU data
           let mut ppu_data_buffer = self.get_mut_registers().ppu_data_buffer;
           let vram_addr = self.get_mut_registers().vram_addr;
-          let ppu_val = self.get_mut_registers().ppu_read(vram_addr.bits());
+          let ppu_val = self.get_mut_registers().ppu_read(vram_addr.0);
           self.get_mut_registers().ppu_data_buffer = u8::try_from(ppu_val).unwrap();
 
-          if (0x3F00..=0x3FFF).contains(&self.get_mut_registers().vram_addr.bits()) {
+          if (0x3F00..=0x3FFF).contains(&self.get_mut_registers().vram_addr.0) {
             ppu_data_buffer = self.get_mut_registers().ppu_data_buffer;
           }
 
-          let vram_addr = self.get_mut_registers().vram_addr;
           let increment_val = if self.get_mut_registers().ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
-          self.get_mut_registers().vram_addr = ScrollRegister(vram_addr.bits() + increment_val);
+          let vram_addr = self.get_mut_registers().vram_addr;
+          self.get_mut_registers().vram_addr.0 = vram_addr.0.wrapping_add(increment_val);
           ppu_data_buffer
         }
         _ => panic!("read_ppu_u8 address: {} not in range", address),

@@ -9,8 +9,16 @@ use luminance_glutin::GlutinSurface;
 
 use crate::nes::constants::{Color, COLORS, SCREEN_RES_X, SCREEN_RES_Y};
 use crate::ppu::registers::{PpuCtrlFlags, PpuMaskFlags, PpuStatusFlags, Registers, ScrollRegister};
+use std::fs::OpenOptions;
+use std::io::Write;
 
 pub mod registers;
+
+#[cfg(debug_assertions)]
+fn init_log_file() {
+  let file = OpenOptions::new().write(true).append(false).open("ppu.txt").expect("File open error");
+  file.set_len(0).unwrap();
+}
 
 pub struct Ppu {
   pub cycles: u32,
@@ -34,7 +42,7 @@ pub struct Ppu {
 impl Ppu {
   pub fn new(registers: Rc<RefCell<Registers>>, surface: &mut GlutinSurface) -> Ppu {
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
-
+    init_log_file();
     let texture: Texture<Flat, Dim2, NormRGB8UI> =
       Texture::new(surface, [SCREEN_RES_X, SCREEN_RES_Y], 0, Sampler::default())
         .expect("Texture create error");
@@ -64,12 +72,12 @@ impl Ppu {
   }
 
   fn read_ppu_u8(&mut self, address: u16) -> u8 {
-    let mut reg = self.get_mut_registers();
-    reg.ppu_read(address)
+    self.get_mut_registers().ppu_read(address)
   }
 
   fn get_color(&mut self, palette: u8, pixel: u8) -> Color {
     let idx = self.read_ppu_u8(0x3F00 + u16::try_from((palette << 2) + pixel).unwrap());
+    let idx = self.read_ppu_u8(0x3F00 + u16::try_from((palette.wrapping_shl(2)) + pixel).unwrap());
     COLORS[usize::try_from(idx).unwrap() & 0x3F]
   }
 
@@ -83,7 +91,6 @@ impl Ppu {
     self.get_mut_registers().tram_addr = ScrollRegister(0);
     self.get_mut_registers().ppu_data_buffer = 0;
     self.get_mut_registers().fine_x = 0;
-    self.get_mut_registers().fine_y = 0;
     self.bg_next_tile_id = 0;
     self.bg_next_tile_attrib = 0;
     self.bg_next_tile_lsb = 0;
@@ -148,7 +155,8 @@ impl Ppu {
         let new_x_val = !self.get_mut_registers().vram_addr.nametable_x();
         self.get_mut_registers().vram_addr.set_nametable_x(new_x_val);
       } else {
-        self.get_mut_registers().vram_addr.set_coarse_x(vram_addr.coarse_x() + 1);
+        let coarse_x = vram_addr.coarse_x();
+        self.get_mut_registers().vram_addr.set_coarse_x(coarse_x + 1);
       }
     }
   }
@@ -158,20 +166,21 @@ impl Ppu {
 
     if mask_flags.show_background() || mask_flags.show_sprites() {
       let mut vram_addr = self.get_mut_registers().vram_addr;
-
-      if vram_addr.fine_y() < 7 {
-        vram_addr.set_fine_y(vram_addr.fine_y());
+      let fine_y = vram_addr.fine_y();
+      if fine_y < 7 {
+        vram_addr.set_fine_y(fine_y + 1);
       } else {
         vram_addr.set_fine_y(0);
-
-        if vram_addr.coarse_y() == 29 {
+        vram_addr = self.get_mut_registers().vram_addr;
+        let coarse_y = vram_addr.coarse_y();
+        if coarse_y == 29 {
           vram_addr.set_coarse_y(0);
-          let new_y_val = !self.get_mut_registers().vram_addr.nametable_y();
-          self.get_mut_registers().vram_addr.set_nametable_y(new_y_val);
-        } else if vram_addr.coarse_y() == 31 {
+          let inv_nametable_y = !self.get_mut_registers().vram_addr.nametable_y();
+          self.get_mut_registers().vram_addr.set_nametable_y(inv_nametable_y);
+        } else if coarse_y == 31 {
           self.get_mut_registers().vram_addr.set_coarse_y(0);
         } else {
-          self.get_mut_registers().vram_addr.set_coarse_y(vram_addr.coarse_y() + 1);
+          self.get_mut_registers().vram_addr.set_coarse_y(coarse_y + 1);
         }
       }
     }
@@ -199,14 +208,69 @@ impl Ppu {
     }
   }
 
+  #[cfg(debug_assertions)]
+  fn log(&mut self) {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open("ppu.txt")
+        .expect("File append error");
+
+    let cycle = self.cycles;
+    let fine_x = self.fine_x;
+    let nmi = if self.nmi { 1 } else { 0 };
+    let bg_next_tile_id = self.bg_next_tile_id;
+    let bg_next_tile_attrib = self.bg_next_tile_attrib;
+    let bg_next_tile_lsb = self.bg_next_tile_lsb;
+    let bg_next_tile_msb = self.bg_next_tile_msb;
+    let bg_shifter_pattern_lo = self.bg_shifter_pattern_lo;
+    let bg_shifter_pattern_hi = self.bg_shifter_pattern_hi;
+    let bg_shifter_attrib_lo = self.bg_shifter_attrib_lo;
+    let bg_shifter_attrib_hi = self.bg_shifter_attrib_hi;
+    let scan_line = self.scan_line;
+    let reg = self.get_mut_registers();
+    file
+        .write_all(
+          format!(
+            "{:?},{},{}, {},{},{},{},{},{},{},{},{} {} -> sta:{:?}, msk:{:?}, ctrl:{:?}, tram:{:?}, vram:{:?}\n",
+            cycle,
+            scan_line,
+            reg.ppu_data_buffer,
+
+            fine_x,
+            bg_next_tile_id,
+            bg_next_tile_attrib,
+
+            bg_next_tile_lsb,
+            bg_next_tile_msb,
+            bg_shifter_pattern_lo,
+
+            bg_shifter_pattern_hi,
+            bg_shifter_attrib_lo,
+            bg_shifter_attrib_hi,
+
+            nmi,
+
+            reg.status_flags.0,
+            reg.mask_flags.0,
+            reg.ctrl_flags.0,
+            reg.tram_addr.0,
+            reg.vram_addr.0,
+          )
+              .as_bytes(),
+        )
+        .expect("File write error");
+  }
+
   pub fn clock(&mut self) {
+    self.log();
     if self.scan_line > -2 && self.scan_line < 240 {
       if self.scan_line == 0 && self.cycles == 0 {
         self.cycles = 1;
       }
 
       if self.scan_line == -1 && self.cycles == 1 {
-        self.get_mut_registers().status_flags.set_vertical_blank_started(false)
+        self.get_mut_registers().status_flags.set_vertical_blank(false)
       }
 
       if (self.cycles > 1 && self.cycles < 258) || (self.cycles > 320 && self.cycles < 338) {
@@ -217,7 +281,7 @@ impl Ppu {
             self.load_background_shifters();
             let vram_addr = self.get_mut_registers().vram_addr;
 
-            self.bg_next_tile_id = self.read_ppu_u8(0x2000 | (vram_addr.bits() & 0x0FFF));
+            self.bg_next_tile_id = self.read_ppu_u8(0x2000 | (vram_addr.0 & 0x0FFF));
           }
           0x02 => {
             let vram_addr = self.get_mut_registers().vram_addr;
@@ -233,10 +297,10 @@ impl Ppu {
               | ((coarse_y >> 2) << 3)
               | (coarse_x >> 2));
 
-            if (coarse_y & 0x02) > 0x00 {
+            if (vram_addr.coarse_y() & 0x02) > 0x00 {
               self.bg_next_tile_attrib >>= 4;
             }
-            if (coarse_x & 0x02) > 0x00 {
+            if (vram_addr.coarse_x() & 0x02) > 0x00 {
               self.bg_next_tile_attrib >>= 2;
             }
             self.bg_next_tile_attrib &= 0x03;
@@ -281,7 +345,7 @@ impl Ppu {
 
       if self.cycles == 338 || self.cycles == 340 {
         let vram_addr = self.get_mut_registers().vram_addr;
-        self.bg_next_tile_id = self.read_ppu_u8(0x2000 | (vram_addr.bits() & 0x0FFF));
+        self.bg_next_tile_id = self.read_ppu_u8(0x2000 | (vram_addr.0 & 0x0FFF));
       }
 
       if self.scan_line == -1 && (280..=304).contains(&self.cycles) {
@@ -290,7 +354,7 @@ impl Ppu {
     }
 
     if self.cycles == 1 && self.scan_line == 241 {
-      self.get_mut_registers().status_flags.set_vertical_blank_started(true);
+      self.get_mut_registers().status_flags.set_vertical_blank(true);
 
       if self.get_mut_registers().ctrl_flags.enable_nmi() {
         self.nmi = true;
@@ -315,7 +379,7 @@ impl Ppu {
     }
 
     let x = self.cycles.wrapping_sub(1);
-    let y = if self.scan_line > -1 { u32::try_from(self.scan_line).unwrap() } else { 500 };
+    let y = if self.scan_line > -1 { u32::try_from(self.scan_line).unwrap() } else { 0xFFF };
 
     if (0..=255).contains(&x) && (0..=239).contains(&y) {
       let pixel = self.get_color(bg_palette, bg_pixel);
@@ -328,13 +392,13 @@ impl Ppu {
       self.scan_line += 1;
 
       if self.scan_line > 260 {
+        self
+            .texture
+            .upload_raw(GenMipmaps::No, &self.image_buffer)
+            .expect("Texture update error");
         self.scan_line = -1;
         self.frame_ready = true;
 //        self.get_pattern_table(0, 0);
-        self
-          .texture
-          .upload_raw(GenMipmaps::No, &self.image_buffer)
-          .expect("Texture update error");
       }
     }
   }
