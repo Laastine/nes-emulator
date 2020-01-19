@@ -46,7 +46,7 @@ impl Bus {
           self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
         }
         0x2000..=0x3FFF => {
-          self.write_ppu_registers(address & 0x0007, data)
+          self.get_mut_registers().write_ppu_registers(address & 0x0007, data)
         }
         0x4016..=0x4017 => {
           let idx = usize::try_from(address & 0x0001).unwrap();
@@ -55,60 +55,6 @@ impl Bus {
         _ => (),
       }
     }
-  }
-
-  fn write_ppu_registers(&mut self, address: u16, data: u8) {
-    match address {
-      0x00 => {
-        self.get_mut_registers().ctrl_flags = PpuCtrlFlags(data);
-
-        let ctrl_flags = self.get_mut_registers().ctrl_flags;
-        self.get_mut_registers().tram_addr.set_nametable_x(ctrl_flags.nametable_x());
-        self.get_mut_registers().tram_addr.set_nametable_y(ctrl_flags.nametable_y());
-      }
-      0x01 => {
-        self.get_mut_registers().mask_flags = PpuMaskFlags(data);
-      },
-      0x02 => {},
-      0x03 => {},
-      0x04 => {},
-      0x05 => { // Scroll
-        if self.get_mut_registers().address_latch {                    // Y
-          self.get_mut_registers().tram_addr.set_fine_y(data & 0x07);
-          self.get_mut_registers().tram_addr.set_coarse_y(data >> 3);
-          self.get_mut_registers().address_latch = false;
-        } else { // X
-          self.get_mut_registers().fine_x = data & 0x07;
-          self.get_mut_registers().tram_addr.set_coarse_x(data >> 3);
-          self.get_mut_registers().address_latch = true;
-        }
-      },
-      0x06 => { // PPU address
-        if self.get_mut_registers().address_latch {
-          self.get_mut_registers().tram_addr.set_lo_byte(data);
-          let tram_addr = self.get_mut_registers().tram_addr;
-          self.get_mut_registers().vram_addr = tram_addr;
-          self.get_mut_registers().address_latch = false;
-        } else {
-          self.get_mut_registers().tram_addr.set_hi_byte(data);
-          self.get_mut_registers().address_latch = true;
-        }
-      },
-      0x07 => { // PPU data
-        let mut vram_addr = self.get_mut_registers().vram_addr;
-
-//        if (9150..=9160).contains(&vram_addr.0) {
-//          println!("CPU WRITE {}", data);
-//        }
-//        if 9160 == vram_addr.0 {
-//          std::process::exit(1);
-//        }
-        self.get_mut_registers().ppu_write(vram_addr.0, data);
-        let val = if self.get_mut_registers().ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
-        self.get_mut_registers().vram_addr.0 = vram_addr.0.wrapping_add(val);
-      },
-      _ => panic!("write_ppu_registers address: {} not in range", address),
-    };
   }
 
   pub fn read_u8(&mut self, address: u16, read_only: bool) -> u16 {
@@ -125,7 +71,7 @@ impl Bus {
           res
         }
         0x2000..=0x3FFF => {
-          let res = self.read_ppu_registers(address & 0x0007, read_only).into();
+          let res = self.get_mut_registers().read_ppu_registers(address & 0x0007, read_only).into();
 //          println!("C PPU data: {} -> {}", address, res);
           res
         },
@@ -136,54 +82,6 @@ impl Bus {
           res
         }
         _ => 0,
-      }
-    }
-  }
-
-  pub fn read_ppu_registers(&mut self, address: u16, read_only: bool) -> u8 {
-    if read_only {
-      match address {
-        0x00 => self.get_mut_registers().ctrl_flags.0,
-        0x01 => self.get_mut_registers().mask_flags.0,
-        0x02 => self.get_mut_registers().status_flags.0,
-        0x03 => 0x00,
-        0x04 => 0x00,
-        0x05 => 0x00,
-        0x06 => 0x00,
-        0x07 => 0x00,
-        _ => 0x00,
-      }
-    } else {
-      match address {
-        0x00 => 0x00,
-        0x01 => 0x00,
-        0x02 => {   // Status
-          let status_flags = self.get_mut_registers().status_flags;
-          let res = (status_flags.0 & 0xE0) | (self.get_mut_registers().ppu_data_buffer & 0x1F);
-          self.get_mut_registers().status_flags.set_vertical_blank(false);
-          self.get_mut_registers().address_latch = false;
-          res
-        }
-        0x03 => 0x00,
-        0x04 => 0x00,
-        0x05 => 0x00,
-        0x06 => 0x00,
-        0x07 => {   // PPU data
-          let mut ppu_data_buffer = self.get_mut_registers().ppu_data_buffer;
-          let vram_addr = self.get_mut_registers().vram_addr;
-          let ppu_val = self.get_mut_registers().ppu_read(vram_addr.0);
-          self.get_mut_registers().ppu_data_buffer = u8::try_from(ppu_val).unwrap();
-
-          if (0x3F00..=0x3FFF).contains(&self.get_mut_registers().vram_addr.0) {
-            ppu_data_buffer = self.get_mut_registers().ppu_data_buffer;
-          }
-
-          let increment_val = if self.get_mut_registers().ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
-          let vram_addr = self.get_mut_registers().vram_addr;
-          self.get_mut_registers().vram_addr.0 = vram_addr.0.wrapping_add(increment_val);
-          ppu_data_buffer
-        }
-        _ => panic!("read_ppu_u8 address: {} not in range", address),
       }
     }
   }

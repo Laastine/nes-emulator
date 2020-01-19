@@ -199,6 +199,98 @@ impl Registers {
       }
     }
   }
+
+  pub fn write_ppu_registers(&mut self, address: u16, data: u8) {
+    match address {
+      0x00 => {
+        self.ctrl_flags.0 = data;
+
+        let ctrl_flags = self.ctrl_flags;
+        self.tram_addr.set_nametable_x(ctrl_flags.nametable_x());
+        self.tram_addr.set_nametable_y(ctrl_flags.nametable_y());
+      }
+      0x01 => {
+        self.mask_flags.0 = data;
+      },
+      0x02 => {},
+      0x03 => {},
+      0x04 => {},
+      0x05 => { // Scroll
+        if self.address_latch {                    // Y
+          self.tram_addr.set_fine_y(data & 0x07);
+          self.tram_addr.set_coarse_y(data >> 3);
+          self.address_latch = false;
+        } else { // X
+          self.fine_x = data & 0x07;
+          self.tram_addr.set_coarse_x(data >> 3);
+          self.address_latch = true;
+        }
+      },
+      0x06 => { // PPU address
+        if self.address_latch {
+          self.tram_addr.set_lo_byte(data);
+          let tram_addr = self.tram_addr;
+          self.vram_addr = tram_addr;
+          self.address_latch = false;
+        } else {
+          self.tram_addr.set_hi_byte(data);
+          self.address_latch = true;
+        }
+      },
+      0x07 => { // PPU data
+        let mut vram_addr = self.vram_addr;
+        let increment_val = if self.ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
+        self.ppu_write(vram_addr.0, data);
+        self.vram_addr.0 = vram_addr.0.wrapping_add(increment_val);
+      },
+      _ => panic!("write_ppu_registers address: {} not in range", address),
+    };
+  }
+
+  pub fn read_ppu_registers(&mut self, address: u16, read_only: bool) -> u8 {
+    if read_only {
+      match address {
+        0x00 => self.ctrl_flags.0,
+        0x01 => self.mask_flags.0,
+        0x02 => self.status_flags.0,
+        0x03 => 0x00,
+        0x04 => 0x00,
+        0x05 => 0x00,
+        0x06 => 0x00,
+        0x07 => 0x00,
+        _ => 0x00,
+      }
+    } else {
+      match address {
+        0x00 => 0x00,
+        0x01 => 0x00,
+        0x02 => {   // Status
+          let status_flags = self.status_flags;
+          let res = (status_flags.0 & 0xE0) | (self.ppu_data_buffer & 0x1F);
+          self.status_flags.set_vertical_blank(false);
+          self.address_latch = false;
+          res
+        }
+        0x03 => 0x00,
+        0x04 => 0x00,
+        0x05 => 0x00,
+        0x06 => 0x00,
+        0x07 => {   // PPU data
+          let mut data = self.ppu_data_buffer;
+          let vram_addr = self.vram_addr;
+
+          if self.vram_addr.0 >= 0x3F00 {
+            data = self.ppu_read(vram_addr.0).into();
+          }
+
+          let increment_val = if self.ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
+          self.vram_addr.0 = vram_addr.0.wrapping_add(increment_val);
+          data
+        }
+        _ => panic!("read_ppu_u8 address: {} not in range", address),
+      }
+    }
+  }
 }
 
 #[test]

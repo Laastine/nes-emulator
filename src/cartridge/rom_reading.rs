@@ -53,12 +53,12 @@ impl Rom {
     let flag_persistent = (flags_6 & 0x02) > 0x00;
     let flag_trainer = (flags_6 & 0x04) > 0x00;
     let flag_four_screen_vram = (flags_6 & 0x08) > 0x00;
-    let mapper_lo = (flags_6 & 0xF0).wrapping_shr(4);
+    let mapper_lo = (flags_6 & 0xF0) >> 4;
 
     let flag_vs_unisystem = (flags_7 & 0x01) > 0x00;
     let flag_playchoice_10 = (flags_7 & 0x02) > 0x00;
-    let flag_rom_format = (flags_7 & 0x0C).wrapping_shr(2);
-    let mapper_hi = (flags_7 & 0xF0).wrapping_shr(4);
+    let flag_rom_format = (flags_7 & 0x0C) >> 2;
+    let mapper_hi = (flags_7 & 0xF0) >> 4;
 
     let flag_tv_system = flags_10 & 0x03;
     let flag_prg_ram = (flags_10 & 0x10) > 0x00;

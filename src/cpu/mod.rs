@@ -231,25 +231,16 @@ impl Cpu {
 
   /// Non-maskable interrupt
   pub fn nmi(&mut self) {
-    self.bus_write_u8(
-      self.get_stack_address(),
-      u8::try_from((self.pc >> 8) & 0x00FF).unwrap(),
-    );
+    self.bus_write_u8(self.get_stack_address(), u8::try_from((self.pc >> 8) & 0x00FF).unwrap());
     self.stack_pointer_decrement();
-
-    self.bus_write_u8(
-      self.get_stack_address(),
-      u8::try_from(self.pc & 0x00FF).unwrap(),
-    );
+    self.bus_write_u8(self.get_stack_address(), u8::try_from(self.pc & 0x00FF).unwrap());
     self.stack_pointer_decrement();
 
     self.set_flag(&FLAGS6502::B, false);
     self.set_flag(&FLAGS6502::U, true);
     self.set_flag(&FLAGS6502::I, true);
-    self.bus_write_u8(
-      self.get_stack_address(),
-      self.status_register,
-    );
+
+    self.bus_write_u8(self.get_stack_address(), self.status_register);
     self.stack_pointer_decrement();
 
     self.addr_abs = 0xFFFA;
@@ -829,7 +820,7 @@ impl Cpu {
   pub fn lsr(&mut self) -> u8 {
     self.fetch();
     self.set_flag(&FLAGS6502::C, (self.fetched & 1) > 0x00);
-    self.temp = u16::try_from(self.fetched.wrapping_shr(1)).unwrap();
+    self.temp = u16::try_from(self.fetched >> 1).unwrap();
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
     self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);
 
