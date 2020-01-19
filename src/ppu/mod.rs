@@ -76,8 +76,7 @@ impl Ppu {
   }
 
   fn get_color(&mut self, palette: u8, pixel: u8) -> Color {
-    let idx = self.read_ppu_u8(0x3F00 + u16::try_from((palette << 2) + pixel).unwrap());
-    let idx = self.read_ppu_u8(0x3F00 + u16::try_from((palette.wrapping_shl(2)) + pixel).unwrap());
+    let idx = self.read_ppu_u8(0x3F00u16.wrapping_add(u16::try_from( (palette << 2) + pixel).unwrap()));
     COLORS[usize::try_from(idx).unwrap() & 0x3F]
   }
 
@@ -152,8 +151,7 @@ impl Ppu {
 
       if vram_addr.coarse_x() == 31 {
         self.get_mut_registers().vram_addr.set_coarse_x(0);
-        let new_x_val = !self.get_mut_registers().vram_addr.nametable_x();
-        self.get_mut_registers().vram_addr.set_nametable_x(new_x_val);
+        self.get_mut_registers().vram_addr.0 ^= 0x0400;
       } else {
         let coarse_x = vram_addr.coarse_x();
         self.get_mut_registers().vram_addr.set_coarse_x(coarse_x + 1);
@@ -175,8 +173,9 @@ impl Ppu {
         let coarse_y = vram_addr.coarse_y();
         if coarse_y == 29 {
           vram_addr.set_coarse_y(0);
-          let inv_nametable_y = !self.get_mut_registers().vram_addr.nametable_y();
-          self.get_mut_registers().vram_addr.set_nametable_y(inv_nametable_y);
+//          let inv_nametable_y = !self.get_mut_registers().vram_addr.nametable_y();
+//          self.get_mut_registers().vram_addr.set_nametable_y(inv_nametable_y);
+          self.get_mut_registers().vram_addr.0 ^= 0x0800;
         } else if coarse_y == 31 {
           self.get_mut_registers().vram_addr.set_coarse_y(0);
         } else {
@@ -263,6 +262,9 @@ impl Ppu {
   }
 
   pub fn clock(&mut self) {
+    if self.cycles == 256 && self.scan_line== 234 && self.get_mut_registers().mask_flags.0 == 14 {
+      print!("");
+    }
     self.log();
     if self.scan_line > -2 && self.scan_line < 240 {
       if self.scan_line == 0 && self.cycles == 0 {
@@ -291,7 +293,7 @@ impl Ppu {
             let coarse_x = u16::try_from(vram_addr.coarse_x()).unwrap();
             let coarse_y = u16::try_from(vram_addr.coarse_y()).unwrap();
 
-            self.bg_next_tile_id = self.read_ppu_u8(0x23C0
+            self.bg_next_tile_attrib = self.read_ppu_u8(0x23C0
               | (nametable_y << 11)
               | (nametable_x << 10)
               | ((coarse_y >> 2) << 3)
@@ -308,10 +310,10 @@ impl Ppu {
           0x04 => {
             let ctrl_flags = self.get_mut_registers().ctrl_flags;
             let vram_addr = self.get_mut_registers().vram_addr;
-            let pattern_background: u8 = if ctrl_flags.pattern_background_table_addr() { 1 } else { 0 };
+            let pattern_background: u16 = if ctrl_flags.pattern_background() { 1 } else { 0 };
 
-            let addr = u16::try_from(pattern_background.wrapping_shl(12)).unwrap()
-              + u16::try_from(self.bg_next_tile_id).unwrap().wrapping_shl(4)
+            let addr = pattern_background.wrapping_shl(12)
+              + u16::try_from(self.bg_next_tile_id << 4).unwrap()
               + u16::try_from(vram_addr.fine_y()).unwrap();
 
             self.bg_next_tile_lsb = self.read_ppu_u8(addr);
@@ -319,7 +321,7 @@ impl Ppu {
           0x06 => {
             let ctrl_flags = self.get_mut_registers().ctrl_flags;
             let vram_addr = self.get_mut_registers().vram_addr;
-            let pattern_background: u8 = if ctrl_flags.pattern_background_table_addr() { 1 } else { 0 };
+            let pattern_background: u8 = if ctrl_flags.pattern_background() { 1 } else { 0 };
 
             let addr = u16::try_from(pattern_background.wrapping_shl(12)).unwrap()
               + u16::try_from(self.bg_next_tile_id).unwrap().wrapping_shl(4)

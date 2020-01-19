@@ -177,7 +177,18 @@ impl Cpu {
 
   pub fn fetch(&mut self) {
     if self.addr_mode() != ADDRMODE6502::IMP {
-      self.fetched = u8::try_from(self.bus_mut_read_u8(self.addr_abs) & 0x00FF).unwrap();
+      let mut file = OpenOptions::new()
+          .write(true)
+          .append(true)
+          .open("log.txt")
+          .expect("File append error");
+      self.fetched = u8::try_from(self.bus_mut_read_u8(self.addr_abs)).unwrap();
+
+      file
+          .write_all(
+            format!("FETCH: {} -> {}\n", self.addr_abs, self.fetched).as_bytes(),
+          )
+          .expect("File write error");
     }
   }
 
@@ -192,7 +203,7 @@ impl Cpu {
     self.x = 0;
     self.y = 0;
     self.stack_pointer = 0xFD;
-    self.status_register = 0x00 | FLAGS6502::U.value();
+    self.status_register = FLAGS6502::U.value();
 
     self.addr_abs = 0x0000;
     self.addr_rel = 0x0000;
@@ -286,7 +297,7 @@ impl Cpu {
   pub fn zp0(&mut self) -> u8 {
     self.addr_abs = self.bus_mut_read_u8(self.pc);
     self.pc_increment();
-    //self.addr_abs &= 0x00FF;
+    self.addr_abs &= 0x00FF;
     0
   }
 
@@ -294,7 +305,7 @@ impl Cpu {
   pub fn zpx(&mut self) -> u8 {
     self.addr_abs = self.bus_mut_read_u8(self.pc).wrapping_add(u16::try_from(self.x).unwrap());
     self.pc_increment();
-    //self.addr_abs &= 0x00FF;
+    self.addr_abs &= 0x00FF;
     0
   }
 
@@ -302,7 +313,7 @@ impl Cpu {
   pub fn zpy(&mut self) -> u8 {
     self.addr_abs = self.bus_mut_read_u8(self.pc).wrapping_add(u16::try_from(self.y).unwrap());
     self.pc_increment();
-//    self.addr_abs &= 0x00FF;
+    self.addr_abs &= 0x00FF;
     0
   }
 
@@ -469,8 +480,8 @@ impl Cpu {
   pub fn adc(&mut self) -> u8 {
     self.fetch();
     self.temp = u16::try_from(self.acc).unwrap()
-      + u16::try_from(self.fetched).unwrap()
-      + u16::try_from(self.get_flag(&FLAGS6502::C)).unwrap();
+        + u16::try_from(self.fetched).unwrap()
+        + if self.get_flag(&FLAGS6502::C) { 1 } else { 0 };
 
     self.set_flag(&FLAGS6502::C, (self.temp) > 255);
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
@@ -745,7 +756,7 @@ impl Cpu {
   /// Increment
   pub fn inc(&mut self) -> u8 {
     self.fetch();
-    self.temp = self.fetched.wrapping_add(1).try_into().unwrap();
+    self.temp = u16::try_from(self.fetched + 1).unwrap();
     self.bus_write_u8(self.addr_abs, u8::try_from(self.temp & 0x00FF).unwrap());
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
     self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);
@@ -893,7 +904,7 @@ impl Cpu {
   /// Rotate left
   pub fn rol(&mut self) -> u8 {
     self.fetch();
-    self.temp = (u16::try_from(self.fetched).unwrap() << 1) | u16::try_from(self.get_flag(&FLAGS6502::C)).unwrap();
+    self.temp = (u16::try_from(self.fetched).unwrap() << 1) | if self.get_flag(&FLAGS6502::C) { 1 } else { 0 };
     self.set_flag(&FLAGS6502::C, (self.temp & 0xFF00) > 0x00);
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
     self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);
@@ -909,7 +920,7 @@ impl Cpu {
   /// Rotate right
   pub fn ror(&mut self) -> u8 {
     self.fetch();
-    self.temp = (u16::try_from(self.get_flag(&FLAGS6502::C)).unwrap() << 7) | (u16::try_from(self.fetched).unwrap() >> 1);
+    self.temp = (if self.get_flag(&FLAGS6502::C) { 1 } else { 0 } << 7) | (u16::try_from(self.fetched).unwrap() >> 1);
     self.set_flag(&FLAGS6502::C, (self.fetched & 0x01) > 0x00);
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
     self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);
@@ -961,7 +972,7 @@ impl Cpu {
 
     self.temp = u16::try_from(self.acc).unwrap()
       + value
-      + u16::try_from(self.get_flag(&FLAGS6502::C)).unwrap();
+        + if self.get_flag(&FLAGS6502::C) { 1 } else { 0 };
 
     self.set_flag(&FLAGS6502::C, (self.temp & 0xFF00) > 0x00);
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);

@@ -4,8 +4,17 @@ use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
 use crate::ppu::registers::{PpuCtrlFlags, PpuMaskFlags, Registers, ScrollRegister};
+use std::fs::OpenOptions;
+use std::io::Write;
 
 pub const MEM_SIZE: usize = 0x0800;
+
+#[cfg(debug_assertions)]
+fn init_log_file() {
+  let file = OpenOptions::new().write(true).append(false).open("mem.txt").expect("File open error");
+  file.set_len(0).unwrap();
+}
+
 
 #[derive(Clone)]
 pub struct Bus {
@@ -19,13 +28,29 @@ impl Bus {
   pub fn new(cartridge: Rc<RefCell<Cartridge>>, registers: Rc<RefCell<Registers>>, ) -> Bus {
     let ram = [0u8; MEM_SIZE];
     let controller = [0u8; 2];
-
+    init_log_file();
     Bus {
       cartridge,
       ram,
       controller,
       registers
     }
+  }
+
+  #[cfg(debug_assertions)]
+  fn log(&self, mode: &str, address: u16, data: u8) {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open("mem.txt")
+        .expect("File append error");
+
+    file
+        .write_all(
+          format!("{} {} - {}\n", mode, address, data)
+              .as_bytes(),
+        )
+        .expect("File write error");
   }
 
   pub fn get_mut_cartridge(&mut self) -> RefMut<Cartridge> {
@@ -40,20 +65,15 @@ impl Bus {
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_cpu_u8(address);
     if is_address_in_range {
       self.get_mut_cartridge().rom.prg_rom[mapped_addr] = data;
-    } else {
-      match address {
-        0x0000..=0x1FFF => {
-          self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
-        }
-        0x2000..=0x3FFF => {
-          self.get_mut_registers().write_ppu_registers(address & 0x0007, data)
-        }
-        0x4016..=0x4017 => {
-          let idx = usize::try_from(address & 0x0001).unwrap();
-          self.controller[idx] = self.controller[idx];
-        }
-        _ => (),
-      }
+    } else if (0x0000..=0x1FFF).contains(&address) {
+      self.log("RAM WRITE", address, data);
+      self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
+    } else if (0x2000..=0x3FFF).contains(&address) {
+      self.log("PPU WRITE", address, data);
+      self.get_mut_registers().cpu_write(address & 0x0007, data)
+    } else if (0x4016..=0x4017).contains(&address) {
+      let idx = usize::try_from(address & 1).unwrap();
+      self.controller[idx] = self.controller[idx];
     }
   }
 
@@ -66,18 +86,19 @@ impl Bus {
     } else {
       match address {
         0x0000..=0x1FFF => {
-          let res= self.ram[usize::try_from(address & 0x07FF).unwrap()].into();
+          let res= u16::try_from(self.ram[usize::try_from(address).unwrap() & 0x07FF]).unwrap();
 //          println!("B PPU data: {} -> {}", address, res);
           res
         }
         0x2000..=0x3FFF => {
-          let res = self.get_mut_registers().read_ppu_registers(address & 0x0007, read_only).into();
+          let res = self.get_mut_registers().cpu_read(address & 0x0007, read_only).into();
+          self.log("PPU READ", address, u8::try_from(res).unwrap());
 //          println!("C PPU data: {} -> {}", address, res);
           res
         },
         0x4016..=0x4017 => {
           let res: u16 = if (self.controller[usize::try_from(address & 0x0001).unwrap()] & 0x80) > 0x00 { 1 } else { 0 };
-          self.controller[usize::try_from(address & 0x0001).unwrap()] <<= 1;
+          self.controller[usize::try_from(address & 1).unwrap()] <<= 1;
 //          println!("D PPU data: {} -> {}", address, res);
           res
         }
