@@ -81,29 +81,24 @@ impl Bus {
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_cpu_u8(address);
     if is_address_in_range {
       let res = u16::try_from(self.get_mut_cartridge().rom.prg_rom[mapped_addr]).unwrap();
-//      println!("A PPU data: {} -> {}", address, res);
+//    println!("A PPU data: {} -> {}", address, res);
+      res
+    } else if (0x0000..=0x1FFF).contains(&address) {
+      let res = u16::try_from(self.ram[usize::try_from(address).unwrap() & 0x07FF]).unwrap();
+//    println!("B PPU data: {} -> {}", address, res);
+      res
+    } else if (0x2000..=0x3FFF).contains(&address) {
+      let res = self.get_mut_registers().cpu_read(address & 0x0007, read_only).into();
+      self.log("PPU READ", address, u8::try_from(res).unwrap());
+//          println!("C PPU data: {} -> {}", address, res);
+      res
+    } else if (0x4016..=0x4017).contains(&address) {
+      let res: u16 = if (self.controller[usize::try_from(address & 0x0001).unwrap()] & 0x80) > 0x00 { 1 } else { 0 };
+      self.controller[usize::try_from(address & 1).unwrap()] <<= 1;
+//    println!("D PPU data: {} -> {}", address, res);
       res
     } else {
-      match address {
-        0x0000..=0x1FFF => {
-          let res= u16::try_from(self.ram[usize::try_from(address).unwrap() & 0x07FF]).unwrap();
-//          println!("B PPU data: {} -> {}", address, res);
-          res
-        }
-        0x2000..=0x3FFF => {
-          let res = self.get_mut_registers().cpu_read(address & 0x0007, read_only).into();
-          self.log("PPU READ", address, u8::try_from(res).unwrap());
-//          println!("C PPU data: {} -> {}", address, res);
-          res
-        },
-        0x4016..=0x4017 => {
-          let res: u16 = if (self.controller[usize::try_from(address & 0x0001).unwrap()] & 0x80) > 0x00 { 1 } else { 0 };
-          self.controller[usize::try_from(address & 1).unwrap()] <<= 1;
-//          println!("D PPU data: {} -> {}", address, res);
-          res
-        }
-        _ => 0,
-      }
+      0
     }
   }
 }

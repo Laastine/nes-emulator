@@ -147,7 +147,7 @@ impl Ppu {
     let mask_flags = self.get_mut_registers().mask_flags;
 
     if mask_flags.show_background() || mask_flags.show_sprites() {
-      let vram_addr = self.get_mut_registers().vram_addr;
+      let mut vram_addr = self.get_mut_registers().vram_addr;
 
       if vram_addr.coarse_x() == 31 {
         self.get_mut_registers().vram_addr.set_coarse_x(0);
@@ -157,32 +157,42 @@ impl Ppu {
         self.get_mut_registers().vram_addr.set_coarse_x(coarse_x + 1);
       }
     }
+    let foo = self.get_mut_registers().vram_addr.0;
+    self.logb("VRAMx", foo, 0);
   }
 
   fn increment_scroll_y(&mut self) {
     let mask_flags = self.get_mut_registers().mask_flags;
 
     if mask_flags.show_background() || mask_flags.show_sprites() {
-      let mut vram_addr = self.get_mut_registers().vram_addr;
+
+      let foo = self.get_mut_registers().vram_addr.0;
+      let msk = mask_flags.0;
+      self.logb("1.VRAMy", foo, msk);
+
+      let vram_addr = self.get_mut_registers().vram_addr;
       let fine_y = vram_addr.fine_y();
       if fine_y < 7 {
-        vram_addr.set_fine_y(fine_y + 1);
+        self.get_mut_registers().vram_addr.set_fine_y(fine_y + 1);
       } else {
-        vram_addr.set_fine_y(0);
-        vram_addr = self.get_mut_registers().vram_addr;
-        let coarse_y = vram_addr.coarse_y();
+        self.get_mut_registers().vram_addr.set_fine_y(0);
+        let coarse_y = self.get_mut_registers().vram_addr.coarse_y();
+
         if coarse_y == 29 {
-          vram_addr.set_coarse_y(0);
-//          let inv_nametable_y = !self.get_mut_registers().vram_addr.nametable_y();
-//          self.get_mut_registers().vram_addr.set_nametable_y(inv_nametable_y);
-          self.get_mut_registers().vram_addr.0 ^= 0x0800;
-        } else if coarse_y == 31 {
           self.get_mut_registers().vram_addr.set_coarse_y(0);
-        } else {
+          self.get_mut_registers().vram_addr.0 ^= 0x0800;
+        }
+        else if coarse_y == 31 {
+          self.get_mut_registers().vram_addr.set_coarse_y(0);
+        }
+        else {
           self.get_mut_registers().vram_addr.set_coarse_y(coarse_y + 1);
         }
       }
     }
+    let foo = self.get_mut_registers().vram_addr.0;
+    let msk = mask_flags.0;
+    self.logb("2.VRAMy", foo, msk);
   }
 
   fn transfer_address_x(&mut self) {
@@ -205,6 +215,22 @@ impl Ppu {
       self.get_mut_registers().vram_addr.set_nametable_y(tram_addr.nametable_y());
       self.get_mut_registers().vram_addr.set_coarse_y(tram_addr.coarse_y());
     }
+  }
+
+  #[cfg(debug_assertions)]
+  fn logb(&self, mode: &str, address: u16, data: u8) {
+    let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open("ppu.txt")
+        .expect("File append error");
+
+    file
+        .write_all(
+          format!("{} {} - {}\n", mode, address, data)
+              .as_bytes(),
+        )
+        .expect("File write error");
   }
 
   #[cfg(debug_assertions)]
@@ -310,22 +336,20 @@ impl Ppu {
           0x04 => {
             let ctrl_flags = self.get_mut_registers().ctrl_flags;
             let vram_addr = self.get_mut_registers().vram_addr;
-            let pattern_background: u16 = if ctrl_flags.pattern_background() { 1 } else { 0 };
 
-            let addr = pattern_background.wrapping_shl(12)
-              + u16::try_from(self.bg_next_tile_id << 4).unwrap()
-              + u16::try_from(vram_addr.fine_y()).unwrap();
+            let addr = (u16::try_from(ctrl_flags.pattern_background()).unwrap() << 12)
+                + (u16::try_from(self.bg_next_tile_id).unwrap() << 4)
+                + u16::try_from(vram_addr.fine_y()).unwrap();
 
             self.bg_next_tile_lsb = self.read_ppu_u8(addr);
           }
           0x06 => {
             let ctrl_flags = self.get_mut_registers().ctrl_flags;
             let vram_addr = self.get_mut_registers().vram_addr;
-            let pattern_background: u8 = if ctrl_flags.pattern_background() { 1 } else { 0 };
 
-            let addr = u16::try_from(pattern_background.wrapping_shl(12)).unwrap()
-              + u16::try_from(self.bg_next_tile_id).unwrap().wrapping_shl(4)
-              + u16::try_from(vram_addr.fine_y()).unwrap() + 8;
+            let addr = (u16::try_from(ctrl_flags.pattern_background()).unwrap() << 12)
+                + (u16::try_from(self.bg_next_tile_id).unwrap() << 4)
+                + u16::try_from(vram_addr.fine_y()).unwrap() + 8;
 
             self.bg_next_tile_msb = self.read_ppu_u8(addr);
           }

@@ -132,9 +132,9 @@ impl Cpu {
 
     self.clock_count += 1;
 
-    if self.clock_count > 200_000 {
-      std::process::exit(0);
-    }
+//    if self.clock_count > 200_000 {
+//      std::process::exit(0);
+//    }
 
     self.cycles -= 1;
   }

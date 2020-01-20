@@ -55,12 +55,6 @@ bitfield! {
     pub u8,    lo_byte,      set_lo_byte:       7,  0;
 }
 
-#[cfg(debug_assertions)]
-fn init_log_file() {
-  let file = OpenOptions::new().write(true).append(false).open("reg.txt").expect("File open error");
-  file.set_len(0).unwrap();
-}
-
 #[derive(Clone)]
 pub struct Registers {
   pub ctrl_flags: PpuCtrlFlags,
@@ -100,7 +94,7 @@ impl Registers {
     let mut file = OpenOptions::new()
         .write(true)
         .append(true)
-        .open("reg.txt")
+        .open("ppu.txt")
         .expect("File append error");
 
     file
@@ -313,6 +307,7 @@ impl Registers {
         _ => panic!("read_ppu_u8 address: {} not in range", address),
       }
     };
+
     self.log("REG READ", address, foo);
     foo
   }
