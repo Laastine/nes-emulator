@@ -409,7 +409,7 @@ impl Ppu {
 
     if (0..=255).contains(&x) && (0..=239).contains(&y) {
       let pixel = self.get_color(bg_palette, bg_pixel);
-      self.image_buffer.put_pixel(x, y, Rgb(pixel.val));
+      self.image_buffer.put_pixel(x, (239-y), Rgb(pixel.val));
     }
 
     self.cycles += 1;
