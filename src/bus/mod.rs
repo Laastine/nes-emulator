@@ -20,19 +20,22 @@ fn init_log_file() {
 pub struct Bus {
   pub cartridge: Rc<RefCell<Cartridge>>,
   pub ram: [u8; MEM_SIZE],
-  controller: [u8; 2],
+  controller: Rc<RefCell<[u8; 2]>>,
+  controller_state: [u8;2],
   registers: Rc<RefCell<Registers>>
 }
 
 impl Bus {
-  pub fn new(cartridge: Rc<RefCell<Cartridge>>, registers: Rc<RefCell<Registers>>, ) -> Bus {
+  pub fn new(cartridge: Rc<RefCell<Cartridge>>, registers: Rc<RefCell<Registers>>, controller: Rc<RefCell<[u8; 2]>>) -> Bus {
     let ram = [0u8; MEM_SIZE];
-    let controller = [0u8; 2];
+    let controller_state = [0u8; 2];
     init_log_file();
+
     Bus {
       cartridge,
       ram,
       controller,
+      controller_state,
       registers
     }
   }
@@ -51,6 +54,10 @@ impl Bus {
               .as_bytes(),
         )
         .expect("File write error");
+  }
+
+  fn get_controller(&mut self) -> RefMut<[u8; 2]> {
+    self.controller.borrow_mut()
   }
 
   pub fn get_mut_cartridge(&mut self) -> RefMut<Cartridge> {
@@ -73,7 +80,8 @@ impl Bus {
       self.get_mut_registers().cpu_write(address & 0x0007, data)
     } else if (0x4016..=0x4017).contains(&address) {
       let idx = usize::try_from(address & 1).unwrap();
-      self.controller[idx] = self.controller[idx];
+      let new_controller_state = self.get_controller()[idx];
+      self.controller_state[idx] = new_controller_state;
     }
   }
 
@@ -93,10 +101,10 @@ impl Bus {
 //          println!("C PPU data: {} -> {}", address, res);
       res
     } else if (0x4016..=0x4017).contains(&address) {
-      let res: u16 = if (self.controller[usize::try_from(address & 0x0001).unwrap()] & 0x80) > 0x00 { 1 } else { 0 };
-      self.controller[usize::try_from(address & 1).unwrap()] <<= 1;
+      self.controller_state[usize::try_from(address & 1).unwrap()] <<= 1;
+      let state = self.get_controller()[usize::try_from(address & 0x0001).unwrap()] & 0x80;
+      if state > 0x00 { 1 } else { 0 }
 //    println!("D PPU data: {} -> {}", address, res);
-      res
     } else {
       0
     }

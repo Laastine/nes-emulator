@@ -8,7 +8,7 @@ use std::time;
 use luminance::context::GraphicsContext;
 use luminance::framebuffer::Framebuffer;
 use luminance::render_state::RenderState;
-use luminance_glutin::{ElementState, Event, KeyboardInput, Surface, VirtualKeyCode, WindowEvent};
+use luminance_glutin::{ElementState, ElementState::Pressed, Event, KeyboardInput, Surface, VirtualKeyCode::{X, A, S, Z, Space, R, Escape, Left, Right, Up, Down}, WindowEvent};
 use termion::{clear, color, cursor, style};
 use termion::raw::{IntoRawMode, RawTerminal};
 
@@ -31,12 +31,14 @@ pub struct Nes {
   system_cycles: u64,
   window_context: WindowContext,
   debug_mode: bool,
+  controller: [u8; 2],
 }
 
 impl Nes {
   pub fn new(rom_file: &str) -> Nes {
     let cartridge = Cartridge::new(rom_file);
     let cart = Rc::new(RefCell::new(cartridge));
+    let mut controller = [0u8; 2];
 
     let map_asm: HashMap<u16, String> = HashMap::new();
 
@@ -45,7 +47,9 @@ impl Nes {
     let reg = Registers::new(cart.clone());
     let registers = Rc::new(RefCell::new(reg));
 
-    let bus = Bus::new(cart, registers.clone());
+    let c = Rc::new(RefCell::new(controller));
+
+    let bus = Bus::new(cart, registers.clone(), c);
 
     let cpu = Cpu::new(bus);
     let ppu = Ppu::new(registers, &mut window_context.surface);
@@ -60,6 +64,7 @@ impl Nes {
       system_cycles,
       window_context,
       debug_mode,
+      controller,
     }
   }
 
@@ -214,6 +219,7 @@ impl Nes {
       let elapsed = last_time.elapsed();
       let delta = f64::from(elapsed.subsec_nanos()) / 1e9 + elapsed.as_secs() as f64;
 
+      self.controller[0] = 0x00;
       for event in self.window_context.surface.poll_events() {
         if let Event::WindowEvent { event, .. } = event {
           match event {
@@ -223,7 +229,7 @@ impl Nes {
               input:
                 KeyboardInput {
                   state: ElementState::Released,
-                  virtual_keycode: Some(VirtualKeyCode::Escape),
+                  virtual_keycode: Some(Escape),
                   ..
                 },
               ..
@@ -231,27 +237,40 @@ impl Nes {
               write!(stdout, "{}{}", cursor::Goto(1, 1), clear::AfterCursor).unwrap();
               break 'app;
             }
-            WindowEvent::KeyboardInput {
-              input:
-                KeyboardInput {
-                  state: ElementState::Pressed,
-                  virtual_keycode: Some(VirtualKeyCode::Space),
-                  ..
+            WindowEvent::KeyboardInput { input, .. } => {
+              match input {
+                KeyboardInput { state, virtual_keycode: Some(Z), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x40 } else { 0 };
                 },
-              ..
-            } => {
-              self.debug_mode = !self.debug_mode;
-            }
-            WindowEvent::KeyboardInput {
-              input:
-                KeyboardInput {
-                  state: ElementState::Released,
-                  virtual_keycode: Some(VirtualKeyCode::R),
-                  ..
+                KeyboardInput { state, virtual_keycode: Some(A), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x20 } else { 0 };
                 },
-              ..
-            } => {
-              self.cpu.reset();
+                KeyboardInput { state, virtual_keycode: Some(S), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x10 } else { 0 };
+                },
+                KeyboardInput { state, virtual_keycode: Some(X), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x80 } else { 0 };
+                },
+                KeyboardInput { state, virtual_keycode: Some(Up), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x08 } else { 0 };
+                },
+                KeyboardInput { state, virtual_keycode: Some(Down), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x04 } else { 0 };
+                },
+                KeyboardInput { state, virtual_keycode: Some(Left), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x02 } else { 0 };
+                },
+                KeyboardInput { state, virtual_keycode: Some(Right), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x01 } else { 0 };
+                },
+                KeyboardInput { virtual_keycode: Some(Space), .. } => {
+                  self.debug_mode = !self.debug_mode;
+                },
+                KeyboardInput { state: Pressed, virtual_keycode: Some(R), .. } => {
+                  self.cpu.reset();
+                }
+                _ => {}
+              }
             }
             WindowEvent::Resized(_) | WindowEvent::HiDpiFactorChanged(_) => {
               self.window_context.resize = true;
@@ -265,7 +284,7 @@ impl Nes {
         self.clock();
       }
 
-      if delta > 0.033 {
+      if delta > 0.016 {
         last_time = time::Instant::now();
 //        self.draw_terminal(&mut stdout);
         if self.ppu.frame_ready {
