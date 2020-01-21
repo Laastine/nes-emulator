@@ -141,7 +141,7 @@ impl Ppu {
     let mask_flags = self.get_mut_registers().mask_flags;
 
     if mask_flags.show_background() || mask_flags.show_sprites() {
-      let mut vram_addr = self.get_mut_registers().vram_addr;
+      let vram_addr = self.get_mut_registers().vram_addr;
 
       if vram_addr.coarse_x() == 31 {
         self.get_mut_registers().vram_addr.set_coarse_x(0);
@@ -201,6 +201,7 @@ impl Ppu {
     }
   }
 
+  #[allow(dead_code)]
   fn log(&mut self) {
     let mut file = OpenOptions::new()
         .write(true)
@@ -350,29 +351,30 @@ impl Ppu {
       }
     }
 
-    let mut bg_pixel: u8 = 0x00;
-    let mut bg_palette: u8 = 0x00;
+    let bit_mux = u16::try_from(0x8000 >> self.fine_x).unwrap();
 
-    if self.get_mut_registers().mask_flags.show_background() {
-      let bit_mux = u16::try_from(0x8000 >> self.fine_x).unwrap();
-
+    let bg_pixel =  if self.get_mut_registers().mask_flags.show_background() {
       let p0_pixel = if (self.bg_shifter_pattern_lo & bit_mux) > 0x00 { 1 } else { 0 };
       let p1_pixel = if (self.bg_shifter_pattern_hi & bit_mux) > 0x00 { 1 } else { 0 };
+      (p1_pixel << 1) | p0_pixel
+    } else {
+      0x00
+    };
 
-      bg_pixel = (p1_pixel << 1) | p0_pixel;
-
+    let bg_palette = if self.get_mut_registers().mask_flags.show_background() {
       let p0_palette = if (self.bg_shifter_attrib_lo & bit_mux) > 0x00 { 1 } else { 0 };
       let p1_palette = if (self.bg_shifter_attrib_hi & bit_mux) > 0x00 { 1 } else { 0 };
-
-      bg_palette = (p1_palette << 1) | p0_palette;
-    }
+      (p1_palette << 1) | p0_palette
+    } else {
+      0x00
+    };
 
     let x = self.cycles.wrapping_sub(1);
     let y = if self.scan_line > -1 { u32::try_from(self.scan_line).unwrap() } else { 0xFFF };
 
     if (0..=255).contains(&x) && (0..=239).contains(&y) {
       let pixel = self.get_color(bg_palette, bg_pixel);
-      self.image_buffer.put_pixel(x, (239-y), Rgb(pixel.val));
+      self.image_buffer.put_pixel(x, 239 - y, Rgb(pixel.val));
     }
 
     self.cycles += 1;

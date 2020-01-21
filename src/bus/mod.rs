@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
-use crate::ppu::registers::{PpuCtrlFlags, PpuMaskFlags, Registers, ScrollRegister};
+use crate::ppu::registers::Registers;
 use std::fs::OpenOptions;
 use std::io::Write;
 
@@ -32,6 +32,7 @@ impl Bus {
     }
   }
 
+  #[allow(dead_code)]
   #[cfg(debug_assertions)]
   fn log(&self, mode: &str, address: u16, data: u8) {
     let mut file = OpenOptions::new()
@@ -87,7 +88,6 @@ impl Bus {
       self.controller_state[usize::try_from(address & 1).unwrap()] <<= 1;
       let state = self.get_controller()[usize::try_from(address & 0x0001).unwrap()] & 0x80;
       if state > 0x00 { 1 } else { 0 }
-//    println!("D PPU data: {} -> {}", address, res);
     } else {
       0
     }

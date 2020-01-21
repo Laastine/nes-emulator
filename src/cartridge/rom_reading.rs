@@ -88,7 +88,7 @@ impl Rom {
 
     let mapper = mapper_lo | (mapper_hi << 4);
 
-    let tv_system = TVSystem::to_enum(flag_tv_system);
+    let tv_system = TVSystem::get_tv_system(flag_tv_system);
 
     let rom_header = RomHeader {
       prg_rom_len,
@@ -165,12 +165,12 @@ pub enum TVSystem {
 }
 
 impl TVSystem {
-  pub fn to_enum(value: u8) -> TVSystem {
-    match value {
+  pub fn get_tv_system(val: u8) -> TVSystem {
+    match val {
       0 => TVSystem::NTSC,
       1 => TVSystem::PAL,
       3 => TVSystem::DualCompatible,
-      _ => panic!("Unrecognized TV system value: {}", value),
+      _ => panic!("Unrecognized TV system value: {}", val),
     }
   }
 }
@@ -179,14 +179,4 @@ impl TVSystem {
 pub enum Mirroring {
   Vertical,
   Horizontal,
-}
-
-impl Mirroring {
-  pub fn to_enum(value: u8) -> Mirroring {
-    match value {
-      0 => Mirroring::Vertical,
-      1 => Mirroring::Horizontal,
-      _ => panic!("Unrecognized Mirroring value: {}", value),
-    }
-  }
 }

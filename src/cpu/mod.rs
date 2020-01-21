@@ -8,14 +8,6 @@ use std::io::Write;
 
 pub mod instruction_table;
 
-fn bool_to_u8(input: bool) -> u8 {
-  if input { 1 } else { 0 }
-}
-
-fn u8_to_bool(input: u8) -> bool {
-  input > 0
-}
-
 pub struct Cpu {
   pub bus: Bus,
   pub pc: u16,
@@ -106,8 +98,6 @@ impl Cpu {
     if self.cycles == 0 {
       self.opcode = u8::try_from(self.bus_mut_read_u8(self.pc)).unwrap();
 
-      let log_pc = self.pc;
-
       self.set_flag(&FLAGS6502::U, true);
       self.pc_increment();
 
@@ -120,20 +110,14 @@ impl Cpu {
       self.cycles += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
 
       self.set_flag(&FLAGS6502::U, true);
-
-//      self.log(usize::try_from(log_pc).unwrap());
     }
 
     self.clock_count += 1;
-
-//    if self.clock_count > 200_000 {
-//      std::process::exit(0);
-//    }
-
     self.cycles -= 1;
   }
 
   #[cfg(debug_assertions)]
+  #[allow(dead_code)]
   fn log(&self, log_pc: usize) {
     let mut file = OpenOptions::new()
         .write(true)

@@ -8,7 +8,7 @@ use std::time;
 use luminance::context::GraphicsContext;
 use luminance::framebuffer::Framebuffer;
 use luminance::render_state::RenderState;
-use luminance_glutin::{ElementState, ElementState::Pressed, Event, KeyboardInput, Surface, VirtualKeyCode::{X, A, S, Z, Space, R, Escape, Left, Right, Up, Down}, WindowEvent};
+use luminance_glutin::{ElementState::Pressed, Event, KeyboardInput, Surface, VirtualKeyCode::{X, A, S, Z, Space, R, Escape, Left, Right, Up, Down}, WindowEvent, ElementState};
 use termion::{clear, color, cursor, style};
 use termion::raw::{IntoRawMode, RawTerminal};
 
@@ -38,7 +38,7 @@ impl Nes {
   pub fn new(rom_file: &str) -> Nes {
     let cartridge = Cartridge::new(rom_file);
     let cart = Rc::new(RefCell::new(cartridge));
-    let mut controller = [0u8; 2];
+    let controller = [0u8; 2];
 
     let map_asm: HashMap<u16, String> = HashMap::new();
 
@@ -181,7 +181,7 @@ impl Nes {
 
   pub fn draw_code(&self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
     let val = self.map_asm.get(&self.cpu.pc);
-    if let value = val.is_some() {
+    if let Some(value) = val {
       write!(stdout, "{}{}", cursor::Goto(x, y), clear::AfterCursor).unwrap();
       write!(
         stdout,

@@ -4,8 +4,6 @@ use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
 use crate::cartridge::rom_reading::Mirroring;
-use std::fs::OpenOptions;
-use std::io::Write;
 
 bitfield! {
   #[derive(Copy, Clone, PartialEq)]
@@ -97,7 +95,7 @@ impl Registers {
     let mut addr = address & 0x3FFF;
 
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_ppu_u8(addr);
-    let res = if is_address_in_range {
+    if is_address_in_range {
       self.get_mut_cartridge().rom.chr_rom[mapped_addr]
     } else if (0x0000..=0x1FFF).contains(&addr) {
       let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
@@ -137,8 +135,7 @@ impl Registers {
       self.palette_table[idx] & if self.mask_flags.grayscale() { 0x30 } else { 0x3F }
     } else {
       0
-    };
-    res
+    }
   }
 
   pub fn ppu_write(&mut self, address: u16, data: u8) {
@@ -223,7 +220,7 @@ impl Registers {
         }
       },
       0x07 => { // PPU data
-        let mut vram_addr = self.vram_addr;
+        let vram_addr = self.vram_addr;
         let increment_val = if self.ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
         self.vram_addr.0 = vram_addr.0.wrapping_add(increment_val);
         self.ppu_write(vram_addr.0, data);
@@ -268,7 +265,7 @@ impl Registers {
           self.vram_addr.0 = vram_addr.0.wrapping_add(increment_val);
 
           if self.vram_addr.0 >= 0x3F00 {
-            data = self.ppu_read(vram_addr.0).into();
+            data = self.ppu_read(vram_addr.0);
           }
           data
         }
