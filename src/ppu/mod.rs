@@ -14,12 +14,6 @@ use std::io::Write;
 
 pub mod registers;
 
-#[cfg(debug_assertions)]
-fn init_log_file() {
-  let file = OpenOptions::new().write(true).append(false).open("ppu.txt").expect("File open error");
-  file.set_len(0).unwrap();
-}
-
 pub struct Ppu {
   pub cycles: u32,
   scan_line: i32,
@@ -42,7 +36,7 @@ pub struct Ppu {
 impl Ppu {
   pub fn new(registers: Rc<RefCell<Registers>>, surface: &mut GlutinSurface) -> Ppu {
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
-    init_log_file();
+
     let texture: Texture<Flat, Dim2, NormRGB8UI> =
       Texture::new(surface, [SCREEN_RES_X, SCREEN_RES_Y], 0, Sampler::default())
         .expect("Texture create error");
@@ -157,19 +151,12 @@ impl Ppu {
         self.get_mut_registers().vram_addr.set_coarse_x(coarse_x + 1);
       }
     }
-    let foo = self.get_mut_registers().vram_addr.0;
-    self.logb("VRAMx", foo, 0);
   }
 
   fn increment_scroll_y(&mut self) {
     let mask_flags = self.get_mut_registers().mask_flags;
 
     if mask_flags.show_background() || mask_flags.show_sprites() {
-
-      let foo = self.get_mut_registers().vram_addr.0;
-      let msk = mask_flags.0;
-      self.logb("1.VRAMy", foo, msk);
-
       let vram_addr = self.get_mut_registers().vram_addr;
       let fine_y = vram_addr.fine_y();
       if fine_y < 7 {
@@ -190,9 +177,6 @@ impl Ppu {
         }
       }
     }
-    let foo = self.get_mut_registers().vram_addr.0;
-    let msk = mask_flags.0;
-    self.logb("2.VRAMy", foo, msk);
   }
 
   fn transfer_address_x(&mut self) {
@@ -217,23 +201,6 @@ impl Ppu {
     }
   }
 
-  #[cfg(debug_assertions)]
-  fn logb(&self, mode: &str, address: u16, data: u8) {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .append(true)
-        .open("ppu.txt")
-        .expect("File append error");
-
-    file
-        .write_all(
-          format!("{} {} - {}\n", mode, address, data)
-              .as_bytes(),
-        )
-        .expect("File write error");
-  }
-
-  #[cfg(debug_assertions)]
   fn log(&mut self) {
     let mut file = OpenOptions::new()
         .write(true)
@@ -288,10 +255,6 @@ impl Ppu {
   }
 
   pub fn clock(&mut self) {
-    if self.cycles == 256 && self.scan_line== 234 && self.get_mut_registers().mask_flags.0 == 14 {
-      print!("");
-    }
-    self.log();
     if self.scan_line > -2 && self.scan_line < 240 {
       if self.scan_line == 0 && self.cycles == 0 {
         self.cycles = 1;

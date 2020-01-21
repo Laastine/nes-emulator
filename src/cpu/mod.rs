@@ -8,12 +8,6 @@ use std::io::Write;
 
 pub mod instruction_table;
 
-#[cfg(debug_assertions)]
-fn init_log_file() {
-  let file = OpenOptions::new().write(true).append(false).open("log.txt").expect("File open error");
-  file.set_len(0).unwrap();
-}
-
 fn bool_to_u8(input: bool) -> u8 {
   if input { 1 } else { 0 }
 }
@@ -43,7 +37,7 @@ pub struct Cpu {
 impl Cpu {
   pub fn new(bus: Bus) -> Cpu {
     let lookup = LookUpTable::new();
-    init_log_file();
+
     Cpu {
       bus,
       pc: 0,
@@ -127,7 +121,7 @@ impl Cpu {
 
       self.set_flag(&FLAGS6502::U, true);
 
-      self.log(usize::try_from(log_pc).unwrap());
+//      self.log(usize::try_from(log_pc).unwrap());
     }
 
     self.clock_count += 1;

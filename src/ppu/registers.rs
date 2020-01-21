@@ -89,44 +89,21 @@ impl Registers {
     }
   }
 
-  #[cfg(debug_assertions)]
-  fn log(&self, mode: &str, address: u16, data: u8) {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .append(true)
-        .open("ppu.txt")
-        .expect("File append error");
-
-    file
-        .write_all(
-          format!("{} {} - {}\n", mode, address, data)
-              .as_bytes(),
-        )
-        .expect("File write error");
-  }
-
   fn get_mut_cartridge(&mut self) -> RefMut<Cartridge> {
     self.cartridge.borrow_mut()
   }
 
   pub fn ppu_read(&mut self, address: u16) -> u8 {
-    if address == 2 {
-      print!("")
-    }
-
     let mut addr = address & 0x3FFF;
 
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_ppu_u8(addr);
     let res = if is_address_in_range {
-//      print!("A ");
       self.get_mut_cartridge().rom.chr_rom[mapped_addr]
     } else if (0x0000..=0x1FFF).contains(&addr) {
-//      print!("B ");
       let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
       let second_idx = usize::try_from(addr & 0x0FFF).unwrap();
       self.table_pattern[first_idx][second_idx]
     } else if (0x2000..=0x3EFF).contains(&addr) {
-//      print!("C ");
       addr &= 0x0FFF;
       let idx = usize::try_from(addr & 0x03FF).unwrap();
       let mirror_mode = self.get_mut_cartridge().get_mirror_mode();
@@ -157,22 +134,14 @@ impl Registers {
         0x0010 | 0x0014 | 0x0018 | 0x001C => usize::try_from(addr).unwrap() - 0x10,
         _ => addr.into()
       };
-      let foo = self.palette_table[idx]/* & if self.mask_flags.grayscale() { 0x30 } else { 0x3F }*/;
-//      print!("D ");
-      foo
+      self.palette_table[idx] & if self.mask_flags.grayscale() { 0x30 } else { 0x3F }
     } else {
       0
     };
-//    println!("PPU ORIG:{} ADDR:{} -> {}", address, addr, res);
-    self.log("READ", address, res);
     res
   }
 
   pub fn ppu_write(&mut self, address: u16, data: u8) {
-    if address == 16128 {
-      print!("");
-    }
-    self.log("WRITE", address, data);
     let mut addr = address & 0x3FFF;
 
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr);
@@ -212,7 +181,6 @@ impl Registers {
         0x0010 | 0x0014 | 0x0018 | 0x001C => usize::try_from(addr).unwrap() - 0x10,
         _ => addr.into()
       };
-//          println!("Dwrite:{}", data);
       self.palette_table[idx] = data;
     }
   }
@@ -265,7 +233,7 @@ impl Registers {
   }
 
   pub fn cpu_read(&mut self, address: u16, read_only: bool) -> u8 {
-    let foo = if read_only {
+    if read_only {
       match address {
         0x00 => self.ctrl_flags.0,
         0x01 => self.mask_flags.0,
@@ -306,10 +274,7 @@ impl Registers {
         }
         _ => panic!("read_ppu_u8 address: {} not in range", address),
       }
-    };
-
-    self.log("REG READ", address, foo);
-    foo
+    }
   }
 }
 

@@ -9,13 +9,6 @@ use std::io::Write;
 
 pub const MEM_SIZE: usize = 0x0800;
 
-#[cfg(debug_assertions)]
-fn init_log_file() {
-  let file = OpenOptions::new().write(true).append(false).open("mem.txt").expect("File open error");
-  file.set_len(0).unwrap();
-}
-
-
 #[derive(Clone)]
 pub struct Bus {
   pub cartridge: Rc<RefCell<Cartridge>>,
@@ -29,7 +22,6 @@ impl Bus {
   pub fn new(cartridge: Rc<RefCell<Cartridge>>, registers: Rc<RefCell<Registers>>, controller: Rc<RefCell<[u8; 2]>>) -> Bus {
     let ram = [0u8; MEM_SIZE];
     let controller_state = [0u8; 2];
-    init_log_file();
 
     Bus {
       cartridge,
@@ -73,10 +65,8 @@ impl Bus {
     if is_address_in_range {
       self.get_mut_cartridge().rom.prg_rom[mapped_addr] = data;
     } else if (0x0000..=0x1FFF).contains(&address) {
-      self.log("RAM WRITE", address, data);
       self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
     } else if (0x2000..=0x3FFF).contains(&address) {
-      self.log("PPU WRITE", address, data);
       self.get_mut_registers().cpu_write(address & 0x0007, data)
     } else if (0x4016..=0x4017).contains(&address) {
       let idx = usize::try_from(address & 1).unwrap();
@@ -88,18 +78,11 @@ impl Bus {
   pub fn read_u8(&mut self, address: u16, read_only: bool) -> u16 {
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_cpu_u8(address);
     if is_address_in_range {
-      let res = u16::try_from(self.get_mut_cartridge().rom.prg_rom[mapped_addr]).unwrap();
-//    println!("A PPU data: {} -> {}", address, res);
-      res
+      u16::try_from(self.get_mut_cartridge().rom.prg_rom[mapped_addr]).unwrap()
     } else if (0x0000..=0x1FFF).contains(&address) {
-      let res = u16::try_from(self.ram[usize::try_from(address).unwrap() & 0x07FF]).unwrap();
-//    println!("B PPU data: {} -> {}", address, res);
-      res
+      u16::try_from(self.ram[usize::try_from(address).unwrap() & 0x07FF]).unwrap()
     } else if (0x2000..=0x3FFF).contains(&address) {
-      let res = self.get_mut_registers().cpu_read(address & 0x0007, read_only).into();
-      self.log("PPU READ", address, u8::try_from(res).unwrap());
-//          println!("C PPU data: {} -> {}", address, res);
-      res
+      self.get_mut_registers().cpu_read(address & 0x0007, read_only).into()
     } else if (0x4016..=0x4017).contains(&address) {
       self.controller_state[usize::try_from(address & 1).unwrap()] <<= 1;
       let state = self.get_controller()[usize::try_from(address & 0x0001).unwrap()] & 0x80;
