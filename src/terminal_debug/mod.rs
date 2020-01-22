@@ -167,6 +167,12 @@ impl TerminalDebug {
   #[cfg(feature = "terminal_debug")]
   #[cfg(target_family = "unix")]
   pub fn draw_terminal(&mut self, cpu: &mut Cpu, stdout: &mut RawTerminal<Stdout>) {
+    let mut stdout = stdout()
+      .into_raw_mode()
+      .unwrap_or_else(|err| panic!("stdout raw mode error {:?}", err));
+
+    write!(stdout, "{}{}", cursor::Goto(1, 1), clear::AfterCursor).unwrap();
+
     self.draw_ram(&mut cpu.bus, stdout, 0x0000, 2, 2, 16, 16);
     self.draw_ram(&mut cpu.bus, stdout, 0x8000, 2, 20, 16, 16);
     self.draw_cpu(cpu, stdout, 64, 2);

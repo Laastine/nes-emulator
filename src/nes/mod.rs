@@ -1,7 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::io::{stdout, Stdout, Write};
 use std::rc::Rc;
 use std::time;
 
@@ -16,8 +15,6 @@ use crate::cpu::Cpu;
 use crate::cpu::instruction_table::FLAGS6502;
 use crate::gfx::WindowContext;
 use crate::ppu::{Ppu, registers::Registers};
-use termion::{cursor, clear};
-use termion::raw::IntoRawMode;
 
 pub mod constants;
 
@@ -66,11 +63,6 @@ impl Nes {
   }
 
   pub fn render_loop(&mut self) {
-    let mut stdout = stdout()
-      .into_raw_mode()
-      .unwrap_or_else(|err| panic!("stdout raw mode error {:?}", err));
-
-    write!(stdout, "{}{}", cursor::Goto(1, 1), clear::AfterCursor).unwrap();
 
     let mut last_time = time::Instant::now();
 
@@ -93,7 +85,6 @@ impl Nes {
               },
               ..
             } => {
-              write!(stdout, "{}{}", cursor::Goto(1, 1), clear::AfterCursor).unwrap();
               break 'app;
             }
             WindowEvent::KeyboardInput { input, .. } => {
