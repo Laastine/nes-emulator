@@ -26,7 +26,7 @@ pub struct Rom {
 }
 
 impl Rom {
-  pub fn read_from_file(mut rom_bytes: impl Iterator<Item = u8>) -> Rom {
+  pub fn read_from_file(mut rom_bytes: impl Iterator<Item=u8>) -> Rom {
     let mut bytes = &mut rom_bytes;
 
     let first_4_bytes = (&mut bytes).take(4);
@@ -76,7 +76,7 @@ impl Rom {
       (0, true) => 0x2000,
       (_, true) => prg_ram_size as usize * 0x2000,
     })
-    .unwrap();
+      .unwrap();
 
     let chr_ram_len = if chr_rom_size == 0 { 0x2000 } else { 0 };
 
@@ -152,7 +152,7 @@ impl Rom {
       rom_header,
       prg_rom: vec![0u8; rom_header.prg_rom_len],
       chr_rom: vec![0u8; rom_header.chr_rom_len],
-      title: "test".to_string()
+      title: "test".to_string(),
     }
   }
 }

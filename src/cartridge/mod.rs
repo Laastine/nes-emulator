@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::cartridge::rom_reading::{Rom, Mirroring};
+use crate::cartridge::rom_reading::{Mirroring, Rom};
 use crate::mapper::Mapper;
 
 pub mod rom_reading;

@@ -1,11 +1,11 @@
 use std::cell::{RefCell, RefMut};
 use std::convert::TryFrom;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
 use crate::ppu::registers::Registers;
-use std::fs::OpenOptions;
-use std::io::Write;
 
 pub const MEM_SIZE: usize = 0x0800;
 
@@ -14,8 +14,8 @@ pub struct Bus {
   pub cartridge: Rc<RefCell<Cartridge>>,
   pub ram: [u8; MEM_SIZE],
   controller: Rc<RefCell<[u8; 2]>>,
-  controller_state: [u8;2],
-  registers: Rc<RefCell<Registers>>
+  controller_state: [u8; 2],
+  registers: Rc<RefCell<Registers>>,
 }
 
 impl Bus {
@@ -28,7 +28,7 @@ impl Bus {
       ram,
       controller,
       controller_state,
-      registers
+      registers,
     }
   }
 
@@ -36,17 +36,17 @@ impl Bus {
   #[cfg(debug_assertions)]
   fn log(&self, mode: &str, address: u16, data: u8) {
     let mut file = OpenOptions::new()
-        .write(true)
-        .append(true)
-        .open("mem.txt")
-        .expect("File append error");
+      .write(true)
+      .append(true)
+      .open("mem.txt")
+      .expect("File append error");
 
     file
-        .write_all(
-          format!("{} {} - {}\n", mode, address, data)
-              .as_bytes(),
-        )
-        .expect("File write error");
+      .write_all(
+        format!("{} {} - {}\n", mode, address, data)
+          .as_bytes(),
+      )
+      .expect("File write error");
   }
 
   fn get_controller(&mut self) -> RefMut<[u8; 2]> {

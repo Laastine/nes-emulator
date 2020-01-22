@@ -7,9 +7,9 @@ pub enum Semantics {
   #[sem(name = "color", repr = "[f32; 3]", wrapper = "VertexColor")]
   Color,
   #[sem(
-    name = "position",
-    repr = "[f32; 2]",
-    wrapper = "VertexInstancePosition"
+  name = "position",
+  repr = "[f32; 2]",
+  wrapper = "VertexInstancePosition"
   )]
   InstancePosition,
   #[sem(name = "weight", repr = "f32", wrapper = "VertexWeight")]

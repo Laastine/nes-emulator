@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::fs::OpenOptions;
+use std::io::Write;
 
 use crate::bus::Bus;
 use crate::cpu::instruction_table::{ADDRMODE6502, FLAGS6502, LookUpTable, OPCODES6502};
-use std::fs::OpenOptions;
-use std::io::Write;
 
 pub mod instruction_table;
 
@@ -120,53 +120,53 @@ impl Cpu {
   #[allow(dead_code)]
   fn log(&self, log_pc: usize) {
     let mut file = OpenOptions::new()
-        .write(true)
-        .append(true)
-        .open("log.txt")
-        .expect("File append error");
+      .write(true)
+      .append(true)
+      .open("log.txt")
+      .expect("File append error");
 
     file
-        .write_all(
-          format!(
-            "opcode:{} -> clock:{} sreg:{} {},{} PC:{} XXX A:{} X:{} Y:{} {}{}{}{}{}{}{}{} STKP:{}\n",
-            self.opcode,
-            self.clock_count,
-            self.status_register,
-            self.addr_abs,
-            self.addr_rel,
-            hex(log_pc, 4),
-            hex(u8::try_into(self.acc).unwrap(), 2),
-            hex(u8::try_into(self.x).unwrap(), 2),
-            hex(u8::try_into(self.y).unwrap(), 2),
-            if self.get_flag(&FLAGS6502::N) { "N" } else { "." },
-            if self.get_flag(&FLAGS6502::V) { "V" } else { "." },
-            if self.get_flag(&FLAGS6502::U) { "U" } else { "." },
-            if self.get_flag(&FLAGS6502::B) { "B" } else { "." },
-            if self.get_flag(&FLAGS6502::D) { "D" } else { "." },
-            if self.get_flag(&FLAGS6502::I) { "I" } else { "." },
-            if self.get_flag(&FLAGS6502::Z) { "Z" } else { "." },
-            if self.get_flag(&FLAGS6502::C) { "C" } else { "." },
-            hex(usize::try_from(self.stack_pointer).unwrap(), 2),
-          )
-              .as_bytes(),
+      .write_all(
+        format!(
+          "opcode:{} -> clock:{} sreg:{} {},{} PC:{} XXX A:{} X:{} Y:{} {}{}{}{}{}{}{}{} STKP:{}\n",
+          self.opcode,
+          self.clock_count,
+          self.status_register,
+          self.addr_abs,
+          self.addr_rel,
+          hex(log_pc, 4),
+          hex(u8::try_into(self.acc).unwrap(), 2),
+          hex(u8::try_into(self.x).unwrap(), 2),
+          hex(u8::try_into(self.y).unwrap(), 2),
+          if self.get_flag(&FLAGS6502::N) { "N" } else { "." },
+          if self.get_flag(&FLAGS6502::V) { "V" } else { "." },
+          if self.get_flag(&FLAGS6502::U) { "U" } else { "." },
+          if self.get_flag(&FLAGS6502::B) { "B" } else { "." },
+          if self.get_flag(&FLAGS6502::D) { "D" } else { "." },
+          if self.get_flag(&FLAGS6502::I) { "I" } else { "." },
+          if self.get_flag(&FLAGS6502::Z) { "Z" } else { "." },
+          if self.get_flag(&FLAGS6502::C) { "C" } else { "." },
+          hex(usize::try_from(self.stack_pointer).unwrap(), 2),
         )
-        .expect("File write error");
+          .as_bytes(),
+      )
+      .expect("File write error");
   }
 
   pub fn fetch(&mut self) {
     if self.addr_mode() != ADDRMODE6502::IMP {
       let mut file = OpenOptions::new()
-          .write(true)
-          .append(true)
-          .open("log.txt")
-          .expect("File append error");
+        .write(true)
+        .append(true)
+        .open("log.txt")
+        .expect("File append error");
       self.fetched = u8::try_from(self.bus_mut_read_u8(self.addr_abs)).unwrap();
 
       file
-          .write_all(
-            format!("FETCH: {} -> {}\n", self.addr_abs, self.fetched).as_bytes(),
-          )
-          .expect("File write error");
+        .write_all(
+          format!("FETCH: {} -> {}\n", self.addr_abs, self.fetched).as_bytes(),
+        )
+        .expect("File write error");
     }
   }
 
@@ -458,8 +458,8 @@ impl Cpu {
   pub fn adc(&mut self) -> u8 {
     self.fetch();
     self.temp = u16::try_from(self.acc).unwrap()
-        + u16::try_from(self.fetched).unwrap()
-        + if self.get_flag(&FLAGS6502::C) { 1 } else { 0 };
+      + u16::try_from(self.fetched).unwrap()
+      + if self.get_flag(&FLAGS6502::C) { 1 } else { 0 };
 
     self.set_flag(&FLAGS6502::C, (self.temp) > 255);
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
@@ -872,9 +872,9 @@ impl Cpu {
   pub fn plp(&mut self) -> u8 {
     self.stack_pointer_increment();
     self.status_register = self
-        .bus_mut_read_u8(0x0100u16 + u16::try_from(self.stack_pointer).unwrap())
-        .try_into()
-        .unwrap();
+      .bus_mut_read_u8(0x0100u16 + u16::try_from(self.stack_pointer).unwrap())
+      .try_into()
+      .unwrap();
     self.set_flag(&FLAGS6502::U, true);
     0
   }
@@ -950,7 +950,7 @@ impl Cpu {
 
     self.temp = u16::try_from(self.acc).unwrap()
       + value
-        + if self.get_flag(&FLAGS6502::C) { 1 } else { 0 };
+      + if self.get_flag(&FLAGS6502::C) { 1 } else { 0 };
 
     self.set_flag(&FLAGS6502::C, (self.temp & 0xFF00) > 0x00);
     self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);

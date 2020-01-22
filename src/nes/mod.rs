@@ -8,7 +8,7 @@ use std::time;
 use luminance::context::GraphicsContext;
 use luminance::framebuffer::Framebuffer;
 use luminance::render_state::RenderState;
-use luminance_glutin::{ElementState::Pressed, Event, KeyboardInput, Surface, VirtualKeyCode::{X, A, S, Z, Space, R, Escape, Left, Right, Up, Down}, WindowEvent, ElementState};
+use luminance_glutin::{ElementState, ElementState::Pressed, Event, KeyboardInput, Surface, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Space, Up, X, Z}, WindowEvent};
 use termion::{clear, color, cursor, style};
 use termion::raw::{IntoRawMode, RawTerminal};
 
@@ -144,7 +144,7 @@ impl Nes {
       cursor::Goto(x, y + 1),
       hex(self.cpu.pc.try_into().unwrap(), 4)
     )
-    .unwrap();
+      .unwrap();
     write!(
       stdout,
       "{}A: ${} [{}]",
@@ -152,7 +152,7 @@ impl Nes {
       hex(self.cpu.acc.try_into().unwrap(), 2),
       self.cpu.acc
     )
-    .unwrap();
+      .unwrap();
     write!(
       stdout,
       "{}X: ${} [{}]",
@@ -160,7 +160,7 @@ impl Nes {
       hex(self.cpu.x.try_into().unwrap(), 2),
       self.cpu.x
     )
-    .unwrap();
+      .unwrap();
     write!(
       stdout,
       "{}Y: ${} [{}]",
@@ -168,7 +168,7 @@ impl Nes {
       hex(self.cpu.y.try_into().unwrap(), 2),
       self.cpu.y
     )
-    .unwrap();
+      .unwrap();
 
     write!(
       stdout,
@@ -176,7 +176,7 @@ impl Nes {
       cursor::Goto(x, y + 5),
       hex(usize::from(self.cpu.stack_pointer), 4)
     )
-    .unwrap();
+      .unwrap();
   }
 
   pub fn draw_code(&self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
@@ -227,11 +227,11 @@ impl Nes {
             | WindowEvent::Destroyed
             | WindowEvent::KeyboardInput {
               input:
-                KeyboardInput {
-                  state: ElementState::Released,
-                  virtual_keycode: Some(Escape),
-                  ..
-                },
+              KeyboardInput {
+                state: ElementState::Released,
+                virtual_keycode: Some(Escape),
+                ..
+              },
               ..
             } => {
               write!(stdout, "{}{}", cursor::Goto(1, 1), clear::AfterCursor).unwrap();
@@ -241,31 +241,31 @@ impl Nes {
               match input {
                 KeyboardInput { state, virtual_keycode: Some(Z), .. } => {
                   self.controller[0] |= if state == Pressed { 0x40 } else { 0 };
-                },
+                }
                 KeyboardInput { state, virtual_keycode: Some(A), .. } => {
                   self.controller[0] |= if state == Pressed { 0x20 } else { 0 };
-                },
+                }
                 KeyboardInput { state, virtual_keycode: Some(S), .. } => {
                   self.controller[0] |= if state == Pressed { 0x10 } else { 0 };
-                },
+                }
                 KeyboardInput { state, virtual_keycode: Some(X), .. } => {
                   self.controller[0] |= if state == Pressed { 0x80 } else { 0 };
-                },
+                }
                 KeyboardInput { state, virtual_keycode: Some(Up), .. } => {
                   self.controller[0] |= if state == Pressed { 0x08 } else { 0 };
-                },
+                }
                 KeyboardInput { state, virtual_keycode: Some(Down), .. } => {
                   self.controller[0] |= if state == Pressed { 0x04 } else { 0 };
-                },
+                }
                 KeyboardInput { state, virtual_keycode: Some(Left), .. } => {
                   self.controller[0] |= if state == Pressed { 0x02 } else { 0 };
-                },
+                }
                 KeyboardInput { state, virtual_keycode: Some(Right), .. } => {
                   self.controller[0] |= if state == Pressed { 0x01 } else { 0 };
-                },
+                }
                 KeyboardInput { virtual_keycode: Some(Space), .. } => {
                   self.debug_mode = !self.debug_mode;
-                },
+                }
                 KeyboardInput { state: Pressed, virtual_keycode: Some(R), .. } => {
                   self.cpu.reset();
                 }

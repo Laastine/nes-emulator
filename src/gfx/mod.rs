@@ -62,7 +62,7 @@ impl WindowContext {
       "NES-emulator",
       WindowOpt::default(),
     )
-    .expect("Glutin surface create");
+      .expect("Glutin surface create");
 
     let program = Program::<Semantics, (), ()>::from_strings(None, SHADER_VERT, None, SHADER_FRAG)
       .expect("Program create error")

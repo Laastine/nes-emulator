@@ -125,8 +125,7 @@ impl Registers {
           }
         }
       }
-    }
-    else if (0x3F00..=0x3FFF).contains(&addr) {
+    } else if (0x3F00..=0x3FFF).contains(&addr) {
       addr &= 0x001F;
       let idx: usize = match addr {
         0x0010 | 0x0014 | 0x0018 | 0x001C => usize::try_from(addr).unwrap() - 0x10,
@@ -145,33 +144,34 @@ impl Registers {
     if is_address_in_range {
       self.get_mut_cartridge().rom.chr_rom[mapped_addr] = data;
     } else if (0x0000..=0x1FFF).contains(&addr) {
-      let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
-      let second_idx = usize::try_from(addr & 0x0FFF).unwrap();
-      self.table_pattern[first_idx][second_idx] = data;
+      let fst_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
+      let snd_idx = usize::try_from(addr & 0x0FFF).unwrap();
+      self.table_pattern[fst_idx][snd_idx] = data;
     } else if (0x2000..=0x3EFF).contains(&addr) {
       addr &= 0x0FFF;
-      let idx = usize::try_from(addr & 0x03FF).unwrap();
+      let snd_idx = usize::try_from(addr & 0x03FF).unwrap();
       let mirror_mode = self.get_mut_cartridge().get_mirror_mode();
-      match mirror_mode {
+      let fst_idx = match mirror_mode {
         Mirroring::Vertical => {
           match addr {
-            0x0000..=0x03FF => self.name_table[0][idx] = data,
-            0x0400..=0x07FF => self.name_table[1][idx] = data,
-            0x0800..=0x0BFF => self.name_table[0][idx] = data,
-            0x0C00..=0x0FFF => self.name_table[1][idx] = data,
+            0x0000..=0x03FF => 0,
+            0x0400..=0x07FF => 1,
+            0x0800..=0x0BFF => 0,
+            0x0C00..=0x0FFF => 1,
             _ => panic!("Unknown vertical mode table address"),
           }
         }
         Mirroring::Horizontal => {
           match addr {
-            0x0000..=0x03FF => self.name_table[0][idx] = data,
-            0x0400..=0x07FF => self.name_table[0][idx] = data,
-            0x0800..=0x0BFF => self.name_table[1][idx] = data,
-            0x0C00..=0x0FFF => self.name_table[1][idx] = data,
+            0x0000..=0x03FF => 0,
+            0x0400..=0x07FF => 0,
+            0x0800..=0x0BFF => 1,
+            0x0C00..=0x0FFF => 1,
             _ => panic!("Unknown horizontal mode table address"),
           }
         }
-      }
+      };
+      self.name_table[fst_idx][snd_idx] = data;
     } else if (0x3F00..=0x3FFF).contains(&addr) {
       addr &= 0x001F;
       let idx: usize = match addr {
@@ -184,49 +184,55 @@ impl Registers {
 
   pub fn cpu_write(&mut self, address: u16, data: u8) {
     match address {
-      0x00 => {
-        self.ctrl_flags.0 = data;
-
-        let ctrl_flags = self.ctrl_flags;
-        self.tram_addr.set_nametable_x(ctrl_flags.nametable_x());
-        self.tram_addr.set_nametable_y(ctrl_flags.nametable_y());
-      }
-      0x01 => {
-        self.mask_flags.0 = data;
-      },
-      0x02 => {},
-      0x03 => {},
-      0x04 => {},
-      0x05 => { // Scroll
-        if self.address_latch {                    // Y
-          self.tram_addr.set_fine_y(data & 0x07);
-          self.tram_addr.set_coarse_y(data >> 3);
-          self.address_latch = false;
-        } else { // X
-          self.fine_x = data & 0x07;
-          self.tram_addr.set_coarse_x(data >> 3);
-          self.address_latch = true;
-        }
-      },
-      0x06 => { // PPU address
-        if self.address_latch {
-          self.tram_addr.set_lo_byte(data);
-          let tram_addr = self.tram_addr;
-          self.vram_addr = tram_addr;
-          self.address_latch = false;
-        } else {
-          self.tram_addr.set_hi_byte(data);
-          self.address_latch = true;
-        }
-      },
-      0x07 => { // PPU data
-        let vram_addr = self.vram_addr;
-        let increment_val = if self.ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
-        self.vram_addr.0 = vram_addr.0.wrapping_add(increment_val);
-        self.ppu_write(vram_addr.0, data);
-      },
+      0x00 => self.write_control(data),
+      0x01 => { self.mask_flags.0 = data; }
+      0x02 => {}
+      0x03 => {}
+      0x04 => {}
+      0x05 => self.write_scroll(data),
+      0x06 => self.write_address(data),
+      0x07 => self.write_data(data),
       _ => panic!("write_ppu_registers address: {} not in range", address),
     };
+  }
+
+  fn write_control(&mut self, data: u8) {
+    self.ctrl_flags.0 = data;
+
+    let ctrl_flags = self.ctrl_flags;
+    self.tram_addr.set_nametable_x(ctrl_flags.nametable_x());
+    self.tram_addr.set_nametable_y(ctrl_flags.nametable_y());
+  }
+
+  fn write_scroll(&mut self, data: u8) {
+    if self.address_latch {                    // Y
+      self.tram_addr.set_fine_y(data & 0x07);
+      self.tram_addr.set_coarse_y(data >> 3);
+      self.address_latch = false;
+    } else { // X
+      self.fine_x = data & 0x07;
+      self.tram_addr.set_coarse_x(data >> 3);
+      self.address_latch = true;
+    }
+  }
+
+  fn write_address(&mut self, data: u8) {
+    if self.address_latch {
+      self.tram_addr.set_lo_byte(data);
+      let tram_addr = self.tram_addr;
+      self.vram_addr = tram_addr;
+      self.address_latch = false;
+    } else {
+      self.tram_addr.set_hi_byte(data);
+      self.address_latch = true;
+    }
+  }
+
+  fn write_data(&mut self, data: u8) {
+    let vram_addr = self.vram_addr;
+    let increment_val = if self.ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
+    self.vram_addr.0 = vram_addr.0.wrapping_add(increment_val);
+    self.ppu_write(vram_addr.0, data);
   }
 
   pub fn cpu_read(&mut self, address: u16, read_only: bool) -> u8 {
@@ -246,32 +252,36 @@ impl Registers {
       match address {
         0x00 => 0x00,
         0x01 => 0x00,
-        0x02 => {   // Status
-          let status_flags = self.status_flags;
-          let res = (status_flags.0 & 0xE0) | (self.ppu_data_buffer & 0x1F);
-          self.status_flags.set_vertical_blank(false);
-          self.address_latch = false;
-          res
-        }
+        0x02 => self.read_status(),
         0x03 => 0x00,
         0x04 => 0x00,
         0x05 => 0x00,
         0x06 => 0x00,
-        0x07 => {   // PPU data
-          let mut data = self.ppu_data_buffer;
-          let vram_addr = self.vram_addr;
-
-          let increment_val = if self.ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
-          self.vram_addr.0 = vram_addr.0.wrapping_add(increment_val);
-
-          if self.vram_addr.0 >= 0x3F00 {
-            data = self.ppu_read(vram_addr.0);
-          }
-          data
-        }
+        0x07 => self.read_ppu_data(),
         _ => panic!("read_ppu_u8 address: {} not in range", address),
       }
     }
+  }
+
+  fn read_status(&mut self) -> u8 {
+    let status_flags = self.status_flags;
+    let res = (status_flags.0 & 0xE0) | (self.ppu_data_buffer & 0x1F);
+    self.status_flags.set_vertical_blank(false);
+    self.address_latch = false;
+    res
+  }
+
+  fn read_ppu_data(&mut self) -> u8 {
+    let mut data = self.ppu_data_buffer;
+    let vram_addr = self.vram_addr;
+
+    let increment_val = if self.ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
+    self.vram_addr.0 = vram_addr.0.wrapping_add(increment_val);
+
+    if self.vram_addr.0 >= 0x3F00 {
+      data = self.ppu_read(vram_addr.0);
+    }
+    data
   }
 }
 
