@@ -4,9 +4,8 @@ Learning project to build Nintendo Entertainment System emulator.
 
 ## Controls
 
-`Space` - Execute next instruction<br>
-`I` - Interrupt<br>
-`N` - Non-maskable interrupt<br>
+`Space` - Execute step by step (Use with terminal debug)<br>
+`R` - Reset<br>
 `Esc` - Quit  
 
 ## TODO
@@ -16,8 +15,10 @@ Learning project to build Nintendo Entertainment System emulator.
 - [x] ROM reader & mapper
 - [x] Graphics screen
 - [ ] PPU (Pixel Processing Unit)
+  - [x] PPU background rendering
+  - [ ] PPU sprites
 - [ ] APU (Audio Processing Unit)
-- [ ] Cross-platform (Mac OS, Linux, Windows)
+- [x] Cross-platform (Mac OS, Linux, Windows)
 
 
 ## References
