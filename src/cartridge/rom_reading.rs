@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::iter::Iterator;
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct RomHeader {
   pub prg_rom_len: usize,
   pub chr_rom_len: usize,
@@ -17,7 +17,7 @@ pub struct RomHeader {
   pub flag_bus_conflicts: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Rom {
   pub rom_header: RomHeader,
   pub prg_rom: Vec<u8>,
@@ -40,27 +40,29 @@ impl Rom {
     let flags_7 = bytes.next().unwrap_or_else(|| panic!("flags_7 read error"));
     let prg_ram_size = bytes.next().unwrap_or_else(|| panic!("flags_8 read error"));
     let _flags_9 = bytes.next().unwrap_or_else(|| panic!("flags_9 read error"));
-    let flags_10 = bytes.next().unwrap_or_else(|| panic!("flags_10 read error"));
+    let flags_10 = bytes
+      .next()
+      .unwrap_or_else(|| panic!("flags_10 read error"));
 
     let zeros = (&mut bytes).take(5);
     if [0, 0, 0, 0, 0].iter().cloned().ne(zeros) {
       panic!("Non-zero bits found on unused block")
     }
 
-    let flag_mirror = (flags_6 & 0b_0000_0001) != 0x00;
-    let flag_persistent = (flags_6 & 0b_0000_0010) != 0x00;
-    let flag_trainer = (flags_6 & 0b_0000_0100) != 0x00;
-    let flag_four_screen_vram = (flags_6 & 0b_0000_1000) != 0x00;
-    let mapper_lo = u8::try_from((flags_6 & 0b_1111_0000).wrapping_shr(4)).unwrap();
+    let flag_mirror = (flags_6 & 0x01) > 0x00;
+    let flag_persistent = (flags_6 & 0x02) > 0x00;
+    let flag_trainer = (flags_6 & 0x04) > 0x00;
+    let flag_four_screen_vram = (flags_6 & 0x08) > 0x00;
+    let mapper_lo = (flags_6 & 0xF0) >> 4;
 
-    let flag_vs_unisystem = (flags_7 & 0b_0000_0001) != 0x00;
-    let flag_playchoice_10 = (flags_7 & 0b_0000_0010) != 0x00;
-    let flag_rom_format = u8::try_from((flags_7 & 0b_0000_1100).wrapping_shr(2)).unwrap();
-    let mapper_hi = u8::try_from((flags_7 & 0b_1111_0000).wrapping_shr(4)).unwrap();
+    let flag_vs_unisystem = (flags_7 & 0x01) > 0x00;
+    let flag_playchoice_10 = (flags_7 & 0x02) > 0x00;
+    let flag_rom_format = (flags_7 & 0x0C) >> 2;
+    let mapper_hi = (flags_7 & 0xF0) >> 4;
 
-    let flag_tv_system = flags_10 & 0b_0000_0011;
-    let flag_prg_ram = (flags_10 & 0b_0001_0000) != 0x00;
-    let flag_bus_conflicts = (flags_10 & 0b_0010_0000) != 0x00;
+    let flag_tv_system = flags_10 & 0x03;
+    let flag_prg_ram = (flags_10 & 0x10) > 0x00;
+    let flag_bus_conflicts = (flags_10 & 0x20) > 0x00;
 
     if flag_rom_format == 2 {
       unimplemented!("NES 2.0 ROM format not implemented");
@@ -73,19 +75,20 @@ impl Rom {
       (_, false) => 0,
       (0, true) => 0x2000,
       (_, true) => prg_ram_size as usize * 0x2000,
-    }).unwrap();
+    })
+      .unwrap();
 
     let chr_ram_len = if chr_rom_size == 0 { 0x2000 } else { 0 };
 
     let mirroring = match (flag_mirror, flag_four_screen_vram) {
       (true, false) => Mirroring::Vertical,
       (false, false) => Mirroring::Horizontal,
-      (_, true) => Mirroring::FourSreenVram,
+      _ => panic!("Mirroring mode {}, {} not supported", flag_mirror, flag_four_screen_vram)
     };
 
-    let mapper = mapper_lo | mapper_hi.wrapping_shl(4);
+    let mapper = mapper_lo | (mapper_hi << 4);
 
-    let tv_system = TVSystem::to_enum(flag_tv_system);
+    let tv_system = TVSystem::get_tv_system(flag_tv_system);
 
     let rom_header = RomHeader {
       prg_rom_len,
@@ -128,6 +131,30 @@ impl Rom {
       chr_rom,
     }
   }
+
+  pub fn mock_rom() -> Rom {
+    let rom_header = RomHeader {
+      prg_rom_len: 0x4000,
+      chr_rom_len: 0x2000,
+      prg_ram_len: 0x2000,
+      chr_ram_len: 0x2000,
+      mirroring: Mirroring::Horizontal,
+      mapper: 0,
+      flag_persistent: false,
+      flag_trainer: false,
+      flag_vs_unisystem: false,
+      flag_playchoice_10: false,
+      tv_system: TVSystem::NTSC,
+      flag_bus_conflicts: false,
+    };
+
+    Rom {
+      rom_header,
+      prg_rom: vec![0u8; rom_header.prg_rom_len],
+      chr_rom: vec![0u8; rom_header.chr_rom_len],
+      title: "test".to_string(),
+    }
+  }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -138,12 +165,12 @@ pub enum TVSystem {
 }
 
 impl TVSystem {
-  pub fn to_enum(value: u8) -> TVSystem {
-    match value {
+  pub fn get_tv_system(val: u8) -> TVSystem {
+    match val {
       0 => TVSystem::NTSC,
       1 => TVSystem::PAL,
       3 => TVSystem::DualCompatible,
-      _ => panic!("Unrecognized TV system value: {}", value),
+      _ => panic!("Unrecognized TV system value: {}", val),
     }
   }
 }
@@ -152,16 +179,4 @@ impl TVSystem {
 pub enum Mirroring {
   Vertical,
   Horizontal,
-  FourSreenVram,
-}
-
-impl Mirroring {
-  pub fn to_enum(value: u8) -> Mirroring {
-    match value {
-      0 => Mirroring::Vertical,
-      1 => Mirroring::Horizontal,
-      2 => Mirroring::FourSreenVram,
-      _ => panic!("Unrecognized Mirroring value: {}", value),
-    }
-  }
 }

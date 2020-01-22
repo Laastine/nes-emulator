@@ -1,4 +1,9 @@
+#[macro_use]
+extern crate bitfield;
 extern crate getopts;
+extern crate image;
+#[cfg(target_family = "unix")]
+#[cfg(feature = "terminal_debug")]
 extern crate termion;
 
 use std::env;
@@ -10,9 +15,13 @@ use crate::nes::Nes;
 mod bus;
 mod cartridge;
 mod cpu;
+mod gfx;
 mod mapper;
 mod nes;
 mod ppu;
+#[cfg(target_family = "unix")]
+#[cfg(feature = "terminal_debug")]
+mod terminal_debug;
 
 fn print_usage() {
   println!("USAGE:\nnes-emulator [FLAGS]\n\nFLAGS:\n-h, --help\t\t\tPrints help information\n-v, --version\t\t\tPrints version information\n-r, --rom\t\t\tRom filename to load");
@@ -45,11 +54,14 @@ fn main() {
     return;
   }
 
-  let rom_file = if !matches.free.is_empty() { matches.free[0].clone() } else { panic!("No ROM file parameter given") };
+  let rom_file = if !matches.free.is_empty() {
+    matches.free[0].clone()
+  } else {
+    panic!("No ROM file parameter given")
+  };
 
-//  let mut bus = Bus::new(&rom_file);
   let mut nes = Nes::new(&rom_file);
 
-  nes.create_program();
+  nes.init();
   nes.render_loop();
 }

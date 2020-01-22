@@ -1,269 +1,213 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::io::{stdin, stdout, Stdout, Write};
 use std::rc::Rc;
+use std::time;
 
-use termion::{clear, color, cursor, style};
-use termion::event::Key;
-use termion::input::TermRead;
-use termion::raw::{IntoRawMode, RawTerminal};
+use luminance::context::GraphicsContext;
+use luminance::framebuffer::Framebuffer;
+use luminance::render_state::RenderState;
+use luminance_glutin::{ElementState, ElementState::Pressed, Event, KeyboardInput, Surface, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Space, Up, X, Z}, WindowEvent};
 
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
-use crate::cpu::{Cpu, hex};
+use crate::cpu::Cpu;
 use crate::cpu::instruction_table::FLAGS6502;
-use crate::mapper::Mapper;
-use crate::ppu::Ppu;
+use crate::gfx::WindowContext;
+use crate::ppu::{Ppu, registers::Registers};
 
-const RED: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(196));
-const GREEN: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(46));
-const BLUE: color::Fg<color::AnsiValue> = color::Fg(color::AnsiValue(21));
+pub mod constants;
 
 pub struct Nes {
-  cartridge: Cartridge,
   cpu: Cpu,
   ppu: Ppu,
-  map_asm: HashMap<u16, String>,
   system_cycles: u64,
+  window_context: WindowContext,
+  debug_mode: bool,
+  controller: [u8; 2],
 }
 
 impl Nes {
   pub fn new(rom_file: &str) -> Nes {
-    let mapper = Mapper::new();
     let cartridge = Cartridge::new(rom_file);
-    let map_asm: HashMap<u16, String> = HashMap::new();
+    let cart = Rc::new(RefCell::new(cartridge));
+    let controller = [0u8; 2];
 
-    let bus = Bus::new(cartridge.clone(), mapper);
+    let mut window_context = WindowContext::new();
 
-    let bus_pointer = Rc::new(RefCell::new(bus));
+    let reg = Registers::new(cart.clone());
+    let registers = Rc::new(RefCell::new(reg));
 
-    let cpu = Cpu::new(bus_pointer.clone());
-    let ppu = Ppu::new(bus_pointer);
+    let c = Rc::new(RefCell::new(controller));
+
+    let bus = Bus::new(cart, registers.clone(), c);
+
+    let cpu = Cpu::new(bus);
+    let ppu = Ppu::new(registers, &mut window_context.surface);
     let system_cycles = 0;
 
+    let debug_mode = false;
+
     Nes {
-      cartridge,
       cpu,
       ppu,
-      map_asm,
       system_cycles,
+      window_context,
+      debug_mode,
+      controller,
     }
   }
 
-  fn draw_ram(
-    &mut self,
-    stdout: &mut RawTerminal<Stdout>,
-    mut addr: u16,
-    x: u16,
-    y: u16,
-    rows: u16,
-    columns: u16,
-  ) {
-    let mut y_ram = y;
-    let x_ram = x;
-    for _ in 0..rows {
-      let mut offset = format!("${}:", hex(addr as usize, 4));
-      for _ in 0..columns {
-        offset = format!(
-          "{} {}",
-          offset,
-          hex({
-                let mut bus = self.cpu.get_mut_bus();
-                bus.read_u8(addr).try_into().unwrap()
-              }, 2)
-        );
-        addr += 1;
-      }
-      write!(stdout, "{}{}", cursor::Goto(x_ram, y_ram), offset).unwrap();
-      y_ram += 1;
-    }
-  }
-
-  fn draw_cpu(&self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
-    write!(stdout, "{}Status", cursor::Goto(x, y)).unwrap();
-    if self.cpu.status_register & FLAGS6502::N.value() > 0x00 {
-      write!(stdout, "{}{}N", cursor::Goto(x + 7, y), GREEN).unwrap();
-    } else {
-      write!(stdout, "{}{}N", cursor::Goto(x + 7, y), RED).unwrap();
-    }
-    if self.cpu.status_register & FLAGS6502::V.value() > 0x00 {
-      write!(stdout, "{}{}V", cursor::Goto(x + 9, y), GREEN).unwrap();
-    } else {
-      write!(stdout, "{}{}V", cursor::Goto(x + 9, y), RED).unwrap();
-    }
-    if self.cpu.status_register & FLAGS6502::U.value() > 0x00 {
-      write!(stdout, "{}{}-", cursor::Goto(x + 11, y), GREEN).unwrap();
-    } else {
-      write!(stdout, "{}{}-", cursor::Goto(x + 11, y), RED).unwrap();
-    }
-    if self.cpu.status_register & FLAGS6502::B.value() > 0x00 {
-      write!(stdout, "{}{}B", cursor::Goto(x + 13, y), GREEN).unwrap();
-    } else {
-      write!(stdout, "{}{}B", cursor::Goto(x + 13, y), RED).unwrap();
-    }
-    if self.cpu.status_register & FLAGS6502::D.value() > 0x00 {
-      write!(stdout, "{}{}D", cursor::Goto(x + 15, y), GREEN).unwrap();
-    } else {
-      write!(stdout, "{}{}D", cursor::Goto(x + 15, y), RED).unwrap();
-    }
-    if self.cpu.status_register & FLAGS6502::I.value() > 0x00 {
-      write!(stdout, "{}{}I", cursor::Goto(x + 17, y), GREEN).unwrap();
-    } else {
-      write!(stdout, "{}{}I", cursor::Goto(x + 17, y), RED).unwrap();
-    }
-    if self.cpu.status_register & FLAGS6502::Z.value() > 0x00 {
-      write!(stdout, "{}{}Z", cursor::Goto(x + 19, y), GREEN).unwrap();
-    } else {
-      write!(stdout, "{}{}Z", cursor::Goto(x + 19, y), RED).unwrap();
-    }
-    if self.cpu.status_register & FLAGS6502::C.value() > 0x00 {
-      write!(stdout, "{}{}C", cursor::Goto(x + 21, y), GREEN).unwrap();
-    } else {
-      write!(stdout, "{}{}C", cursor::Goto(x + 21, y), RED).unwrap();
-    }
-    writeln!(stdout, "{}", style::Reset).unwrap();
-
-    write!(
-      stdout,
-      "{}PC: ${}",
-      cursor::Goto(x, y + 1),
-      hex(self.cpu.pc.try_into().unwrap(), 4)
-    )
-    .unwrap();
-    write!(
-      stdout,
-      "{}A: ${} [{}]",
-      cursor::Goto(x, y + 2),
-      hex(self.cpu.acc.try_into().unwrap(), 2),
-      self.cpu.acc
-    )
-    .unwrap();
-    write!(
-      stdout,
-      "{}X: ${} [{}]",
-      cursor::Goto(x, y + 3),
-      hex(self.cpu.x.try_into().unwrap(), 2),
-      self.cpu.x
-    )
-    .unwrap();
-    write!(
-      stdout,
-      "{}Y: ${} [{}]",
-      cursor::Goto(x, y + 4),
-      hex(self.cpu.y.try_into().unwrap(), 2),
-      self.cpu.y
-    )
-    .unwrap();
-
-    write!(
-      stdout,
-      "{}Stack P: ${}",
-      cursor::Goto(x, y + 5),
-      hex(usize::from(self.cpu.stack_pointer), 4)
-    )
-    .unwrap();
-  }
-
-  pub fn draw_code(&self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
-    let val = self.map_asm.get(&self.cpu.pc).unwrap();
-    write!(
-      stdout,
-      "{}{}",
-      cursor::Goto(x, y),
-      clear::AfterCursor
-    )
-    .unwrap();
-    write!(
-      stdout,
-      "{}{}{}{}",
-      cursor::Goto(x, y),
-      BLUE,
-      val,
-      style::Reset
-    )
-    .unwrap();
-  }
-
-  pub fn create_program(&mut self) {
-    self.map_asm = self.cpu.disassemble(0x0000, 0xFFFF);
-    self.cpu.reset();
-  }
-
-  fn draw_help(&mut self, stdout: &mut RawTerminal<Stdout>, x: u16, y: u16) {
-    write!(stdout, "{}Exec next instruction: X\tIRQ: I\t\tNMI: N\t\tRESET: R", cursor::Goto(x,y)).unwrap();
-  }
-
-  fn draw(&mut self, stdout: &mut RawTerminal<Stdout>) {
-    self.draw_ram(stdout, 0x0000, 2, 2, 16, 16);
-    self.draw_ram(stdout, 0x8000, 2, 20, 16, 16);
-    self.draw_cpu(stdout, 64, 2);
-    self.draw_code(stdout, 64, 9);
-    self.draw_help(stdout, 2, 37)
+  pub fn init(&mut self) {
+    self.reset();
   }
 
   pub fn render_loop(&mut self) {
-    let stdin = stdin();
-    let mut stdout = stdout()
-      .into_raw_mode()
-      .unwrap_or_else(|err| panic!("stdout raw mode error {:?}", err));
 
-    write!(
-      stdout,
-      "{}{}",
-      cursor::Goto(1, 1),
-      clear::AfterCursor
-    )
-    .unwrap();
+    let mut last_time = time::Instant::now();
 
-    self.draw(&mut stdout);
+    'app: loop {
+      let elapsed = last_time.elapsed();
+      let delta = f64::from(elapsed.subsec_nanos()) / 1e9 + elapsed.as_secs() as f64;
 
-    for c in stdin.keys() {
-      match c.unwrap() {
-        Key::Char('q') | Key::Esc => {
-          write!(
-            stdout,
-            "{}{}",
-            cursor::Goto(1, 1),
-            clear::AfterCursor
-          )
-          .unwrap();
-          break;
-        }
-        Key::Char('x') => loop {
-          self.clock();
-          if !self.cpu.complete() {
-            self.clock();
-            break;
+      self.controller[0] = 0x00;
+      for event in self.window_context.surface.poll_events() {
+        if let Event::WindowEvent { event, .. } = event {
+          match event {
+            WindowEvent::CloseRequested
+            | WindowEvent::Destroyed
+            | WindowEvent::KeyboardInput {
+              input:
+              KeyboardInput {
+                state: ElementState::Released,
+                virtual_keycode: Some(Escape),
+                ..
+              },
+              ..
+            } => {
+              break 'app;
+            }
+            WindowEvent::KeyboardInput { input, .. } => {
+              match input {
+                KeyboardInput { state, virtual_keycode: Some(Z), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x40 } else { 0 };
+                }
+                KeyboardInput { state, virtual_keycode: Some(A), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x20 } else { 0 };
+                }
+                KeyboardInput { state, virtual_keycode: Some(S), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x10 } else { 0 };
+                }
+                KeyboardInput { state, virtual_keycode: Some(X), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x80 } else { 0 };
+                }
+                KeyboardInput { state, virtual_keycode: Some(Up), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x08 } else { 0 };
+                }
+                KeyboardInput { state, virtual_keycode: Some(Down), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x04 } else { 0 };
+                }
+                KeyboardInput { state, virtual_keycode: Some(Left), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x02 } else { 0 };
+                }
+                KeyboardInput { state, virtual_keycode: Some(Right), .. } => {
+                  self.controller[0] |= if state == Pressed { 0x01 } else { 0 };
+                }
+                KeyboardInput { virtual_keycode: Some(Space), .. } => {
+                  self.debug_mode = !self.debug_mode;
+                }
+                KeyboardInput { state: Pressed, virtual_keycode: Some(R), .. } => {
+                  self.cpu.reset();
+                }
+                _ => {}
+              }
+            }
+            WindowEvent::Resized(_) | WindowEvent::HiDpiFactorChanged(_) => {
+              self.window_context.resize = true;
+            }
+            _ => (),
           }
-        },
-        Key::Char('r') => {
-          self.reset();
         }
-        Key::Char('i') => {
-          self.cpu.irq();
-        }
-        Key::Char('n') => {
-          self.cpu.nmi();
-        }
-        _ => (),
       }
-      self.draw(&mut stdout);
-    }
-  }
 
-  fn reset(&mut self) {
-    self.system_cycles = 0;
-    self.cpu.reset();
+      if !self.debug_mode {
+        self.clock();
+      }
+
+      if delta > 0.016 {
+        last_time = time::Instant::now();
+        if self.ppu.frame_ready {
+          self.render_screen();
+          self.ppu.frame_ready = false;
+        }
+      }
+    }
   }
 
   fn clock(&mut self) {
     self.ppu.clock();
-
-    if self.system_cycles % 3 == 0 {
+    if (self.system_cycles % 3) == 0 {
       self.cpu.clock();
     }
 
+    if self.ppu.nmi {
+      self.ppu.nmi = false;
+      self.cpu.nmi();
+    }
+
     self.system_cycles = self.system_cycles.wrapping_add(1);
+  }
+
+  fn render_screen(&mut self) {
+    if self.window_context.resize {
+      self.window_context.back_buffer = self.window_context.surface.back_buffer().unwrap();
+      let size = self.window_context.surface.size();
+      self.window_context.front_buffer =
+        Framebuffer::new(&mut self.window_context.surface, size, 0)
+          .expect("Framebuffer recreate error");
+      self.window_context.resize = false;
+    }
+
+    let mut builder = self.window_context.surface.pipeline_builder();
+    let texture = &self.ppu.texture;
+    let program = &self.window_context.program;
+    let copy_program = &self.window_context.copy_program;
+    let triangle = &self.window_context.triangle;
+    let background = &self.window_context.background;
+
+    builder.pipeline(
+      &self.window_context.front_buffer,
+      [0.0, 0.0, 0.0, 0.0],
+      |_, mut shd_gate| {
+        shd_gate.shade(program, |_, mut rdr_gate| {
+          rdr_gate.render(RenderState::default(), |mut tess_gate| {
+            tess_gate.render(triangle)
+          });
+        });
+      },
+    );
+
+    builder.pipeline(
+      &self.window_context.back_buffer,
+      [0.0, 0.0, 0.0, 0.0],
+      |pipeline, mut shd_gate| {
+        let bound_texture = pipeline.bind_texture(texture);
+
+        shd_gate.shade(copy_program, |iface, mut rdr_gate| {
+          iface.texture.update(&bound_texture);
+          rdr_gate.render(RenderState::default(), |mut tess_gate| {
+            tess_gate.render(background)
+          });
+        });
+      },
+    );
+
+    self.window_context.surface.swap_buffers();
+  }
+
+  fn reset(&mut self) {
+    self.cpu.reset();
+    self.ppu.reset();
+    self.system_cycles = 0;
   }
 }

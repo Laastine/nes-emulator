@@ -1,9 +1,7 @@
-use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
-use std::fs::File;
-use std::io::prelude::*;
-use std::rc::Rc;
+use std::fs::OpenOptions;
+use std::io::Write;
 
 use crate::bus::Bus;
 use crate::cpu::instruction_table::{ADDRMODE6502, FLAGS6502, LookUpTable, OPCODES6502};
@@ -11,7 +9,7 @@ use crate::cpu::instruction_table::{ADDRMODE6502, FLAGS6502, LookUpTable, OPCODE
 pub mod instruction_table;
 
 pub struct Cpu {
-  pub bus: Rc<RefCell<Bus>>,
+  pub bus: Bus,
   pub pc: u16,
   pub acc: u8,
   pub x: u8,
@@ -22,14 +20,14 @@ pub struct Cpu {
   temp: u16,
   addr_abs: u16,
   addr_rel: u16,
-  opcode: u8,
-  cycles: u8,
-  clock_count: usize,
+  pub opcode: u8,
+  pub cycles: u8,
+  pub clock_count: u32,
   lookup: LookUpTable,
 }
 
 impl Cpu {
-  pub fn new(bus: Rc<RefCell<Bus>>) -> Cpu {
+  pub fn new(bus: Bus) -> Cpu {
     let lookup = LookUpTable::new();
 
     Cpu {
@@ -51,10 +49,6 @@ impl Cpu {
     }
   }
 
-  pub fn complete(&self) -> bool {
-    self.cycles == 0 || self.cycles as char == '\0'
-  }
-
   fn set_flag(&mut self, flag: &FLAGS6502, val: bool) {
     let f = flag.value();
     if val {
@@ -64,102 +58,130 @@ impl Cpu {
     }
   }
 
-  fn get_flag(&self, flag: &FLAGS6502) -> u8 {
-    let f = flag.value();
-    if (self.status_register & f) > 0 {
-      1
-    } else {
-      0
-    }
+  pub fn get_flag(&self, flag: &FLAGS6502) -> bool {
+    (self.status_register & flag.value()) > 0
   }
 
-  pub fn get_mut_bus(&mut self) -> RefMut<Bus> {
-    self.bus.borrow_mut()
+  fn bus_mut_read_u8(&mut self, address: u16) -> u16 {
+    self.bus.read_u8(address, false).try_into().unwrap()
+  }
+
+  fn bus_read_u8(&mut self, address: u16) -> u16 {
+    self.bus.read_u8(address, true).try_into().unwrap()
+  }
+
+  fn bus_write_u8(&mut self, address: u16, data: u8) {
+    self.bus.write_u8(address, data);
+  }
+
+  fn get_stack_address(&self) -> u16 {
+    0x0100 + u16::try_from(self.stack_pointer).unwrap()
+  }
+
+  fn pc_increment(&mut self) {
+    self.pc = self.pc.wrapping_add(1);
+  }
+
+  fn cycles_increment(&mut self) {
+    self.cycles = self.cycles.wrapping_add(1);
+  }
+
+  fn stack_pointer_increment(&mut self) {
+    self.stack_pointer = self.stack_pointer.wrapping_add(1);
+  }
+
+  fn stack_pointer_decrement(&mut self) {
+    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
   }
 
   pub fn clock(&mut self) {
-    if !self.complete() {
-      self.opcode = {
-        let pc = self.pc;
-        let mut bus = self.get_mut_bus();
-        bus.read_u8(pc).try_into().unwrap()
-      };
+    if self.cycles == 0 {
+      self.opcode = u8::try_from(self.bus_mut_read_u8(self.pc)).unwrap();
 
       self.set_flag(&FLAGS6502::U, true);
+      self.pc_increment();
 
-      self.pc = self.pc.wrapping_add(1);
+      let opcode_idx = usize::try_from(self.opcode).unwrap();
+      self.cycles = self.lookup.get_cycles(opcode_idx);
 
-      let log_pc = self.pc;
+      let addr_mode = *self.lookup.get_addr_mode(opcode_idx);
+      let operate = *self.lookup.get_operate(opcode_idx);
 
-      let idx = usize::try_from(self.opcode).unwrap();
-      let addr_mode = *self.lookup.get_addr_mode(idx);
-
-      let operate = *self.lookup.get_operate(idx);
-
-      let new_cycles = self.addr_mode_value(addr_mode) & self.op_code_value(operate);
-      self.cycles = self.cycles.wrapping_add(new_cycles);
+      self.cycles += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
 
       self.set_flag(&FLAGS6502::U, true);
+    }
 
-      let mut file = File::create("log.txt").expect("File create error");
+    self.clock_count += 1;
+    self.cycles -= 1;
+  }
+
+  #[cfg(debug_assertions)]
+  #[allow(dead_code)]
+  fn log(&self, log_pc: usize) {
+    let mut file = OpenOptions::new()
+      .write(true)
+      .append(true)
+      .open("log.txt")
+      .expect("File append error");
+
+    file
+      .write_all(
+        format!(
+          "opcode:{} -> clock:{} sreg:{} {},{} PC:{} XXX A:{} X:{} Y:{} {}{}{}{}{}{}{}{} STKP:{}\n",
+          self.opcode,
+          self.clock_count,
+          self.status_register,
+          self.addr_abs,
+          self.addr_rel,
+          hex(log_pc, 4),
+          hex(u8::try_into(self.acc).unwrap(), 2),
+          hex(u8::try_into(self.x).unwrap(), 2),
+          hex(u8::try_into(self.y).unwrap(), 2),
+          if self.get_flag(&FLAGS6502::N) { "N" } else { "." },
+          if self.get_flag(&FLAGS6502::V) { "V" } else { "." },
+          if self.get_flag(&FLAGS6502::U) { "U" } else { "." },
+          if self.get_flag(&FLAGS6502::B) { "B" } else { "." },
+          if self.get_flag(&FLAGS6502::D) { "D" } else { "." },
+          if self.get_flag(&FLAGS6502::I) { "I" } else { "." },
+          if self.get_flag(&FLAGS6502::Z) { "Z" } else { "." },
+          if self.get_flag(&FLAGS6502::C) { "C" } else { "." },
+          hex(usize::try_from(self.stack_pointer).unwrap(), 2),
+        )
+          .as_bytes(),
+      )
+      .expect("File write error");
+  }
+
+  pub fn fetch(&mut self) {
+    if self.addr_mode() != ADDRMODE6502::IMP {
+      let mut file = OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open("log.txt")
+        .expect("File append error");
+      self.fetched = u8::try_from(self.bus_mut_read_u8(self.addr_abs)).unwrap();
+
       file
         .write_all(
-          format!(
-            "{} PC:{} XXX {} {} {} N:{}, V:{}, U:{}, B:{}, D:{}, I:{}, Z:{}, C:{} stack_pointer:{}",
-            self.clock_count,
-            log_pc,
-            hex(u8::try_into(self.acc).unwrap(), 2),
-            hex(u8::try_into(self.x).unwrap(), 2),
-            hex(u8::try_into(self.y).unwrap(), 2),
-            self.get_flag(&FLAGS6502::N),
-            self.get_flag(&FLAGS6502::V),
-            self.get_flag(&FLAGS6502::U),
-            self.get_flag(&FLAGS6502::B),
-            self.get_flag(&FLAGS6502::D),
-            self.get_flag(&FLAGS6502::I),
-            self.get_flag(&FLAGS6502::Z),
-            self.get_flag(&FLAGS6502::C),
-            self.stack_pointer
-          )
-            .as_bytes(),
+          format!("FETCH: {} -> {}\n", self.addr_abs, self.fetched).as_bytes(),
         )
         .expect("File write error");
     }
-
-    self.clock_count = self.clock_count.wrapping_add(1);
-
-    self.cycles = self.cycles.wrapping_sub(1);
-  }
-
-  pub fn fetch(&mut self) -> u8 {
-    let addr_mode = self.addr_mode();
-    if addr_mode == ADDRMODE6502::IMP {
-      let addr = u16::try_from(self.addr_mode_value(addr_mode)).unwrap();
-      self.fetched = {let mut bus = self.get_mut_bus(); bus.read_u8(addr).try_into().unwrap()};
-    }
-    self.fetched
   }
 
   pub fn reset(&mut self) {
     self.addr_abs = 0xFFFC;
 
-    let lo_byte = {
-      let addr_abs = self.addr_abs;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(addr_abs)
-    };
-    let hi_byte = {
-      let addr_abs = self.addr_abs + 1;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(addr_abs)
-    };
+    let lo_byte = self.bus_mut_read_u8(self.addr_abs);
+    let hi_byte = self.bus_mut_read_u8(self.addr_abs + 1);
 
-    self.pc = (hi_byte.wrapping_shl(8)) | lo_byte;
+    self.pc = (hi_byte << 8) | lo_byte;
     self.acc = 0;
     self.x = 0;
     self.y = 0;
-    self.status_register = FLAGS6502::U.value();
     self.stack_pointer = 0xFD;
+    self.status_register = FLAGS6502::U.value();
 
     self.addr_abs = 0x0000;
     self.addr_rel = 0x0000;
@@ -170,54 +192,27 @@ impl Cpu {
 
   /// Interrupt
   pub fn irq(&mut self) {
-      self.stack_pointer = self.stack_pointer.wrapping_sub(1);
-    if self.get_flag(&FLAGS6502::I) == 0x00 {
-      {
-        let stack_pointer = self.stack_pointer;
-        let pc = self.pc.wrapping_shr(8);
-        let mut bus = self.get_mut_bus();
-        bus.write_u8(
-          0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()),
-          u8::try_from(pc & 0x00FF).unwrap(),
-        )
-      };
-      {
-        let pc = self.pc;
-        let stack_pointer = self.stack_pointer;
-        let mut bus = self.get_mut_bus();
-        bus.write_u8(
-          0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()),
-          u8::try_from(pc & 0x00FF).unwrap(),
-        )
-      };
-      self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+    if !self.get_flag(&FLAGS6502::I) {
+      self.bus_write_u8(self.get_stack_address(),
+                        u8::try_from((self.pc >> 8) & 0x00FF).unwrap(),
+      );
+      self.stack_pointer_decrement();
+
+      self.bus_write_u8(self.get_stack_address(),
+                        u8::try_from(self.pc & 0x00FF).unwrap());
+      self.stack_pointer_decrement();
 
       self.set_flag(&FLAGS6502::B, false);
       self.set_flag(&FLAGS6502::U, true);
       self.set_flag(&FLAGS6502::I, true);
-      {
-        let stack_pointer = self.stack_pointer;
-        let status_register = self.status_register;
-        let mut bus = self.get_mut_bus();
-        bus.write_u8(
-          0x100 + u16::try_from(stack_pointer).unwrap(),
-          status_register,
-        )
-      };
-      self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+
+      self.bus_write_u8(self.get_stack_address(), self.status_register);
+      self.stack_pointer_decrement();
 
       self.addr_abs = 0xFFFE;
-      let lo_byte = {
-        let addr_abs = self.addr_abs;
-        let mut bus = self.get_mut_bus();
-        bus.read_u8(addr_abs)
-      };
-      let hi_byte = {
-        let addr_abs = self.addr_abs;
-        let mut bus = self.get_mut_bus();
-        bus.read_u8(addr_abs + 1)
-      };
-      self.pc = u16::try_from((hi_byte.wrapping_shl(8)) | lo_byte).unwrap();
+      let lo_byte = self.bus_mut_read_u8(self.addr_abs);
+      let hi_byte = self.bus_mut_read_u8(self.addr_abs + 1);
+      self.pc = u16::try_from((hi_byte << 8) | lo_byte).unwrap();
 
       self.cycles = 7;
     }
@@ -225,50 +220,22 @@ impl Cpu {
 
   /// Non-maskable interrupt
   pub fn nmi(&mut self) {
-    {
-      let pc = self.pc.wrapping_shr(8);
-      let stack_pointer = self.stack_pointer;
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(
-        0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()),
-        u8::try_from(pc & 0x00FF).unwrap(),
-      )
-    };
-    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
-    {
-      let stack_pointer = self.stack_pointer;
-      let pc = self.pc;
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(
-        0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()),
-        u8::try_from(pc & 0x00FF).unwrap(),
-      )
-    };
-    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+    self.bus_write_u8(self.get_stack_address(), u8::try_from((self.pc >> 8) & 0x00FF).unwrap());
+    self.stack_pointer_decrement();
+    self.bus_write_u8(self.get_stack_address(), u8::try_from(self.pc & 0x00FF).unwrap());
+    self.stack_pointer_decrement();
 
     self.set_flag(&FLAGS6502::B, false);
     self.set_flag(&FLAGS6502::U, true);
     self.set_flag(&FLAGS6502::I, true);
-    {
-      let stack_pointer = self.stack_pointer;
-      let status_register = self.status_register;
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(0x100 + u16::try_from(stack_pointer).unwrap(), status_register)
-    };
-    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+
+    self.bus_write_u8(self.get_stack_address(), self.status_register);
+    self.stack_pointer_decrement();
 
     self.addr_abs = 0xFFFA;
-    let lo_byte = {
-      let addr_abs = self.addr_abs;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(addr_abs)
-    };
-    let hi_byte = {
-      let addr_abs = self.addr_abs + 1;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(addr_abs)
-    };
-    self.pc = (hi_byte.wrapping_shl(8)) | lo_byte;
+    let lo_byte = self.bus_mut_read_u8(self.addr_abs);
+    let hi_byte = self.bus_mut_read_u8(self.addr_abs + 1);
+    self.pc = (hi_byte << 8) | lo_byte;
 
     self.cycles = 8;
   }
@@ -299,58 +266,40 @@ impl Cpu {
 
   /// Immediate
   pub fn imm(&mut self) -> u8 {
-    self.pc = self.pc.wrapping_add(1);
     self.addr_abs = self.pc;
+    self.pc_increment();
     0
   }
 
   /// Zero Page
   pub fn zp0(&mut self) -> u8 {
-    self.addr_abs = {
-      let pc = self.pc;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(pc)
-    };
-    self.pc = self.pc.wrapping_add(1);
+    self.addr_abs = self.bus_mut_read_u8(self.pc);
+    self.pc_increment();
     self.addr_abs &= 0x00FF;
     0
   }
 
   /// Zero Page with X offset
   pub fn zpx(&mut self) -> u8 {
-    let x: u16 = self.x.try_into().unwrap();
-    self.addr_abs = {
-      let pc = self.pc;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(pc) + x
-    };
-    self.pc = self.pc.wrapping_add(1);
+    self.addr_abs = self.bus_mut_read_u8(self.pc).wrapping_add(u16::try_from(self.x).unwrap());
+    self.pc_increment();
     self.addr_abs &= 0x00FF;
     0
   }
 
   /// Zero Page with Y offset
   pub fn zpy(&mut self) -> u8 {
-    let y: u16 = self.y.try_into().unwrap();
-    self.addr_abs = {
-      let pc = self.pc;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(pc) + y
-    };
-    self.pc = self.pc.wrapping_add(1);
+    self.addr_abs = self.bus_mut_read_u8(self.pc).wrapping_add(u16::try_from(self.y).unwrap());
+    self.pc_increment();
     self.addr_abs &= 0x00FF;
     0
   }
 
   /// Relative
   pub fn rel(&mut self) -> u8 {
-    self.addr_rel = u16::try_from({
-      let pc = self.pc;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(pc)
-    }).unwrap();
-    self.pc = self.pc.wrapping_add(1);
-    if self.addr_rel & 0x80 != 0 {
+    self.addr_rel = u16::try_from(self.bus_mut_read_u8(self.pc)).unwrap();
+    self.pc_increment();
+    if (self.addr_rel & 0x80) > 0 {
       self.addr_rel |= 0xFF00;
     }
     0
@@ -359,7 +308,7 @@ impl Cpu {
   /// Absolute
   pub fn abs(&mut self) -> u8 {
     let (lo_byte, hi_byte) = self.read_pc();
-    self.addr_abs = u16::try_from((hi_byte.wrapping_shl(8)) | lo_byte).unwrap();
+    self.addr_abs = (hi_byte << 8) | lo_byte;
     0
   }
 
@@ -367,9 +316,9 @@ impl Cpu {
   pub fn abx(&mut self) -> u8 {
     let (lo_byte, hi_byte) = self.read_pc();
 
-    self.addr_abs = u16::try_from((hi_byte.wrapping_shl(8)) | lo_byte).unwrap();
-    self.addr_abs += self.x as u16;
-    if (self.addr_abs & 0xFF00) != u16::try_from(hi_byte.wrapping_shl(8)).unwrap() {
+    self.addr_abs = (hi_byte << 8) | lo_byte;
+    self.addr_abs = self.addr_abs.wrapping_add(u16::try_from(self.x).unwrap());
+    if (self.addr_abs & 0xFF00) != (hi_byte << 8) {
       1
     } else {
       0
@@ -380,9 +329,9 @@ impl Cpu {
   pub fn aby(&mut self) -> u8 {
     let (lo_byte, hi_byte) = self.read_pc();
 
-    self.addr_abs = u16::try_from((hi_byte.wrapping_shl(8)) | lo_byte).unwrap();
-    self.addr_abs += u16::try_from(self.y).unwrap();
-    if (self.addr_abs & 0xFF00) != u16::try_from(hi_byte.wrapping_shl(8)).unwrap() {
+    self.addr_abs = (hi_byte << 8) | lo_byte;
+    self.addr_abs = self.addr_abs.wrapping_add(u16::try_from(self.y).unwrap());
+    if (self.addr_abs & 0xFF00) != (hi_byte << 8) {
       1
     } else {
       0
@@ -393,28 +342,12 @@ impl Cpu {
   pub fn ind(&mut self) -> u8 {
     let (lo_byte, hi_byte) = self.read_pc();
 
-    let byte = (hi_byte.wrapping_shl(8)) | lo_byte;
+    let byte = (hi_byte << 8) | lo_byte;
 
     self.addr_abs = if lo_byte == 0x00FF {
-      (({
-        let mut  bus =self.get_mut_bus();
-        bus.read_u8(byte & 0xFF00).wrapping_shl(8)
-      }) | {
-        let mut bus = self.get_mut_bus();
-        bus.read_u8(byte)
-      })
-        .try_into()
-        .unwrap()
+      (self.bus_mut_read_u8(byte & 0xFF00) << 8) | self.bus_mut_read_u8(byte)
     } else {
-      ({
-        let mut bus = self.get_mut_bus();
-        bus.read_u8((byte + 1).wrapping_shl(8))
-      } | {
-        let mut bus = self.get_mut_bus();
-        bus.read_u8(byte)
-      })
-        .try_into()
-        .unwrap()
+      (self.bus_mut_read_u8(byte + 0x01) << 8) | self.bus_mut_read_u8(byte)
     };
 
     0
@@ -422,48 +355,28 @@ impl Cpu {
 
   /// Indirect X
   pub fn izx(&mut self) -> u8 {
-    let byte = {
-      let pc = self.pc;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(pc)
-    };
-    self.pc = self.pc.wrapping_add(1);
+    let byte = self.bus_mut_read_u8(self.pc);
+    self.pc_increment();
 
-    let x: u16 = self.x.try_into().unwrap();
-    let lo_byte: u16 = {
-      let mut bus = self.get_mut_bus();
-      bus.read_u8((byte + x) & 0x00FF).try_into().unwrap()
-    };
-    let hi_byte: u16 = {
-      let mut bus = self.get_mut_bus();
-      bus.read_u8((byte + x + 1) & 0x00FF).try_into().unwrap()
-    };
-    self.addr_abs = (hi_byte.wrapping_shl(8)) | lo_byte;
+    let x = u16::try_from(self.x).unwrap();
+    let lo_byte: u16 = self.bus_mut_read_u8((byte + x) & 0x00FF).try_into().unwrap();
+    let hi_byte: u16 = self.bus_mut_read_u8((byte + x + 1) & 0x00FF).try_into().unwrap();
+    self.addr_abs = (hi_byte << 8) | lo_byte;
 
     0
   }
 
   /// Indirect Y
   pub fn izy(&mut self) -> u8 {
-    let byte = {
-      let pc = self.pc;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(pc)
-    };
-    self.pc = self.pc.wrapping_add(1);
+    let byte = self.bus_mut_read_u8(self.pc);
+    self.pc_increment();
 
-    let lo_byte: u16 = {
-      let mut bus = self.get_mut_bus();
-      bus.read_u8((byte) & 0x00FF).try_into().unwrap()
-    };
-    let hi_byte: u16 = {
-      let mut bus = self.get_mut_bus();
-      bus.read_u8((byte + 1) & 0x00FF).try_into().unwrap()
-    };
-    self.addr_abs = ((hi_byte.wrapping_shl(8)) | lo_byte).try_into().unwrap();
-    self.addr_abs += u16::try_from(self.y).unwrap();
+    let lo_byte: u16 = self.bus_mut_read_u8(byte & 0x00FF).try_into().unwrap();
+    let hi_byte: u16 = self.bus_mut_read_u8((byte + 1) & 0x00FF).try_into().unwrap();
+    self.addr_abs = (hi_byte << 8) | lo_byte;
+    self.addr_abs = self.addr_abs.wrapping_add(u16::try_from(self.y).unwrap());
 
-    if (self.addr_abs & 0xFF00) != u16::try_from(hi_byte.wrapping_shl(8)).unwrap() {
+    if (self.addr_abs & 0xFF00) != (hi_byte << 8) {
       1
     } else {
       0
@@ -471,18 +384,10 @@ impl Cpu {
   }
 
   fn read_pc(&mut self) -> (u16, u16) {
-    let lo_byte = {
-      let pc = self.pc;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(pc)
-    };
-    self.pc = self.pc.wrapping_add(1);
-    let hi_byte = {
-      let pc = self.pc;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(pc)
-    };
-    self.pc = self.pc.wrapping_add(1);
+    let lo_byte = self.bus_mut_read_u8(self.pc);
+    self.pc_increment();
+    let hi_byte = self.bus_mut_read_u8(self.pc);
+    self.pc_increment();
     (lo_byte, hi_byte)
   }
 
@@ -545,46 +450,44 @@ impl Cpu {
       OPCODES6502::TXA => self.txa(),
       OPCODES6502::TXS => self.txs(),
       OPCODES6502::TYA => self.tya(),
-      OPCODES6502::XXX => 0u8,
+      OPCODES6502::XXX => 0,
     }
   }
 
   /// Add with carry
   pub fn adc(&mut self) -> u8 {
     self.fetch();
-    self.temp = u16::try_from(self.acc + self.fetched + self.get_flag(&FLAGS6502::C)).unwrap();
+    self.temp = u16::try_from(self.acc).unwrap()
+      + u16::try_from(self.fetched).unwrap()
+      + if self.get_flag(&FLAGS6502::C) { 1 } else { 0 };
 
-    self.set_flag(&FLAGS6502::C, self.temp > 255);
-    self.set_flag(&FLAGS6502::Z, (self.temp & 0x00FF) != 0x00);
+    self.set_flag(&FLAGS6502::C, (self.temp) > 255);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
     self.set_flag(
       &FLAGS6502::V,
-      (!(self.acc ^ self.fetched)
-        & u8::try_from(u16::try_from(self.acc).unwrap() ^ self.temp).unwrap())
-        & 0x0080
-        != 0x00,
+      ((!(u16::try_from(self.acc).unwrap()
+        ^ u16::try_from(self.fetched).unwrap())
+        & (u16::try_from(self.acc).unwrap() ^ u16::try_from(self.temp).unwrap()))
+        & 0x0080)
+        > 0x00,
     );
-    self.set_flag(&FLAGS6502::N, self.temp & 0x80 != 0x00);
-    self.acc = (self.temp & 0x00FF) as u8;
+    self.set_flag(&FLAGS6502::N, (self.temp & 0x80) > 0x00);
+    self.acc = u8::try_from(self.temp & 0x00FF).unwrap();
     1
   }
 
   /// Arithmetic shift left
   pub fn asl(&mut self) -> u8 {
     self.fetch();
-    self.temp = (self.fetched as u16).wrapping_shl(1);
+    self.temp = u16::try_from(self.fetched << 1).unwrap();
     self.set_flag(&FLAGS6502::C, (self.temp & 0xFF00) > 0x00);
-    self.set_flag(&FLAGS6502::Z, (self.temp & 0xFF00) == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.temp & 0x80) != 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
+    self.set_flag(&FLAGS6502::N, (self.temp & 0x80) > 0x00);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
-      self.acc = (self.temp & 0x00FF).try_into().unwrap();
+      self.acc = u8::try_from(self.temp & 0x00FF).unwrap();
     } else {
-      {
-        let addr_abs = self.addr_abs;
-        let temp = self.temp;
-        let mut bus = self.get_mut_bus();
-        bus.write_u8(addr_abs, (temp & 0x00FF) as u8)
-      };
+      self.bus_write_u8(self.addr_abs, u8::try_from(self.temp & 0x00FF).unwrap());
     }
     0
   }
@@ -594,18 +497,18 @@ impl Cpu {
     self.fetch();
     self.acc &= self.fetched;
     self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
-    self.set_flag(&FLAGS6502::N, self.acc & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0x00);
     1
   }
 
   /// branch on carry clear
   pub fn bcc(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::C) == 0x00 {
-      self.cycles = self.cycles.wrapping_add(1);
+    if !self.get_flag(&FLAGS6502::C) {
+      self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
 
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles = self.cycles.wrapping_add(1);
+        self.cycles_increment();
       }
       self.pc = self.addr_abs;
     }
@@ -614,11 +517,11 @@ impl Cpu {
 
   /// branch on carry clear
   pub fn bcs(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::C) == 0x01 {
-      self.cycles = self.cycles.wrapping_add(1);
+    if self.get_flag(&FLAGS6502::C) {
+      self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles = self.cycles.wrapping_add(1);
+        self.cycles_increment();
       }
       self.pc = self.addr_abs;
     }
@@ -627,11 +530,11 @@ impl Cpu {
 
   /// branch on equal
   pub fn beq(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::Z) == 0x01 {
-      self.cycles = self.cycles.wrapping_add(1);
+    if self.get_flag(&FLAGS6502::Z) {
+      self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles = self.cycles.wrapping_add(1);
+        self.cycles_increment();
       }
       self.pc = self.addr_abs;
     }
@@ -641,20 +544,20 @@ impl Cpu {
   /// Bit test
   pub fn bit(&mut self) -> u8 {
     self.fetch();
-    self.temp = (self.acc & self.fetched) as u16;
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
-    self.set_flag(&FLAGS6502::N, self.fetched & (1 << 7) != 0x00);
-    self.set_flag(&FLAGS6502::V, self.fetched & (1 << 6) != 0x00);
+    self.temp = u16::try_from(self.acc).unwrap() & u16::try_from(self.fetched).unwrap();
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
+    self.set_flag(&FLAGS6502::N, (self.fetched & 0x80) > 0x00);
+    self.set_flag(&FLAGS6502::V, (self.fetched & 0x40) > 0x00);
     0
   }
 
   /// Branch on minus (negative set)
   pub fn bmi(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::N) == 0x01 {
-      self.cycles = self.cycles.wrapping_add(1);
+    if self.get_flag(&FLAGS6502::N) {
+      self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles = self.cycles.wrapping_add(1);
+        self.cycles_increment();
       }
       self.pc = self.addr_abs;
     }
@@ -663,11 +566,11 @@ impl Cpu {
 
   /// Branch on not equal (zero clear)
   pub fn bne(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::Z) == 0x00 {
-      self.cycles = self.cycles.wrapping_add(1);
+    if !self.get_flag(&FLAGS6502::Z) {
+      self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles = self.cycles.wrapping_add(1);
+        self.cycles_increment();
       }
       self.pc = self.addr_abs;
     }
@@ -676,11 +579,11 @@ impl Cpu {
 
   /// Branch on plus (negative clear)
   pub fn bpl(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::N) == 0x00 {
-      self.cycles = self.cycles.wrapping_add(1);
+    if !self.get_flag(&FLAGS6502::N) {
+      self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles = self.cycles.wrapping_add(1);
+        self.cycles_increment();
       }
       self.pc = self.addr_abs;
     }
@@ -689,63 +592,37 @@ impl Cpu {
 
   /// Break / interrupt
   pub fn brk(&mut self) -> u8 {
-    self.pc = self.pc.wrapping_add(1);
+    self.pc_increment();
 
     self.set_flag(&FLAGS6502::I, true);
-    {
-      let pc = self.pc.wrapping_shr(8);
-      let stack_pointer = self.stack_pointer;
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(
-        0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()),
-        (pc & 0x00FF).try_into().unwrap(),
-      )
-    };
-    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
-    {
-      let pc = self.pc;
-      let stack_pointer = self.stack_pointer;
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(
-        0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()),
-        u8::try_from(pc).unwrap(),
-      )
-    };
-    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+    self.bus_write_u8(
+      self.get_stack_address(),
+      ((self.pc >> 8) & 0x00FF).try_into().unwrap());
+    self.stack_pointer_decrement();
+
+    self.bus_write_u8(
+      self.get_stack_address(),
+      u8::try_from(self.pc & 0x00FF).unwrap());
+    self.stack_pointer_decrement();
 
     self.set_flag(&FLAGS6502::B, true);
-    {
-      let stack_pointer = self.stack_pointer;
-      let status_register = self.status_register;
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(
-        0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()),
-        status_register,
-      )
-    };
-    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+    self.bus_write_u8(
+      self.get_stack_address(),
+      self.status_register);
+    self.stack_pointer_decrement();
     self.set_flag(&FLAGS6502::B, false);
 
-    self.pc = u16::try_from({
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(0xFFFE)
-    }).unwrap()
-      |
-      (u16::try_from({
-        let mut bus = self.get_mut_bus();
-        bus.read_u8(0xFFFF)
-      }).unwrap()
-      ).wrapping_shl(8);
+    self.pc = self.bus_mut_read_u8(0xFFFE) | (self.bus_mut_read_u8(0xFFFF) << 8);
     0
   }
 
   /// Branch on overflow clear
   pub fn bvc(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::V) == 0 {
-      self.cycles = self.cycles.wrapping_add(1);
+    if !self.get_flag(&FLAGS6502::V) {
+      self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles = self.cycles.wrapping_add(1);
+        self.cycles_increment();
       }
       self.pc = self.addr_abs;
     }
@@ -754,11 +631,11 @@ impl Cpu {
 
   /// Branch on overflow clear
   pub fn bvs(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::V) == 1 {
-      self.cycles = self.cycles.wrapping_add(1);
+    if self.get_flag(&FLAGS6502::V) {
+      self.cycles_increment();
       self.addr_abs = self.pc.wrapping_add(self.addr_rel);
       if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles = self.cycles.wrapping_add(1);
+        self.cycles_increment();
       }
       self.pc = self.addr_abs;
     }
@@ -792,45 +669,40 @@ impl Cpu {
   /// Compare with accumulator
   pub fn cmp(&mut self) -> u8 {
     self.fetch();
-    self.temp = self.acc as u16 - self.fetched as u16;
+    self.temp = u16::try_from(self.acc.wrapping_sub(self.fetched)).unwrap();
     self.set_flag(&FLAGS6502::C, self.acc >= self.fetched);
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
-    self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
+    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);
     1
   }
 
   /// Compare with X
   pub fn cpx(&mut self) -> u8 {
     self.fetch();
-    self.temp = self.x as u16 - self.fetched as u16;
+    self.temp = u16::try_from(self.x.wrapping_sub(self.fetched)).unwrap();
     self.set_flag(&FLAGS6502::C, self.x >= self.fetched);
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
-    self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
+    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);
     0
   }
 
   /// Compare with Y
   pub fn cpy(&mut self) -> u8 {
     self.fetch();
-    self.temp = self.y as u16 - self.fetched as u16;
+    self.temp = u16::try_from(self.y.wrapping_sub(self.fetched)).unwrap();
     self.set_flag(&FLAGS6502::C, self.y >= self.fetched);
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
-    self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
+    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);
     0
   }
 
   /// Decrement
   pub fn dec(&mut self) -> u8 {
     self.fetch();
-    self.temp = self.fetched as u16 - 1;
-    {
-      let addr_abs = self.addr_abs;
-      let temp = self.temp;
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(addr_abs, temp as u8)
-    };
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
-    self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
+    self.temp = u16::try_from(self.fetched).unwrap().wrapping_sub(1);
+    self.bus_write_u8(self.addr_abs, u8::try_from(self.temp & 0x00FF).unwrap());
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
+    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);
     0
   }
 
@@ -838,7 +710,7 @@ impl Cpu {
   pub fn dex(&mut self) -> u8 {
     self.x = self.x.wrapping_sub(1);
     self.set_flag(&FLAGS6502::Z, self.x == 0x00);
-    self.set_flag(&FLAGS6502::N, self.x & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.x & 0x80) > 0x00);
     0
   }
 
@@ -846,7 +718,7 @@ impl Cpu {
   pub fn dey(&mut self) -> u8 {
     self.y = self.y.wrapping_sub(1);
     self.set_flag(&FLAGS6502::Z, self.y == 0x00);
-    self.set_flag(&FLAGS6502::N, self.y & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.y & 0x80) > 0x00);
     0
   }
 
@@ -855,22 +727,17 @@ impl Cpu {
     self.fetch();
     self.acc ^= self.fetched;
     self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
-    self.set_flag(&FLAGS6502::N, self.acc & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0x00);
     1
   }
 
   /// Increment
   pub fn inc(&mut self) -> u8 {
     self.fetch();
-    self.temp = self.fetched.wrapping_add(1).try_into().unwrap();
-    {
-      let addr_abs = self.addr_abs;
-      let temp = self.temp;
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(addr_abs, temp as u8)
-    };
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
-    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) != 0x00);
+    self.temp = u16::try_from(self.fetched + 1).unwrap();
+    self.bus_write_u8(self.addr_abs, u8::try_from(self.temp & 0x00FF).unwrap());
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
+    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);
     0
   }
 
@@ -878,7 +745,7 @@ impl Cpu {
   pub fn inx(&mut self) -> u8 {
     self.x = self.x.wrapping_add(1);
     self.set_flag(&FLAGS6502::Z, self.x == 0x00);
-    self.set_flag(&FLAGS6502::N, self.x & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.x & 0x80) > 0x00);
     0
   }
 
@@ -886,7 +753,7 @@ impl Cpu {
   pub fn iny(&mut self) -> u8 {
     self.y = self.y.wrapping_add(1);
     self.set_flag(&FLAGS6502::Z, self.y == 0x00);
-    self.set_flag(&FLAGS6502::N, self.y & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.y & 0x80) > 0x00);
     0
   }
 
@@ -899,23 +766,13 @@ impl Cpu {
   /// Jump subroutine
   pub fn jsr(&mut self) -> u8 {
     self.pc = self.pc.wrapping_sub(1);
-    {
-      let stack_pointer =self.stack_pointer;
-      let pc = self.pc;
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(
-        0x0100 & u16::try_from(stack_pointer).unwrap(),
-        (pc.wrapping_shr(8)) as u8,
-      )
-    };
-    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
-    {
-      let stack_pointer =self.stack_pointer;
-      let pc = u8::try_from( self.pc).unwrap();
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(0x0100 & u16::try_from(stack_pointer).unwrap(), pc)
-    };
-    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+    self.bus_write_u8(
+      self.get_stack_address(),
+      u8::try_from((self.pc >> 8) & 0x00FF).unwrap());
+    self.stack_pointer_decrement();
+    self.bus_write_u8(self.get_stack_address(),
+                      u8::try_from(self.pc & 0x00FF).unwrap());
+    self.stack_pointer_decrement();
 
     self.pc = self.addr_abs;
     0
@@ -926,7 +783,7 @@ impl Cpu {
     self.fetch();
     self.acc = self.fetched;
     self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
-    self.set_flag(&FLAGS6502::N, self.acc & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0x00);
     1
   }
 
@@ -935,7 +792,7 @@ impl Cpu {
     self.fetch();
     self.x = self.fetched;
     self.set_flag(&FLAGS6502::Z, self.x == 0x00);
-    self.set_flag(&FLAGS6502::N, self.x & 0x80 > 0x00);
+    self.set_flag(&FLAGS6502::N, (self.x & 0x80) > 0x00);
     1
   }
 
@@ -944,27 +801,22 @@ impl Cpu {
     self.fetch();
     self.y = self.fetched;
     self.set_flag(&FLAGS6502::Z, self.y == 0x00);
-    self.set_flag(&FLAGS6502::N, self.y & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.y & 0x80) > 0x00);
     1
   }
 
   /// Logical shift right
   pub fn lsr(&mut self) -> u8 {
     self.fetch();
-    self.set_flag(&FLAGS6502::C, self.fetched & 0x0001 != 0x00);
-    self.temp = self.fetched as u16 >> 1;
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
-    self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
+    self.set_flag(&FLAGS6502::C, (self.fetched & 1) > 0x00);
+    self.temp = u16::try_from(self.fetched >> 1).unwrap();
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
+    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
-      self.acc = self.temp as u8;
+      self.acc = u8::try_from(self.temp & 0x00FF).unwrap();
     } else {
-      {
-        let addr_abs = self.addr_abs;
-        let temp = self.temp;
-        let mut bus = self.get_mut_bus();
-        bus.write_u8(addr_abs, temp as u8)
-      };
+      self.bus_write_u8(self.addr_abs, u8::try_from(self.temp & 0x00FF).unwrap());
     }
     0
   }
@@ -982,63 +834,47 @@ impl Cpu {
     self.fetch();
     self.acc |= self.fetched;
     self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
-    self.set_flag(&FLAGS6502::N, self.acc & 0x0080 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0x00);
     1
   }
 
   /// Push accumulator
   pub fn pha(&mut self) -> u8 {
-    {
-      let acc = self.acc;
-      let stack_pointer = self.stack_pointer;
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()), acc)
-    };
-    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+    self.bus_write_u8(self.get_stack_address(), self.acc);
+    self.stack_pointer_decrement();
     0
   }
 
   /// Push processor status (PR)
   pub fn php(&mut self) -> u8 {
-    {
-      let stack_pointer = self.stack_pointer;
-      let status_register = self.status_register;
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()),
-                   status_register | FLAGS6502::B.value() | FLAGS6502::U.value(),
-      )
-    };
+    self.bus_write_u8(
+      self.get_stack_address(),
+      self.status_register | FLAGS6502::B.value() | FLAGS6502::U.value());
     self.set_flag(&FLAGS6502::B, false);
     self.set_flag(&FLAGS6502::U, false);
-    self.stack_pointer = self.stack_pointer.wrapping_sub(1);
+    self.stack_pointer_decrement();
     0
   }
 
   /// Pull accumulator
   pub fn pla(&mut self) -> u8 {
-    self.stack_pointer = self.stack_pointer.wrapping_add(1);
-    self.acc = {
-      let stack_pointer = self.stack_pointer;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
-        .try_into()
-        .unwrap()
-    };
+    self.stack_pointer_increment();
+    self.acc = self
+      .bus_mut_read_u8(self.get_stack_address())
+      .try_into()
+      .unwrap();
     self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
-    self.set_flag(&FLAGS6502::N, self.acc & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0x00);
     0
   }
 
   /// Pull processor status (SR)
   pub fn plp(&mut self) -> u8 {
-    self.stack_pointer = self.stack_pointer.wrapping_add(1);
-    self.status_register = {
-      let stack_pointer = self.stack_pointer;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
-        .try_into()
-        .unwrap()
-    };
+    self.stack_pointer_increment();
+    self.status_register = self
+      .bus_mut_read_u8(0x0100u16 + u16::try_from(self.stack_pointer).unwrap())
+      .try_into()
+      .unwrap();
     self.set_flag(&FLAGS6502::U, true);
     0
   }
@@ -1046,20 +882,15 @@ impl Cpu {
   /// Rotate left
   pub fn rol(&mut self) -> u8 {
     self.fetch();
-    self.temp = (self.fetched.wrapping_shl(1)) as u16 | self.get_flag(&FLAGS6502::C) as u16;
-    self.set_flag(&FLAGS6502::C, self.temp & 0xFF00 != 0x00);
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
-    self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
+    self.temp = (u16::try_from(self.fetched).unwrap() << 1) | if self.get_flag(&FLAGS6502::C) { 1 } else { 0 };
+    self.set_flag(&FLAGS6502::C, (self.temp & 0xFF00) > 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
+    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
-      self.acc = self.temp as u8;
+      self.acc = u8::try_from(self.temp & 0x00FF).unwrap();
     } else {
-      {
-        let addr_abs = self.addr_abs;
-        let temp = self.temp;
-        let mut bus = self.get_mut_bus();
-        bus.write_u8(addr_abs, temp as u8)
-      };
+      self.bus_write_u8(self.addr_abs, u8::try_from(self.temp & 0x00FF).unwrap());
     }
     0
   }
@@ -1067,20 +898,15 @@ impl Cpu {
   /// Rotate right
   pub fn ror(&mut self) -> u8 {
     self.fetch();
-    self.temp = self.get_flag(&FLAGS6502::C) as u16 | (self.fetched.wrapping_shl(1)) as u16;
-    self.set_flag(&FLAGS6502::C, self.fetched & 0x01 != 0x00);
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
-    self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
+    self.temp = (if self.get_flag(&FLAGS6502::C) { 1 } else { 0 } << 7) | (u16::try_from(self.fetched).unwrap() >> 1);
+    self.set_flag(&FLAGS6502::C, (self.fetched & 0x01) > 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
+    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
-      self.acc = self.temp as u8;
+      self.acc = u8::try_from(self.temp & 0x00FF).unwrap();
     } else {
-      {
-        let addr_abs = self.addr_abs;
-        let temp = self.temp;
-        let mut bus = self.get_mut_bus();
-        bus.write_u8(addr_abs, temp as u8)
-      };
+      self.bus_write_u8(self.addr_abs, u8::try_from(self.temp & 0x00FF).unwrap());
     }
     0
   }
@@ -1092,70 +918,45 @@ impl Cpu {
 
   /// Return form interrupt
   pub fn rti(&mut self) -> u8 {
-    self.stack_pointer = self.stack_pointer.wrapping_add(1);
-    self.status_register = {
-      let stack_pointer= self.stack_pointer;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
-        .try_into()
-        .unwrap()
-    };
+    self.stack_pointer_increment();
+    self.status_register = u8::try_from(self
+      .bus_mut_read_u8(self.get_stack_address())).unwrap();
     self.status_register &= !FLAGS6502::B.value();
     self.status_register &= !FLAGS6502::U.value();
 
-    self.stack_pointer = self.stack_pointer.wrapping_add(1);
-    self.pc = {
-      let stack_pointer= self.stack_pointer;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
-        .try_into()
-        .unwrap()
-    };
-    self.stack_pointer = self.stack_pointer.wrapping_add(1);
-    self.pc |= ({
-      let stack_pointer= self.stack_pointer;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()) as u16)
-    })
-      .wrapping_shl(8);
+    self.stack_pointer_increment();
+    self.pc = self.bus_mut_read_u8(self.get_stack_address());
+    self.stack_pointer_increment();
+    self.pc |= self.bus_mut_read_u8(self.get_stack_address()).wrapping_shl(8);
     0
   }
 
   /// Return form subroutine
   pub fn rts(&mut self) -> u8 {
-    self.stack_pointer = self.stack_pointer.wrapping_add(1);
-    self.pc = {
-      let stack_pointer= self.stack_pointer;
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
-    };
-    self.stack_pointer = self.stack_pointer.wrapping_add(1);
-      self.pc |= {
-        let stack_pointer = self.stack_pointer;
-        let mut bus = self.get_mut_bus();
-        bus.read_u8(0x0100u16.wrapping_add(u16::try_from(stack_pointer).unwrap()))
-          .wrapping_shl(8)
-      };
+    self.stack_pointer_increment();
+    self.pc = self.bus_mut_read_u8(self.get_stack_address());
 
-    self.pc = self.pc.wrapping_add(1);
+    self.stack_pointer_increment();
+    self.pc |= self.bus_mut_read_u8(self.get_stack_address()).wrapping_shl(8);
+
+    self.pc_increment();
     0
   }
 
   /// Subtract with carry
   pub fn sbc(&mut self) -> u8 {
     self.fetch();
-    let value = self.fetched as u16 ^ 0x00FF;
+    let value = u16::try_from(self.fetched).unwrap() ^ 0x00FF;
 
-    self.temp =
-      u16::try_from(self.acc).unwrap() + value + u16::try_from(self.get_flag(&FLAGS6502::C)).unwrap();
-    self.set_flag(&FLAGS6502::C, self.temp & 0xFF00 != 0x00);
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() >= 8);
-    self.set_flag(
-      &FLAGS6502::V,
-      (self.temp ^ self.acc as u16 & (self.temp ^ value as u16) & 0x0080) != 0x00,
-    );
-    self.set_flag(&FLAGS6502::N, self.temp & 0x0080 != 0x00);
-    self.acc = self.temp as u8;
+    self.temp = u16::try_from(self.acc).unwrap()
+      + value
+      + if self.get_flag(&FLAGS6502::C) { 1 } else { 0 };
+
+    self.set_flag(&FLAGS6502::C, (self.temp & 0xFF00) > 0x00);
+    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
+    self.set_flag(&FLAGS6502::V, (self.temp ^ u16::try_from(self.acc).unwrap() & (self.temp ^ value) & 0x0080) > 0x00);
+    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0x00);
+    self.acc = u8::try_from(self.temp & 0x00FF).unwrap();
     1
   }
 
@@ -1179,34 +980,19 @@ impl Cpu {
 
   /// Store accumulator
   pub fn sta(&mut self) -> u8 {
-    {
-      let addr_abs = self.addr_abs;
-      let acc = self.acc;
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(addr_abs, acc)
-    };
+    self.bus_write_u8(self.addr_abs, self.acc);
     0
   }
 
   /// Store X
   pub fn stx(&mut self) -> u8 {
-    {
-      let addr_abs = self.addr_abs;
-      let x = self.x;
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(addr_abs, x)
-    };
+    self.bus_write_u8(self.addr_abs, self.x);
     0
   }
 
   /// Store Y
   pub fn sty(&mut self) -> u8 {
-    {
-      let addr_abs = self.addr_abs;
-      let y = self.y;
-      let mut bus = self.get_mut_bus();
-      bus.write_u8(addr_abs, y)
-    };
+    self.bus_write_u8(self.addr_abs, self.y);
     0
   }
 
@@ -1214,7 +1000,7 @@ impl Cpu {
   pub fn tax(&mut self) -> u8 {
     self.x = self.acc;
     self.set_flag(&FLAGS6502::Z, self.x == 0x00);
-    self.set_flag(&FLAGS6502::N, self.x & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.x & 0x80) > 0x00);
     0
   }
 
@@ -1222,7 +1008,7 @@ impl Cpu {
   pub fn tay(&mut self) -> u8 {
     self.y = self.acc;
     self.set_flag(&FLAGS6502::Z, self.y == 0x00);
-    self.set_flag(&FLAGS6502::N, self.y & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.y & 0x80) > 0x00);
     0
   }
 
@@ -1230,7 +1016,7 @@ impl Cpu {
   pub fn tsx(&mut self) -> u8 {
     self.x = self.stack_pointer;
     self.set_flag(&FLAGS6502::Z, self.x == 0x00);
-    self.set_flag(&FLAGS6502::N, self.x & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.x & 0x80) > 0x00);
     0
   }
 
@@ -1238,7 +1024,7 @@ impl Cpu {
   pub fn txa(&mut self) -> u8 {
     self.acc = self.x;
     self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
-    self.set_flag(&FLAGS6502::N, self.acc & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0x00);
     0
   }
 
@@ -1252,10 +1038,11 @@ impl Cpu {
   pub fn tya(&mut self) -> u8 {
     self.acc = self.y;
     self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
-    self.set_flag(&FLAGS6502::N, self.acc & 0x80 != 0x00);
+    self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0x00);
     0
   }
 
+  #[cfg(feature = "terminal_debug")]
   pub fn disassemble(&mut self, start: u16, end: u16) -> HashMap<u16, String> {
     let mut addr = start as u32;
     let mut map: HashMap<u16, String> = HashMap::new();
@@ -1263,60 +1050,40 @@ impl Cpu {
     while addr < end as u32 {
       let line_addr = u16::try_from(addr).unwrap();
       let mut codes = format!("$:{}: ", hex(usize::try_from(addr).unwrap(), 4));
-      let opcode = {
-        let mut bus = self.get_mut_bus();
-        bus.read_u8(u16::try_from(addr).unwrap())
-      };
+      let opcode = self.bus_read_u8(u16::try_from(addr).unwrap());
       addr += 1;
 
       let name = self.lookup.get_name(opcode.try_into().unwrap());
       codes = format!("{} {} ", codes, name);
 
-      let addr_mode = *self
-        .lookup
-        .get_addr_mode(opcode.try_into().unwrap());
+      let addr_mode = *self.lookup.get_addr_mode(opcode.try_into().unwrap());
 
       match addr_mode {
         ADDRMODE6502::IMP => {
           codes.push_str(" {{IMP}}\t");
         }
         ADDRMODE6502::IMM => {
-          let value = {
-            let mut bus = self.get_mut_bus();
-            bus.read_u8(addr.try_into().unwrap())
-          };
+          let value = self.bus_read_u8(addr.try_into().unwrap());
           addr += 1;
           codes.push_str(&format!("${} {{IMM}}\t", hex(usize::from(value), 2)));
         }
         ADDRMODE6502::ZP0 => {
-          let lo_byte = {
-            let mut bus = self.get_mut_bus();
-            bus.read_u8(u16::try_from(addr).unwrap())
-          };
+          let lo_byte = self.bus_read_u8(u16::try_from(addr).unwrap());
           addr += 1;
           codes.push_str(&format!("${} {{ZP0}}\t", hex(usize::from(lo_byte), 2)));
         }
         ADDRMODE6502::ZPX => {
-          let lo_byte = {
-            let mut bus = self.get_mut_bus();
-            bus.read_u8(addr.try_into().unwrap())
-          };
+          let lo_byte = self.bus_read_u8(addr.try_into().unwrap());
           addr += 1;
           codes.push_str(&format!("${} {{ZPX}}\t", hex(usize::from(lo_byte), 2)));
         }
         ADDRMODE6502::ZPY => {
-          let lo_byte = {
-            let mut bus = self.get_mut_bus();
-            bus.read_u8(addr.try_into().unwrap())
-          };
+          let lo_byte = self.bus_read_u8(addr.try_into().unwrap());
           addr += 1;
           codes.push_str(&format!("${} {{ZPY}}\t", hex(usize::from(lo_byte), 2)));
         }
         ADDRMODE6502::REL => {
-          let value = {
-            let mut bus = self.get_mut_bus();
-            bus.read_u8(addr.try_into().unwrap())
-          };
+          let value = self.bus_read_u8(addr.try_into().unwrap());
           addr += 1;
           codes.push_str(&format!(
             "${} [${}] {{REL}}\t",
@@ -1353,18 +1120,12 @@ impl Cpu {
           ));
         }
         ADDRMODE6502::IZX => {
-          let lo_byte = {
-            let mut bus = self.get_mut_bus();
-            bus.read_u8(addr.try_into().unwrap())
-          };
+          let lo_byte = self.bus_read_u8(addr.try_into().unwrap());
           addr += 1;
           codes.push_str(&format!("${} {{IZX}}\t", hex(usize::from(lo_byte), 2)));
         }
         ADDRMODE6502::IZY => {
-          let lo_byte = {
-            let mut bus = self.get_mut_bus();
-            bus.read_u8(addr.try_into().unwrap())
-          };
+          let lo_byte = self.bus_read_u8(addr.try_into().unwrap());
           addr += 1;
           codes.push_str(&format!("${} {{IZY}}\t", hex(usize::from(lo_byte), 2)));
         }
@@ -1375,16 +1136,11 @@ impl Cpu {
     map
   }
 
+  #[cfg(feature = "terminal_debug")]
   fn extract_addr_16(&mut self, mut addr: u32) -> (u16, u16) {
-    let lo_byte = {
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(addr.try_into().unwrap())
-    };
+    let lo_byte = self.bus_read_u8(addr.try_into().unwrap());
     addr += 1;
-    let hi_byte = {
-      let mut bus = self.get_mut_bus();
-      bus.read_u8(addr.try_into().unwrap())
-    };
+    let hi_byte = self.bus_read_u8(addr.try_into().unwrap());
     (lo_byte, hi_byte)
   }
 }
