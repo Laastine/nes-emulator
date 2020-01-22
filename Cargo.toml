@@ -11,4 +11,10 @@ image = "0.22.3"
 luminance = "0.37.1"
 luminance-derive = "0.5"
 luminance-glutin = "0.6"
+
+[target.'cfg(unix)'.dependencies]
 termion = "1.5.4"
+
+
+[features]
+terminal_debug = []

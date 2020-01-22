@@ -2,6 +2,8 @@
 extern crate bitfield;
 extern crate getopts;
 extern crate image;
+#[cfg(target_family = "unix")]
+#[cfg(feature = "terminal_debug")]
 extern crate termion;
 
 use std::env;
@@ -17,6 +19,9 @@ mod gfx;
 mod mapper;
 mod nes;
 mod ppu;
+#[cfg(target_family = "unix")]
+#[cfg(feature = "terminal_debug")]
+mod terminal_debug;
 
 fn print_usage() {
   println!("USAGE:\nnes-emulator [FLAGS]\n\nFLAGS:\n-h, --help\t\t\tPrints help information\n-v, --version\t\t\tPrints version information\n-r, --rom\t\t\tRom filename to load");
@@ -57,6 +62,6 @@ fn main() {
 
   let mut nes = Nes::new(&rom_file);
 
-  nes.create_program();
+  nes.init();
   nes.render_loop();
 }

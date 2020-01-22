@@ -1423,6 +1423,7 @@ impl LookUpTable {
     &self.instructions[index].operate
   }
 
+  #[cfg(feature = "terminal_debug")]
   pub fn get_name(&self, index: usize) -> String {
     format!("{:?}", self.instructions[index].operate)
   }
