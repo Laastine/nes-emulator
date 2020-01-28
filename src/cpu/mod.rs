@@ -89,6 +89,11 @@ impl Cpu {
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
   }
 
+  fn set_flags_zn(&mut self, val: u16) {
+    self.set_flag(&FLAGS6502::Z, val == 0x00);
+    self.set_flag(&FLAGS6502::N, (val & 0x80) > 0);
+  }
+
   pub fn clock(&mut self) {
     if self.cycles == 0 {
       self.opcode = u8::try_from(self.bus_mut_read_u8(self.pc)).unwrap();
@@ -415,16 +420,15 @@ impl Cpu {
       + if self.get_flag(&FLAGS6502::C) { 1 } else { 0 };
 
     self.set_flag(&FLAGS6502::C, (self.temp) > 255);
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
     self.set_flag(
       &FLAGS6502::V,
       ((!(u16::try_from(self.acc).unwrap()
         ^ u16::try_from(self.fetched).unwrap())
         & (u16::try_from(self.acc).unwrap() ^ u16::try_from(self.temp).unwrap()))
-        & 0x0080)
+        & 0x80)
         > 0,
     );
-    self.set_flag(&FLAGS6502::N, (self.temp & 0x80) > 0);
+    self.set_flags_zn(self.temp);
     self.acc = u8::try_from(self.temp & 0x00FF).unwrap();
     1
   }
@@ -434,8 +438,7 @@ impl Cpu {
     self.fetch();
     self.temp = u16::try_from(self.fetched << 1).unwrap();
     self.set_flag(&FLAGS6502::C, (self.temp & 0xFF00) > 0);
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
-    self.set_flag(&FLAGS6502::N, (self.temp & 0x80) > 0);
+    self.set_flags_zn(self.temp);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
       self.acc = u8::try_from(self.temp & 0x00FF).unwrap();
@@ -449,8 +452,7 @@ impl Cpu {
   pub fn and(&mut self) -> u8 {
     self.fetch();
     self.acc &= self.fetched;
-    self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0);
+    self.set_flags_zn(self.acc.into());
     1
   }
 
@@ -624,8 +626,7 @@ impl Cpu {
     self.fetch();
     self.temp = u16::try_from(self.acc.wrapping_sub(self.fetched)).unwrap();
     self.set_flag(&FLAGS6502::C, self.acc >= self.fetched);
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
-    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0);
+    self.set_flags_zn(self.temp);
     1
   }
 
@@ -634,8 +635,7 @@ impl Cpu {
     self.fetch();
     self.temp = u16::try_from(self.x.wrapping_sub(self.fetched)).unwrap();
     self.set_flag(&FLAGS6502::C, self.x >= self.fetched);
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
-    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0);
+    self.set_flags_zn(self.temp);
     0
   }
 
@@ -644,8 +644,7 @@ impl Cpu {
     self.fetch();
     self.temp = u16::try_from(self.y.wrapping_sub(self.fetched)).unwrap();
     self.set_flag(&FLAGS6502::C, self.y >= self.fetched);
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
-    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0);
+    self.set_flags_zn(self.temp);
     0
   }
 
@@ -654,24 +653,21 @@ impl Cpu {
     self.fetch();
     self.temp = u16::try_from(self.fetched).unwrap().wrapping_sub(1);
     self.bus_write_u8(self.addr_abs, u8::try_from(self.temp & 0x00FF).unwrap());
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
-    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0);
+    self.set_flags_zn(self.temp);
     0
   }
 
   /// Decrement X
   pub fn dex(&mut self) -> u8 {
     self.x = self.x.wrapping_sub(1);
-    self.set_flag(&FLAGS6502::Z, self.x == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.x & 0x80) > 0);
+    self.set_flags_zn(self.x.into());
     0
   }
 
   /// Decrement Y
   pub fn dey(&mut self) -> u8 {
     self.y = self.y.wrapping_sub(1);
-    self.set_flag(&FLAGS6502::Z, self.y == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.y & 0x80) > 0);
+    self.set_flags_zn(self.y.into());
     0
   }
 
@@ -679,8 +675,7 @@ impl Cpu {
   pub fn eor(&mut self) -> u8 {
     self.fetch();
     self.acc ^= self.fetched;
-    self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0);
+    self.set_flags_zn(self.acc.into());
     1
   }
 
@@ -689,24 +684,21 @@ impl Cpu {
     self.fetch();
     self.temp = u16::try_from(self.fetched + 1).unwrap();
     self.bus_write_u8(self.addr_abs, u8::try_from(self.temp & 0x00FF).unwrap());
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
-    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0);
+    self.set_flags_zn(self.temp);
     0
   }
 
   /// Increment X
   pub fn inx(&mut self) -> u8 {
     self.x = self.x.wrapping_add(1);
-    self.set_flag(&FLAGS6502::Z, self.x == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.x & 0x80) > 0);
+    self.set_flags_zn(self.x.into());
     0
   }
 
   /// Increment Y
   pub fn iny(&mut self) -> u8 {
     self.y = self.y.wrapping_add(1);
-    self.set_flag(&FLAGS6502::Z, self.y == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.y & 0x80) > 0);
+    self.set_flags_zn(self.y.into());
     0
   }
 
@@ -735,8 +727,7 @@ impl Cpu {
   pub fn lda(&mut self) -> u8 {
     self.fetch();
     self.acc = self.fetched;
-    self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0);
+    self.set_flags_zn(self.acc.into());
     1
   }
 
@@ -744,8 +735,7 @@ impl Cpu {
   pub fn ldx(&mut self) -> u8 {
     self.fetch();
     self.x = self.fetched;
-    self.set_flag(&FLAGS6502::Z, self.x == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.x & 0x80) > 0);
+    self.set_flags_zn(self.x.into());
     1
   }
 
@@ -753,8 +743,7 @@ impl Cpu {
   pub fn ldy(&mut self) -> u8 {
     self.fetch();
     self.y = self.fetched;
-    self.set_flag(&FLAGS6502::Z, self.y == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.y & 0x80) > 0);
+    self.set_flags_zn(self.y.into());
     1
   }
 
@@ -763,8 +752,7 @@ impl Cpu {
     self.fetch();
     self.set_flag(&FLAGS6502::C, (self.fetched & 1) > 0);
     self.temp = u16::try_from(self.fetched >> 1).unwrap();
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
-    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0);
+    self.set_flags_zn(self.temp);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
       self.acc = u8::try_from(self.temp & 0x00FF).unwrap();
@@ -786,8 +774,7 @@ impl Cpu {
   pub fn ora(&mut self) -> u8 {
     self.fetch();
     self.acc |= self.fetched;
-    self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0);
+    self.set_flags_zn(self.acc.into());
     1
   }
 
@@ -816,8 +803,8 @@ impl Cpu {
       .bus_mut_read_u8(self.get_stack_address())
       .try_into()
       .unwrap();
-    self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0);
+    self.set_flags_zn(self.acc.into());
+    self.set_flags_zn(self.acc.into());
     0
   }
 
@@ -837,8 +824,7 @@ impl Cpu {
     self.fetch();
     self.temp = (u16::try_from(self.fetched).unwrap() << 1) | if self.get_flag(&FLAGS6502::C) { 1 } else { 0 };
     self.set_flag(&FLAGS6502::C, (self.temp & 0xFF00) > 0);
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
-    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0);
+    self.set_flags_zn(self.temp);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
       self.acc = u8::try_from(self.temp & 0x00FF).unwrap();
@@ -853,8 +839,7 @@ impl Cpu {
     self.fetch();
     self.temp = (if self.get_flag(&FLAGS6502::C) { 1 } else { 0 } << 7) | (u16::try_from(self.fetched).unwrap() >> 1);
     self.set_flag(&FLAGS6502::C, (self.fetched & 0x01) > 0);
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
-    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0);
+    self.set_flags_zn(self.temp);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
       self.acc = u8::try_from(self.temp & 0x00FF).unwrap();
@@ -906,9 +891,8 @@ impl Cpu {
       + if self.get_flag(&FLAGS6502::C) { 1 } else { 0 };
 
     self.set_flag(&FLAGS6502::C, (self.temp & 0xFF00) > 0);
-    self.set_flag(&FLAGS6502::Z, self.temp.trailing_zeros() > 7);
-    self.set_flag(&FLAGS6502::V, (self.temp ^ u16::try_from(self.acc).unwrap() & (self.temp ^ value) & 0x0080) > 0);
-    self.set_flag(&FLAGS6502::N, (self.temp & 0x0080) > 0);
+    self.set_flag(&FLAGS6502::V, (self.temp ^ u16::try_from(self.acc).unwrap() & (self.temp ^ value) & 0x80) > 0);
+    self.set_flags_zn(self.temp);
     self.acc = u8::try_from(self.temp & 0x00FF).unwrap();
     1
   }
@@ -952,32 +936,28 @@ impl Cpu {
   /// Transfer accumulator to X
   pub fn tax(&mut self) -> u8 {
     self.x = self.acc;
-    self.set_flag(&FLAGS6502::Z, self.x == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.x & 0x80) > 0);
+    self.set_flags_zn(self.x.into());
     0
   }
 
   /// Transfer accumulator to Y
   pub fn tay(&mut self) -> u8 {
     self.y = self.acc;
-    self.set_flag(&FLAGS6502::Z, self.y == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.y & 0x80) > 0);
+    self.set_flags_zn(self.y.into());
     0
   }
 
   /// Transfer stack pointer to X
   pub fn tsx(&mut self) -> u8 {
     self.x = self.stack_pointer;
-    self.set_flag(&FLAGS6502::Z, self.x == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.x & 0x80) > 0);
+    self.set_flags_zn(self.x.into());
     0
   }
 
   /// Transfer X to accumulator
   pub fn txa(&mut self) -> u8 {
     self.acc = self.x;
-    self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0);
+    self.set_flags_zn(self.acc.into());
     0
   }
 
@@ -990,8 +970,7 @@ impl Cpu {
   /// Transfer Y to accumulator
   pub fn tya(&mut self) -> u8 {
     self.acc = self.y;
-    self.set_flag(&FLAGS6502::Z, self.acc == 0x00);
-    self.set_flag(&FLAGS6502::N, (self.acc & 0x80) > 0);
+    self.set_flags_zn(self.acc.into());
     0
   }
 
