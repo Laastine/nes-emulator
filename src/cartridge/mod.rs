@@ -24,6 +24,7 @@ impl Cartridge {
     Cartridge { mapper, rom }
   }
 
+  #[allow(dead_code)]
   pub fn mock_cartridge() -> Cartridge {
     let rom = Rom::mock_rom();
     let prg_banks = rom.rom_header.prg_rom_len / 0x4000;

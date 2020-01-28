@@ -132,6 +132,7 @@ impl Rom {
     }
   }
 
+  #[allow(dead_code)]
   pub fn mock_rom() -> Rom {
     let rom_header = RomHeader {
       prg_rom_len: 0x4000,
