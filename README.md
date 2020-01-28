@@ -1,5 +1,7 @@
 # NES-emulator
 
+[![Build Status](https://travis-ci.org/Laastine/nes-emulator.svg?branch=master)](https://travis-ci.org/Laastine/nes-emulator)
+
 Learning project to build Nintendo Entertainment System emulator.
 
 ## Controls
@@ -13,13 +15,13 @@ Learning project to build Nintendo Entertainment System emulator.
 - [x] CPU
 - [x] Display RAM & CPU status in terminal for debugging
 - [x] ROM reader & mapper
-- [x] Graphics screen
-- [ ] PPU (Pixel Processing Unit)
-  - [x] PPU background rendering
+- [x] Graphics window
+- [ ] Controls
+- [ ] PPU (Pixel Processing Unit)<br>
+  :hammer: PPU background rendering
   - [ ] PPU sprites
 - [ ] APU (Audio Processing Unit)
-- [x] Cross-platform (Mac OS, Linux, Windows)
-
+- [ ] Cross-platform (Mac OS, Linux, Windows)
 
 ## References
 
