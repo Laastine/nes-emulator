@@ -8,7 +8,7 @@ use luminance_derive::UniformInterface;
 use luminance_glutin::{GlutinSurface, Surface, WindowDim, WindowOpt};
 
 use crate::gfx::gxf_util::{Semantics, VertexColor, VertexData, VertexPosition};
-use crate::nes::constants::{SCREEN_RES_X, SCREEN_RES_Y};
+use crate::nes::constants::{SCREEN_RES_X, SCREEN_RES_Y, SCREEN_WIDTH, SCREEN_HEIGHT};
 
 mod gxf_util;
 
@@ -58,7 +58,7 @@ pub struct WindowContext {
 impl WindowContext {
   pub fn new() -> WindowContext {
     let mut surface = GlutinSurface::new(
-      WindowDim::Windowed(SCREEN_RES_X, SCREEN_RES_Y),
+      WindowDim::Windowed(SCREEN_WIDTH, SCREEN_HEIGHT),
       "NES-emulator",
       WindowOpt::default(),
     )
