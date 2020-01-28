@@ -88,6 +88,10 @@ impl Rom {
 
     let mapper = mapper_lo | (mapper_hi << 4);
 
+    if mapper > 0 {
+      panic!("Mapper {} not implemented", mapper);
+    }
+
     let tv_system = TVSystem::get_tv_system(flag_tv_system);
 
     let rom_header = RomHeader {
