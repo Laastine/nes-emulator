@@ -108,8 +108,8 @@ impl Ppu {
     self.bg_shifter_pattern_lo = (self.bg_shifter_pattern_lo & 0xFF00) | u16::try_from(self.bg_next_tile_lo).unwrap();
     self.bg_shifter_pattern_hi = (self.bg_shifter_pattern_hi & 0xFF00) | u16::try_from(self.bg_next_tile_hi).unwrap();
 
-    self.bg_shifter_attrib_lo = (self.bg_shifter_attrib_lo & 0xFF00) | (if (self.bg_next_tile_attribute & 1) > 0x00 { 0xFF } else { 0x00 });
-    self.bg_shifter_attrib_hi = (self.bg_shifter_attrib_hi & 0xFF00) | (if (self.bg_next_tile_attribute & 2) > 0x00 { 0xFF } else { 0x00 });
+    self.bg_shifter_attrib_lo = (self.bg_shifter_attrib_lo & 0xFF00) | (if (self.bg_next_tile_attribute & 1) > 0 { 0xFF } else { 0x00 });
+    self.bg_shifter_attrib_hi = (self.bg_shifter_attrib_hi & 0xFF00) | (if (self.bg_next_tile_attribute & 2) > 0 { 0xFF } else { 0x00 });
   }
 
   fn increment_scroll_x(&mut self) {
@@ -232,7 +232,7 @@ impl Ppu {
         self.get_mut_registers().status_flags.set_vertical_blank(false)
       }
 
-      if (self.cycles > 1 && self.cycles < 258) || (self.cycles > 320 && self.cycles < 338) {
+      if (self.cycles > 1 && self.cycles < 258) || (320..=338).contains(&self.cycles) {
         self.update_shifters();
 
         match (self.cycles - 1) % 8 {
@@ -294,16 +294,16 @@ impl Ppu {
     let bit_mux = u16::try_from(0x8000 >> self.fine_x).unwrap();
 
     let bg_pixel = if self.get_mut_registers().mask_flags.show_background() {
-      let p0_pixel = if (self.bg_shifter_pattern_lo & bit_mux) > 0x00 { 1 } else { 0 };
-      let p1_pixel = if (self.bg_shifter_pattern_hi & bit_mux) > 0x00 { 1 } else { 0 };
+      let p0_pixel = if (self.bg_shifter_pattern_lo & bit_mux) > 0 { 1 } else { 0 };
+      let p1_pixel = if (self.bg_shifter_pattern_hi & bit_mux) > 0 { 1 } else { 0 };
       (p1_pixel << 1) | p0_pixel
     } else {
       0x00
     };
 
     let bg_palette = if self.get_mut_registers().mask_flags.show_background() {
-      let p0_palette = if (self.bg_shifter_attrib_lo & bit_mux) > 0x00 { 1 } else { 0 };
-      let p1_palette = if (self.bg_shifter_attrib_hi & bit_mux) > 0x00 { 1 } else { 0 };
+      let p0_palette = if (self.bg_shifter_attrib_lo & bit_mux) > 0 { 1 } else { 0 };
+      let p1_palette = if (self.bg_shifter_attrib_hi & bit_mux) > 0 { 1 } else { 0 };
       (p1_palette << 1) | p0_palette
     } else {
       0x00
@@ -329,14 +329,14 @@ impl Ppu {
   }
 
   fn fetch_next_bg_tile_lo(&mut self) {
-  let ctrl_flags = self.get_mut_registers().ctrl_flags;
-  let vram_addr = self.get_mut_registers().vram_addr;
+    let ctrl_flags = self.get_mut_registers().ctrl_flags;
+    let vram_addr = self.get_mut_registers().vram_addr;
 
-  let addr = (u16::try_from(ctrl_flags.pattern_background()).unwrap() << 12)
-  + (u16::try_from(self.bg_next_tile_id).unwrap() << 4)
-  + u16::try_from(vram_addr.fine_y()).unwrap();
+    let addr = (u16::try_from(ctrl_flags.pattern_background()).unwrap() << 12)
+      + (u16::try_from(self.bg_next_tile_id).unwrap() << 4)
+      + u16::try_from(vram_addr.fine_y()).unwrap();
 
-  self.bg_next_tile_lo = self.read_ppu_u8(addr);
+    self.bg_next_tile_lo = self.read_ppu_u8(addr);
   }
 
   fn fetch_next_bg_tile_attrubute(&mut self) {
@@ -353,10 +353,10 @@ impl Ppu {
       | ((coarse_y >> 2) << 3)
       | (coarse_x >> 2));
 
-    if (vram_addr.coarse_y() & 0x02) > 0x00 {
+    if (vram_addr.coarse_y() & 0x02) > 0 {
       self.bg_next_tile_attribute >>= 4;
     }
-    if (vram_addr.coarse_x() & 0x02) > 0x00 {
+    if (vram_addr.coarse_x() & 0x02) > 0 {
       self.bg_next_tile_attribute >>= 2;
     }
     self.bg_next_tile_attribute &= 0x03;

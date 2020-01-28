@@ -38,3 +38,9 @@ impl Cartridge {
     self.rom.rom_header.mirroring
   }
 }
+
+#[test]
+fn rom_read_test() {
+  let cart = Cartridge::mock_cartridge();
+  assert_eq!(cart.get_mirror_mode(), Mirroring::Horizontal);
+}

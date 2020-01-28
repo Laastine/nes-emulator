@@ -175,7 +175,7 @@ impl TVSystem {
   }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum Mirroring {
   Vertical,
   Horizontal,

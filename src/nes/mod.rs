@@ -1,6 +1,4 @@
 use std::cell::RefCell;
-use std::collections::HashMap;
-use std::convert::TryInto;
 use std::rc::Rc;
 use std::time;
 
@@ -12,7 +10,6 @@ use luminance_glutin::{ElementState, ElementState::Pressed, Event, KeyboardInput
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
-use crate::cpu::instruction_table::FLAGS6502;
 use crate::gfx::WindowContext;
 use crate::ppu::{Ppu, registers::Registers};
 
@@ -63,7 +60,6 @@ impl Nes {
   }
 
   pub fn render_loop(&mut self) {
-
     let mut last_time = time::Instant::now();
 
     'app: loop {
