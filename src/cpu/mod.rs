@@ -682,7 +682,7 @@ impl Cpu {
   /// Increment
   pub fn inc(&mut self) -> u8 {
     self.fetch();
-    self.temp = u16::try_from(self.fetched + 1).unwrap();
+    self.temp = u16::try_from(self.fetched.wrapping_add(1)).unwrap();
     self.bus_write_u8(self.addr_abs, u8::try_from(self.temp & 0x00FF).unwrap());
     self.set_flags_zn(self.temp);
     0
