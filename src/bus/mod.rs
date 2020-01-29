@@ -1,4 +1,4 @@
-use std::cell::{RefCell, RefMut};
+use std::cell::{RefCell, RefMut, Ref};
 use std::convert::TryFrom;
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -49,8 +49,8 @@ impl Bus {
       .expect("File write error");
   }
 
-  fn get_controller(&mut self) -> RefMut<[u8; 2]> {
-    self.controller.borrow_mut()
+  fn get_controller(&mut self) -> Ref<[u8; 2]> {
+    self.controller.borrow()
   }
 
   pub fn get_mut_cartridge(&mut self) -> RefMut<Cartridge> {
@@ -85,8 +85,9 @@ impl Bus {
     } else if (0x2000..=0x3FFF).contains(&address) {
       self.get_mut_registers().cpu_read(address & 0x0007, read_only).into()
     } else if (0x4016..=0x4017).contains(&address) {
-      self.controller_state[usize::try_from(address & 1).unwrap()] <<= 1;
-      let state = self.get_controller()[usize::try_from(address & 0x0001).unwrap()] & 0x80;
+      let idx = usize::try_from(address & 0x0001).unwrap();
+      let state = self.controller_state[idx] & 0x80;
+      self.controller_state[idx] <<= 1;
       if state > 0x00 { 1 } else { 0 }
     } else {
       0
