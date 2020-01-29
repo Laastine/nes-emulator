@@ -1,7 +1,5 @@
 use std::cell::{RefCell, RefMut, Ref};
 use std::convert::TryFrom;
-use std::fs::OpenOptions;
-use std::io::Write;
 use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
@@ -30,23 +28,6 @@ impl Bus {
       controller_state,
       registers,
     }
-  }
-
-  #[allow(dead_code)]
-  #[cfg(debug_assertions)]
-  fn log(&self, mode: &str, address: u16, data: u8) {
-    let mut file = OpenOptions::new()
-      .write(true)
-      .append(true)
-      .open("mem.txt")
-      .expect("File append error");
-
-    file
-      .write_all(
-        format!("{} {} - {}\n", mode, address, data)
-          .as_bytes(),
-      )
-      .expect("File write error");
   }
 
   fn get_controller(&mut self) -> Ref<[u8; 2]> {
