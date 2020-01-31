@@ -179,7 +179,7 @@ impl Nes {
     let texture = &self.ppu.texture;
     let program = &self.window_context.program;
     let copy_program = &self.window_context.copy_program;
-    let triangle = &self.window_context.triangle;
+    let triangle = &self.window_context.texture_vertices;
     let background = &self.window_context.background;
 
     builder.pipeline(

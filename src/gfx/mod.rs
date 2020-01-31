@@ -52,7 +52,7 @@ pub struct WindowContext {
   pub surface: GlutinSurface,
   pub resize: bool,
   pub background: Tess,
-  pub triangle: Tess,
+  pub texture_vertices: Tess,
 }
 
 impl WindowContext {
@@ -106,7 +106,7 @@ impl WindowContext {
       front_buffer,
       resize,
       background,
-      triangle: texture_vertices,
+      texture_vertices,
     }
   }
 }

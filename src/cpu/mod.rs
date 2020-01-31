@@ -301,12 +301,8 @@ impl Cpu {
     let (lo_byte, hi_byte) = self.read_pc();
 
     let byte = (hi_byte << 8) | lo_byte;
-
-    self.addr_abs = if lo_byte == 0 {
-      (self.bus_mut_read_u8(byte & 0xFF00) << 8) | self.bus_mut_read_u8(byte)
-    } else {
-      (self.bus_mut_read_u8(byte + 1) << 8) | self.bus_mut_read_u8(byte)
-    };
+    let b = if lo_byte == 0 { byte & 0xFF00 } else { byte + 1 };
+    self.addr_abs = (self.bus_mut_read_u8(b) << 8) | self.bus_mut_read_u8(byte);
 
     0
   }
@@ -318,7 +314,7 @@ impl Cpu {
 
     let x = u16::try_from(self.x).unwrap();
     let lo_byte: u16 = self.bus_mut_read_u8((byte + x) & 0x00FF).try_into().unwrap();
-    let hi_byte: u16 = self.bus_mut_read_u8((byte + x + 1) & 0x00FF).try_into().unwrap();
+    let hi_byte: u16 = self.bus_mut_read_u8((byte.wrapping_add(x) + 1) & 0x00FF).try_into().unwrap();
     self.addr_abs = (hi_byte << 8) | lo_byte;
 
     0
