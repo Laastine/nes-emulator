@@ -70,7 +70,7 @@ impl Ppu {
   }
 
   fn get_color(&mut self, palette: u8, pixel: u8) -> Color {
-    let idx = self.read_ppu_u8(0x3F00u16.wrapping_add(u16::try_from((palette << 2) + pixel).unwrap()));
+    let idx = self.read_ppu_u8(0x3F00u16.wrapping_add(u16::try_from((palette << 2).wrapping_add(pixel)).unwrap()));
     COLORS[usize::try_from(idx).unwrap() & 0x3F]
   }
 
@@ -322,8 +322,8 @@ impl Ppu {
     let vram_addr = self.get_mut_registers().vram_addr;
 
     let addr = (u16::try_from(ctrl_flags.pattern_background()).unwrap() << 12)
-      + (u16::try_from(self.bg_next_tile_id).unwrap() << 4)
-      + u16::try_from(vram_addr.fine_y()).unwrap() + 8;
+      .wrapping_add(u16::try_from(self.bg_next_tile_id).unwrap() << 4)
+      .wrapping_add(u16::try_from(vram_addr.fine_y()).unwrap()) + 8;
 
     self.bg_next_tile_hi = self.read_ppu_u8(addr);
   }
@@ -333,8 +333,8 @@ impl Ppu {
     let vram_addr = self.get_mut_registers().vram_addr;
 
     let addr = (u16::try_from(ctrl_flags.pattern_background()).unwrap() << 12)
-      + (u16::try_from(self.bg_next_tile_id).unwrap() << 4)
-      + u16::try_from(vram_addr.fine_y()).unwrap();
+      .wrapping_add(u16::try_from(self.bg_next_tile_id).unwrap() << 4)
+      .wrapping_add(u16::try_from(vram_addr.fine_y()).unwrap());
 
     self.bg_next_tile_lo = self.read_ppu_u8(addr);
   }
