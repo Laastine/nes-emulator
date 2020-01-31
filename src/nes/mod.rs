@@ -5,7 +5,7 @@ use std::time;
 use luminance::context::GraphicsContext;
 use luminance::framebuffer::Framebuffer;
 use luminance::render_state::RenderState;
-use luminance_glutin::{ElementState, ElementState::Pressed, Event, KeyboardInput, Surface, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Space, Up, X, Z}, WindowEvent};
+use luminance_glutin::{ElementState, ElementState::Pressed, Event, KeyboardInput, Surface, VirtualKeyCode::{A, LControl, LAlt, Down, Escape, Left, R, Right, S, Space, Up}, WindowEvent};
 
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
@@ -66,11 +66,11 @@ impl Nes {
   pub fn render_loop(&mut self) {
     let mut last_time = time::Instant::now();
 
+    let mut button_state = 0x00;
     'app: loop {
       let elapsed = last_time.elapsed();
       let delta = f64::from(elapsed.subsec_nanos()) / 1e9 + elapsed.as_secs() as f64;
 
-      let mut button_state = 0x00;
       for event in self.window_context.surface.poll_events() {
         if let Event::WindowEvent { event, .. } = event {
           match event {
@@ -89,17 +89,17 @@ impl Nes {
             }
             WindowEvent::KeyboardInput { input, .. } => {
               match input {
-                KeyboardInput { state, virtual_keycode: Some(Z), .. } => {
+                KeyboardInput { state, virtual_keycode: Some(LAlt), .. } => {        // Button A
+                  button_state = if state == Pressed { 0x80 } else { 0 };
+                }
+                KeyboardInput { state, virtual_keycode: Some(LControl), .. } => {    // Button B
                   button_state = if state == Pressed { 0x40 } else { 0 };
                 }
-                KeyboardInput { state, virtual_keycode: Some(A), .. } => {
+                KeyboardInput { state, virtual_keycode: Some(A), .. } => {          // Select
                   button_state = if state == Pressed { 0x20 } else { 0 };
                 }
-                KeyboardInput { state, virtual_keycode: Some(S), .. } => {
+                KeyboardInput { state, virtual_keycode: Some(S), .. } => {          // Start
                   button_state = if state == Pressed { 0x10 } else { 0 };
-                }
-                KeyboardInput { state, virtual_keycode: Some(X), .. } => {
-                  button_state = if state == Pressed { 0x80 } else { 0 };
                 }
                 KeyboardInput { state, virtual_keycode: Some(Up), .. } => {
                   button_state = if state == Pressed { 0x08 } else { 0 };
@@ -130,7 +130,12 @@ impl Nes {
         }
       }
 
-      self.get_controller()[0] |= button_state;
+
+      if button_state > 0 {
+        self.get_controller()[0] |= button_state;
+      } else {
+        self.get_controller()[0] = 0;
+      }
 
       if !self.debug_mode {
         self.clock();

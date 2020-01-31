@@ -7,6 +7,11 @@ Learning project to build Nintendo Entertainment System emulator.
 ## Controls
 
 `Space` - Execute step by step (Use with terminal debug)<br>
+`Arrow keys` - D-pad<br>
+`S` - Start<br>
+`A` - Select<br>
+`Left Ctrl` - Button B<br>
+`Left Alt` - Button A<br>
 `R` - Reset<br>
 `Esc` - Quit  
 
@@ -16,7 +21,7 @@ Learning project to build Nintendo Entertainment System emulator.
 - [x] Display RAM & CPU status in terminal for debugging
 - [x] ROM reader & mapper
 - [x] Graphics window
-- [ ] Controls
+- [x] Controls
 - [ ] PPU (Pixel Processing Unit)<br>
   :hammer: PPU background rendering
   - [ ] PPU sprites
