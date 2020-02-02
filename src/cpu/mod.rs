@@ -436,9 +436,9 @@ impl Cpu {
   /// Arithmetic shift left
   pub fn asl(&mut self) -> u8 {
     self.fetch();
-    self.temp = u16::try_from(self.fetched << 1).unwrap();
+    self.temp = u16::try_from(self.fetched).unwrap() << 1;
     self.set_flag(&FLAGS6502::C, (self.temp & 0xFF00) > 0);
-    self.set_flags_zero_and_negative(self.temp);
+    self.set_flags_zero_and_negative((self.temp & 0xFF));
 
     if self.addr_mode() == ADDRMODE6502::IMP {
       self.acc = u8::try_from(self.temp & 0xFF).unwrap();
