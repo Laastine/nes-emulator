@@ -428,7 +428,7 @@ impl Cpu {
         & 0x80)
         > 0,
     );
-    self.set_flags_zero_and_negative((self.temp & 0xFF));
+    self.set_flags_zero_and_negative(self.temp & 0xFF);
     self.acc = u8::try_from(self.temp & 0xFF).unwrap();
     1
   }
@@ -438,7 +438,7 @@ impl Cpu {
     self.fetch();
     self.temp = u16::try_from(self.fetched).unwrap() << 1;
     self.set_flag(&FLAGS6502::C, (self.temp & 0xFF00) > 0);
-    self.set_flags_zero_and_negative((self.temp & 0xFF));
+    self.set_flags_zero_and_negative(self.temp & 0xFF);
 
     if self.addr_mode() == ADDRMODE6502::IMP {
       self.acc = u8::try_from(self.temp & 0xFF).unwrap();
@@ -881,7 +881,7 @@ impl Cpu {
 
     self.set_flag(&FLAGS6502::C, (self.temp & 0xFF00) > 0);
     self.set_flag(&FLAGS6502::V, ((self.temp ^ u16::try_from(self.acc).unwrap()) & (self.temp ^ value) & 0x80) > 0);
-    self.set_flags_zero_and_negative((self.temp & 0xFF));
+    self.set_flags_zero_and_negative(self.temp & 0xFF);
     self.acc = u8::try_from(self.temp & 0xFF).unwrap();
     1
   }
