@@ -21,10 +21,11 @@ Learning project to build Nintendo Entertainment System emulator.
 - [x] Display RAM & CPU status in terminal for debugging
 - [x] ROM reader & mapper
 - [x] Graphics window
-- [x] Controls
+- [x] Controls<br>
 - [ ] PPU (Pixel Processing Unit)<br>
-  :hammer: PPU background rendering
+  - [x] PPU background rendering
   - [ ] PPU sprites
+- [ ] More ROM mappers
 - [ ] APU (Audio Processing Unit)
 - [ ] Cross-platform (Mac OS, Linux, Windows)
 
