@@ -12,6 +12,7 @@ use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
 use crate::ppu::{Ppu, registers::Registers};
+use crate::nes::constants::KeyCodes;
 
 pub mod constants;
 
@@ -89,29 +90,29 @@ impl Nes {
             }
             WindowEvent::KeyboardInput { input, .. } => {
               match input {
-                KeyboardInput { state, virtual_keycode: Some(LAlt), .. } => {        // Button A
-                  button_state = if state == Pressed { 0x80 } else { 0 };
+                KeyboardInput { state, virtual_keycode: Some(LAlt), .. } => {
+                  button_state = if state == Pressed { KeyCodes::ButtonA.value() } else { 0 };
                 }
-                KeyboardInput { state, virtual_keycode: Some(LControl), .. } => {    // Button B
-                  button_state = if state == Pressed { 0x40 } else { 0 };
+                KeyboardInput { state, virtual_keycode: Some(LControl), .. } => {
+                  button_state = if state == Pressed { KeyCodes::ButtonB.value() } else { 0 };
                 }
-                KeyboardInput { state, virtual_keycode: Some(A), .. } => {          // Select
-                  button_state = if state == Pressed { 0x20 } else { 0 };
+                KeyboardInput { state, virtual_keycode: Some(A), .. } => {
+                  button_state = if state == Pressed { KeyCodes::Select.value() } else { 0 };
                 }
-                KeyboardInput { state, virtual_keycode: Some(S), .. } => {          // Start
-                  button_state = if state == Pressed { 0x10 } else { 0 };
+                KeyboardInput { state, virtual_keycode: Some(S), .. } => {
+                  button_state = if state == Pressed { KeyCodes::Start.value() } else { 0 };
                 }
                 KeyboardInput { state, virtual_keycode: Some(Up), .. } => {
-                  button_state = if state == Pressed { 0x08 } else { 0 };
+                  button_state = if state == Pressed { KeyCodes::Up.value() } else { 0 };
                 }
                 KeyboardInput { state, virtual_keycode: Some(Down), .. } => {
-                  button_state = if state == Pressed { 0x04 } else { 0 };
+                  button_state = if state == Pressed { KeyCodes::Down.value() } else { 0 };
                 }
                 KeyboardInput { state, virtual_keycode: Some(Left), .. } => {
-                  button_state = if state == Pressed { 0x02 } else { 0 };
+                  button_state = if state == Pressed { KeyCodes::Left.value() } else { 0 };
                 }
                 KeyboardInput { state, virtual_keycode: Some(Right), .. } => {
-                  button_state = if state == Pressed { 0x01 } else { 0 };
+                  button_state = if state == Pressed { KeyCodes::Right.value() } else { 0 };
                 }
                 KeyboardInput { virtual_keycode: Some(Space), .. } => {
                   self.debug_mode = !self.debug_mode;

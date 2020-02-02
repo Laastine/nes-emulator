@@ -75,3 +75,29 @@ pub const COLORS: [Color; 64] = [
   Color { val: [0, 0, 0] },
   Color { val: [0, 0, 0] },
 ];
+
+pub enum KeyCodes {
+  ButtonA,
+  ButtonB,
+  Select,
+  Start,
+  Up,
+  Down,
+  Left,
+  Right,
+}
+
+impl KeyCodes {
+  pub fn value(&self) -> u8 {
+    match *self {
+      KeyCodes::ButtonA => 0x80,
+      KeyCodes::ButtonB => 0x40,
+      KeyCodes::Select => 0x20,
+      KeyCodes::Start => 0x10,
+      KeyCodes::Up => 0x08,
+      KeyCodes::Down => 0x04,
+      KeyCodes::Left => 0x02,
+      KeyCodes::Right => 0x01,
+    }
+  }
+}
