@@ -116,13 +116,12 @@ impl Ppu {
     let mask_flags = self.get_mut_registers().mask_flags;
 
     if mask_flags.show_background() || mask_flags.show_sprites() {
-      let vram_addr = self.get_mut_registers().vram_addr;
 
-      if vram_addr.coarse_x() == 31 {
+      if self.get_mut_registers().vram_addr.coarse_x() == 31 {
         self.get_mut_registers().vram_addr.set_coarse_x(0);
         self.get_mut_registers().vram_addr.0 ^= 0x0400;
       } else {
-        let coarse_x = vram_addr.coarse_x();
+        let coarse_x = self.get_mut_registers().vram_addr.coarse_x();
         self.get_mut_registers().vram_addr.set_coarse_x(coarse_x + 1);
       }
     }
@@ -238,8 +237,8 @@ impl Ppu {
         match (self.cycles - 1) % 8 {
           0x00 => self.load_bg_tile(),
           0x02 => self.fetch_next_bg_tile_attrubute(),
-          0x04 => self.fetch_next_bg_tile_lo(),
-          0x06 => self.fetch_next_bg_tile_hi(),
+          0x04 => self.fetch_next_bg_tile(false),
+          0x06 => self.fetch_next_bg_tile(true),
           0x07 => self.increment_scroll_x(),
           _ => ()
         }
@@ -317,26 +316,19 @@ impl Ppu {
     }
   }
 
-  fn fetch_next_bg_tile_hi(&mut self) {
+  fn fetch_next_bg_tile(&mut self, is_high_byte: bool) {
     let ctrl_flags = self.get_mut_registers().ctrl_flags;
     let vram_addr = self.get_mut_registers().vram_addr;
 
     let addr = (u16::try_from(ctrl_flags.pattern_background()).unwrap() << 12)
       .wrapping_add(u16::try_from(self.bg_next_tile_id).unwrap() << 4)
-      .wrapping_add(u16::try_from(vram_addr.fine_y()).unwrap()) + 8;
+      .wrapping_add(u16::try_from(vram_addr.fine_y()).unwrap()) + if is_high_byte { 8 } else { 0 };
 
-    self.bg_next_tile_hi = self.read_ppu_u8(addr);
-  }
-
-  fn fetch_next_bg_tile_lo(&mut self) {
-    let ctrl_flags = self.get_mut_registers().ctrl_flags;
-    let vram_addr = self.get_mut_registers().vram_addr;
-
-    let addr = (u16::try_from(ctrl_flags.pattern_background()).unwrap() << 12)
-      .wrapping_add(u16::try_from(self.bg_next_tile_id).unwrap() << 4)
-      .wrapping_add(u16::try_from(vram_addr.fine_y()).unwrap());
-
-    self.bg_next_tile_lo = self.read_ppu_u8(addr);
+    if is_high_byte {
+      self.bg_next_tile_hi = self.read_ppu_u8(addr);
+    } else {
+      self.bg_next_tile_lo = self.read_ppu_u8(addr);
+    }
   }
 
   fn fetch_next_bg_tile_attrubute(&mut self) {

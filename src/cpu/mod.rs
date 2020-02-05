@@ -96,6 +96,26 @@ impl Cpu {
     self.set_flag(&FLAGS6502::N, (val & 0x80) > 0);
   }
 
+  fn branching(&mut self, condition: bool) -> u8 {
+    if condition {
+      self.cycles_increment();
+      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
+      if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
+        self.cycles_increment();
+      }
+      self.pc = self.addr_abs;
+    }
+    0
+  }
+
+  fn return_or_write_memory(&mut self, val: u16) {
+    if self.addr_mode() == ADDRMODE6502::IMP {
+      self.acc = u8::try_from(val & 0xFF).unwrap();
+    } else {
+      self.bus_write_u8(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
+    }
+  }
+
   pub fn clock(&mut self) {
     if self.cycles == 0 {
       self.opcode = u8::try_from(self.bus_mut_read_u8(self.pc)).unwrap();
@@ -438,11 +458,7 @@ impl Cpu {
     self.set_flag(&FLAGS6502::C, (val & 0xFF00) > 0);
     self.set_flags_zero_and_negative(val & 0xFF);
 
-    if self.addr_mode() == ADDRMODE6502::IMP {
-      self.acc = u8::try_from(val & 0xFF).unwrap();
-    } else {
-      self.bus_write_u8(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
-    }
+    self.return_or_write_memory(val);
     0
   }
 
@@ -456,42 +472,17 @@ impl Cpu {
 
   /// branch on carry clear
   pub fn bcc(&mut self) -> u8 {
-    if !self.get_flag(&FLAGS6502::C) {
-      self.cycles_increment();
-      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
-
-      if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles_increment();
-      }
-      self.pc = self.addr_abs;
-    }
-    0
+    self.branching(!self.get_flag(&FLAGS6502::C))
   }
 
   /// branch on carry clear
   pub fn bcs(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::C) {
-      self.cycles_increment();
-      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
-      if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles_increment();
-      }
-      self.pc = self.addr_abs;
-    }
-    0
+    self.branching(self.get_flag(&FLAGS6502::C))
   }
 
   /// branch on equal
   pub fn beq(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::Z) {
-      self.cycles_increment();
-      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
-      if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles_increment();
-      }
-      self.pc = self.addr_abs;
-    }
-    0
+    self.branching(self.get_flag(&FLAGS6502::Z))
   }
 
   /// Bit test
@@ -506,41 +497,17 @@ impl Cpu {
 
   /// Branch on minus (negative set)
   pub fn bmi(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::N) {
-      self.cycles_increment();
-      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
-      if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles_increment();
-      }
-      self.pc = self.addr_abs;
-    }
-    0
+    self.branching(self.get_flag(&FLAGS6502::N))
   }
 
   /// Branch on not equal (zero clear)
   pub fn bne(&mut self) -> u8 {
-    if !self.get_flag(&FLAGS6502::Z) {
-      self.cycles_increment();
-      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
-      if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles_increment();
-      }
-      self.pc = self.addr_abs;
-    }
-    0
+    self.branching(!self.get_flag(&FLAGS6502::Z))
   }
 
   /// Branch on plus (negative clear)
   pub fn bpl(&mut self) -> u8 {
-    if !self.get_flag(&FLAGS6502::N) {
-      self.cycles_increment();
-      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
-      if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles_increment();
-      }
-      self.pc = self.addr_abs;
-    }
-    0
+    self.branching(!self.get_flag(&FLAGS6502::N))
   }
 
   /// Break / interrupt
@@ -565,28 +532,12 @@ impl Cpu {
 
   /// Branch on overflow clear
   pub fn bvc(&mut self) -> u8 {
-    if !self.get_flag(&FLAGS6502::V) {
-      self.cycles_increment();
-      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
-      if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles_increment();
-      }
-      self.pc = self.addr_abs;
-    }
-    0
+    self.branching(!self.get_flag(&FLAGS6502::V))
   }
 
   /// Branch on overflow clear
   pub fn bvs(&mut self) -> u8 {
-    if self.get_flag(&FLAGS6502::V) {
-      self.cycles_increment();
-      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
-      if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
-        self.cycles_increment();
-      }
-      self.pc = self.addr_abs;
-    }
-    0
+    self.branching(self.get_flag(&FLAGS6502::V))
   }
 
   /// Clear carry
@@ -746,11 +697,7 @@ impl Cpu {
     let val = u16::try_from(self.fetched >> 1).unwrap();
     self.set_flags_zero_and_negative(val);
 
-    if self.addr_mode() == ADDRMODE6502::IMP {
-      self.acc = u8::try_from(val & 0xFF).unwrap();
-    } else {
-      self.bus_write_u8(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
-    }
+    self.return_or_write_memory(val);
     0
   }
 
@@ -813,11 +760,7 @@ impl Cpu {
     self.set_flag(&FLAGS6502::C, (val & 0xFF00) > 0);
     self.set_flags_zero_and_negative(val);
 
-    if self.addr_mode() == ADDRMODE6502::IMP {
-      self.acc = u8::try_from(val & 0xFF).unwrap();
-    } else {
-      self.bus_write_u8(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
-    }
+    self.return_or_write_memory(val);
     0
   }
 
@@ -828,11 +771,7 @@ impl Cpu {
     self.set_flag(&FLAGS6502::C, (self.fetched & 0x01) > 0);
     self.set_flags_zero_and_negative(val);
 
-    if self.addr_mode() == ADDRMODE6502::IMP {
-      self.acc = u8::try_from(val & 0xFF).unwrap();
-    } else {
-      self.bus_write_u8(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
-    }
+    self.return_or_write_memory(val);
     0
   }
 
@@ -963,6 +902,8 @@ impl Cpu {
 
   #[cfg(feature = "terminal_debug")]
   pub fn disassemble(&mut self, start: u16, end: u16) -> HashMap<u16, String> {
+    use std::collections::HashMap;
+
     let mut addr = start as u32;
     let mut map: HashMap<u16, String> = HashMap::new();
 
