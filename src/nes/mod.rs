@@ -2,17 +2,19 @@ use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 use std::time;
 
-use luminance::context::GraphicsContext;
+use glutin::{ElementState, ElementState::Pressed, KeyboardInput, VirtualKeyCode::{A, Down, Escape, LAlt, LControl, Left, R, Right, S, Space, Up}, WindowEvent};
+use luminance::context::GraphicsContext as _;
 use luminance::framebuffer::Framebuffer;
+use luminance::pipeline::PipelineState;
 use luminance::render_state::RenderState;
-use luminance_glutin::{ElementState, ElementState::Pressed, Event, KeyboardInput, Surface, VirtualKeyCode::{A, LControl, LAlt, Down, Escape, Left, R, Right, S, Space, Up}, WindowEvent};
+use luminance::texture::Sampler;
 
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
+use crate::nes::constants::{KeyboardCommand, KeyCodes};
 use crate::ppu::{Ppu, registers::Registers};
-use crate::nes::constants::KeyCodes;
 
 pub mod constants;
 
@@ -67,13 +69,14 @@ impl Nes {
   pub fn render_loop(&mut self) {
     let mut last_time = time::Instant::now();
 
-    let mut button_state = 0x00;
+    let mut keyboard_state = None;
+    let mut controller_button_state = 0x00;
     'app: loop {
       let elapsed = last_time.elapsed();
       let delta = f64::from(elapsed.subsec_nanos()) / 1e9 + elapsed.as_secs() as f64;
 
-      for event in self.window_context.surface.poll_events() {
-        if let Event::WindowEvent { event, .. } = event {
+      self.window_context.surface.event_loop.poll_events(|event| {
+        if let glutin::Event::WindowEvent { event, .. } = event {
           match event {
             WindowEvent::CloseRequested
             | WindowEvent::Destroyed
@@ -85,55 +88,60 @@ impl Nes {
                 ..
               },
               ..
-            } => {
-              break 'app;
-            }
+            } => keyboard_state = Some(KeyboardCommand::Exit),
             WindowEvent::KeyboardInput { input, .. } => {
               match input {
                 KeyboardInput { state, virtual_keycode: Some(LAlt), .. } => {
-                  button_state = if state == Pressed { KeyCodes::ButtonA.value() } else { 0 };
+                  controller_button_state = if state == Pressed { KeyCodes::ButtonA.value() } else { 0 };
                 }
                 KeyboardInput { state, virtual_keycode: Some(LControl), .. } => {
-                  button_state = if state == Pressed { KeyCodes::ButtonB.value() } else { 0 };
+                  controller_button_state = if state == Pressed { KeyCodes::ButtonB.value() } else { 0 };
                 }
                 KeyboardInput { state, virtual_keycode: Some(A), .. } => {
-                  button_state = if state == Pressed { KeyCodes::Select.value() } else { 0 };
+                  controller_button_state = if state == Pressed { KeyCodes::Select.value() } else { 0 };
                 }
                 KeyboardInput { state, virtual_keycode: Some(S), .. } => {
-                  button_state = if state == Pressed { KeyCodes::Start.value() } else { 0 };
+                  controller_button_state = if state == Pressed { KeyCodes::Start.value() } else { 0 };
                 }
                 KeyboardInput { state, virtual_keycode: Some(Up), .. } => {
-                  button_state = if state == Pressed { KeyCodes::Up.value() } else { 0 };
+                  controller_button_state = if state == Pressed { KeyCodes::Up.value() } else { 0 };
                 }
                 KeyboardInput { state, virtual_keycode: Some(Down), .. } => {
-                  button_state = if state == Pressed { KeyCodes::Down.value() } else { 0 };
+                  controller_button_state = if state == Pressed { KeyCodes::Down.value() } else { 0 };
                 }
                 KeyboardInput { state, virtual_keycode: Some(Left), .. } => {
-                  button_state = if state == Pressed { KeyCodes::Left.value() } else { 0 };
+                  controller_button_state = if state == Pressed { KeyCodes::Left.value() } else { 0 };
                 }
                 KeyboardInput { state, virtual_keycode: Some(Right), .. } => {
-                  button_state = if state == Pressed { KeyCodes::Right.value() } else { 0 };
+                  controller_button_state = if state == Pressed { KeyCodes::Right.value() } else { 0 };
                 }
                 KeyboardInput { virtual_keycode: Some(Space), .. } => {
-                  self.debug_mode = !self.debug_mode;
+                  keyboard_state = Some(KeyboardCommand::Debug)
                 }
                 KeyboardInput { state: Pressed, virtual_keycode: Some(R), .. } => {
-                  self.cpu.reset();
+                  keyboard_state = Some(KeyboardCommand::Reset)
                 }
                 _ => {}
               }
             }
-            WindowEvent::Resized(_) | WindowEvent::HiDpiFactorChanged(_) => {
-              self.window_context.resize = true;
+            WindowEvent::Resized(_) => {
+              keyboard_state = Some(KeyboardCommand::Resize)
             }
             _ => (),
           }
-        }
+        };
+      });
+
+      match keyboard_state {
+        Some(KeyboardCommand::Debug) => self.debug_mode = !self.debug_mode,
+        Some(KeyboardCommand::Exit) => break 'app,
+        Some(KeyboardCommand::Reset) => self.cpu.reset(),
+        Some(KeyboardCommand::Resize) => self.window_context.resize = true,
+        _ => {}
       }
 
-
-      if button_state > 0 {
-        self.get_controller()[0] |= button_state;
+      if controller_button_state > 0 {
+        self.get_controller()[0] |= controller_button_state;
       } else {
         self.get_controller()[0] = 0;
       }
@@ -149,7 +157,7 @@ impl Nes {
           self.ppu.frame_ready = false;
         }
       }
-    }
+    } // app loop
   }
 
   fn clock(&mut self) {
@@ -171,7 +179,7 @@ impl Nes {
       self.window_context.back_buffer = self.window_context.surface.back_buffer().unwrap();
       let size = self.window_context.surface.size();
       self.window_context.front_buffer =
-        Framebuffer::new(&mut self.window_context.surface, size, 0)
+        Framebuffer::new(&mut self.window_context.surface, size, 0, Sampler::default())
           .expect("Framebuffer recreate error");
       self.window_context.resize = false;
     }
@@ -185,10 +193,10 @@ impl Nes {
 
     builder.pipeline(
       &self.window_context.front_buffer,
-      [0.0, 0.0, 0.0, 0.0],
+      &PipelineState::default(),
       |_, mut shd_gate| {
         shd_gate.shade(program, |_, mut rdr_gate| {
-          rdr_gate.render(RenderState::default(), |mut tess_gate| {
+          rdr_gate.render(&RenderState::default(), |mut tess_gate| {
             tess_gate.render(triangle)
           });
         });
@@ -197,13 +205,13 @@ impl Nes {
 
     builder.pipeline(
       &self.window_context.back_buffer,
-      [0.0, 0.0, 0.0, 0.0],
+      &PipelineState::default(),
       |pipeline, mut shd_gate| {
         let bound_texture = pipeline.bind_texture(texture);
 
         shd_gate.shade(copy_program, |iface, mut rdr_gate| {
           iface.texture.update(&bound_texture);
-          rdr_gate.render(RenderState::default(), |mut tess_gate| {
+          rdr_gate.render(&RenderState::default(), |mut tess_gate| {
             tess_gate.render(background)
           });
         });

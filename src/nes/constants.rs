@@ -101,3 +101,11 @@ impl KeyCodes {
     }
   }
 }
+
+#[derive(Debug, PartialEq)]
+pub enum KeyboardCommand {
+  Reset,
+  Debug,
+  Exit,
+  Resize,
+}

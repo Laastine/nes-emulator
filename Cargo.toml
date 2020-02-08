@@ -7,10 +7,11 @@ edition = "2018"
 [dependencies]
 bitfield = "0.13.2"
 getopts = "0.2.21"
-image = "0.22.3"
-luminance = "0.37.1"
-luminance-derive = "0.5"
-luminance-glutin = "0.6"
+glutin = "0.21.2"
+image = "0.23.0"
+luminance = "0.38.0"
+luminance-derive = "0.5.2"
+luminance-glutin = "0.8.2"
 
 [target.'cfg(unix)'.dependencies]
 termion = "1.5.4"

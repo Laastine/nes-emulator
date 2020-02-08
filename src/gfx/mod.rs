@@ -3,12 +3,12 @@ use luminance::pipeline::BoundTexture;
 use luminance::pixel::{NormUnsigned, RGBA32F};
 use luminance::shader::program::{BuiltProgram, Program, Uniform};
 use luminance::tess::{Mode, Tess, TessBuilder};
-use luminance::texture::{Dim2, Flat};
+use luminance::texture::{Dim2, Flat, Sampler};
 use luminance_derive::UniformInterface;
-use luminance_glutin::{GlutinSurface, Surface, WindowDim, WindowOpt};
+use luminance_glutin::GlutinSurface;
 
 use crate::gfx::gxf_util::{Semantics, VertexColor, VertexData, VertexPosition};
-use crate::nes::constants::{SCREEN_RES_X, SCREEN_RES_Y, SCREEN_WIDTH, SCREEN_HEIGHT};
+use crate::nes::constants::{SCREEN_HEIGHT, SCREEN_RES_X, SCREEN_RES_Y, SCREEN_WIDTH};
 
 mod gxf_util;
 
@@ -57,11 +57,12 @@ pub struct WindowContext {
 
 impl WindowContext {
   pub fn new() -> WindowContext {
-    let mut surface = GlutinSurface::new(
-      WindowDim::Windowed(SCREEN_WIDTH, SCREEN_HEIGHT),
-      "NES-emulator",
-      WindowOpt::default(),
-    )
+    let mut surface = GlutinSurface::from_builders(
+      |window_builder| {
+        window_builder.with_title("NES-emulator")
+          .with_dimensions((SCREEN_WIDTH, SCREEN_HEIGHT).into())
+      },
+      |conxtext_builder| conxtext_builder.with_double_buffer(Some(true)))
       .expect("Glutin surface create");
 
     let program = Program::<Semantics, (), ()>::from_strings(None, SHADER_VERT, None, SHADER_FRAG)
@@ -93,8 +94,8 @@ impl WindowContext {
 
     let back_buffer = surface.back_buffer().unwrap();
     let front_buffer =
-      Framebuffer::<Flat, Dim2, RGBA32F, ()>::new(&mut surface, [SCREEN_RES_X, SCREEN_RES_Y], 0)
-        .expect("Framebuffer create error");
+      Framebuffer::<Flat, Dim2, RGBA32F, ()>::new(&mut surface, [SCREEN_RES_X, SCREEN_RES_Y], 0, Sampler::default())
+        .expect("Frame buffer create error");
 
     let resize = false;
 
