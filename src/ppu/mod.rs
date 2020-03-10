@@ -236,7 +236,7 @@ impl Ppu {
 
         match (self.cycles - 1) % 8 {
           0x00 => self.load_bg_tile(),
-          0x02 => self.fetch_next_bg_tile_attrubute(),
+          0x02 => self.fetch_next_bg_tile_attribute(),
           0x04 => self.fetch_next_bg_tile(false),
           0x06 => self.fetch_next_bg_tile(true),
           0x07 => self.increment_scroll_x(),
@@ -331,7 +331,7 @@ impl Ppu {
     }
   }
 
-  fn fetch_next_bg_tile_attrubute(&mut self) {
+  fn fetch_next_bg_tile_attribute(&mut self) {
     let vram_addr = self.get_mut_registers().vram_addr;
 
     let nametable_x = u16::try_from(vram_addr.nametable_x()).unwrap();
