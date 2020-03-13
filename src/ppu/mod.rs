@@ -116,7 +116,6 @@ impl Ppu {
     let mask_flags = self.get_mut_registers().mask_flags;
 
     if mask_flags.show_background() || mask_flags.show_sprites() {
-
       if self.get_mut_registers().vram_addr.coarse_x() == 31 {
         self.get_mut_registers().vram_addr.set_coarse_x(0);
         self.get_mut_registers().vram_addr.0 ^= 0x0400;
@@ -231,7 +230,7 @@ impl Ppu {
         self.get_mut_registers().status_flags.set_vertical_blank(false)
       }
 
-      if (self.cycles > 1 && self.cycles < 258) || (320..=338).contains(&self.cycles) {
+      if self.cycles > 1 && self.cycles < 258 {
         self.update_shifters();
 
         match (self.cycles - 1) % 8 {
