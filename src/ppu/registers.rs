@@ -53,6 +53,8 @@ bitfield! {
     pub u8,    lo_byte,      set_lo_byte:       7,  0;
 }
 
+const OAM_RAM_SIZE: usize = 0x100;
+
 #[derive(Clone)]
 pub struct Registers {
   pub ctrl_flags: PpuCtrlFlags,
@@ -67,6 +69,17 @@ pub struct Registers {
   pub ppu_data_buffer: u8,
   pub fine_x: u8,
   pub cartridge: Rc<RefCell<Cartridge>>,
+
+  oam_address: u8,
+  oam_ram: [u8; OAM_RAM_SIZE],
+  sprite_count: u8,
+  sprite_shifter_pattern_lo: u8,
+  sprite_shifter_pattern_hi: u8,
+
+  // Sprite collision flags
+  sprite_zero_hit_possible: bool,
+  sprite_zero_being_rendered: bool,
+
 }
 
 impl Registers {
@@ -84,7 +97,24 @@ impl Registers {
       ppu_data_buffer: 0x00,
       fine_x: 0x00,
       cartridge,
+
+      oam_address: 0,
+      oam_ram: [0u8; OAM_RAM_SIZE],
+      sprite_count: 0,
+      sprite_shifter_pattern_lo: 0,
+      sprite_shifter_pattern_hi: 0,
+      sprite_zero_hit_possible: false,
+      sprite_zero_being_rendered: false
     }
+  }
+
+  fn write_oam_address(&mut self, address: u16) {
+    self.oam_address = u8::try_from(address).unwrap()
+  }
+
+  fn write_oam_data(&mut self, data: u8) {
+    let idx = usize::try_from(self.oam_address).unwrap();
+    self.oam_ram[idx] = data;
   }
 
   fn get_mut_cartridge(&mut self) -> RefMut<Cartridge> {
@@ -187,8 +217,8 @@ impl Registers {
       0x00 => self.write_control(data),
       0x01 => { self.mask_flags.0 = data; }
       0x02 => {}
-      0x03 => {}
-      0x04 => {}
+      0x03 => self.write_oam_address(address),
+      0x04 => self.write_oam_data(data),
       0x05 => self.write_scroll(data),
       0x06 => self.write_address(data),
       0x07 => self.write_data(data),
