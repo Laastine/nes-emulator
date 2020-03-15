@@ -163,7 +163,12 @@ impl Nes {
   fn clock(&mut self) {
     self.ppu.clock();
     if (self.system_cycles % 3) == 0 {
-      self.cpu.clock();
+      if self.cpu.bus.dma_transfer {
+        let system_cycles = self.system_cycles;
+        self.cpu.bus.oam_dma_access(system_cycles);
+      } else {
+        self.cpu.clock();
+      }
     }
 
     if self.ppu.nmi {

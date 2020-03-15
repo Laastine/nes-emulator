@@ -70,8 +70,8 @@ pub struct Registers {
   pub fine_x: u8,
   pub cartridge: Rc<RefCell<Cartridge>>,
 
-  oam_address: u8,
-  oam_ram: [u8; OAM_RAM_SIZE],
+  pub oam_address: u8,
+  pub oam_ram: [u8; 0x100],
   sprite_count: u8,
   sprite_shifter_pattern_lo: u8,
   sprite_shifter_pattern_hi: u8,
@@ -108,13 +108,14 @@ impl Registers {
     }
   }
 
-  fn write_oam_address(&mut self, address: u16) {
-    self.oam_address = u8::try_from(address).unwrap()
+  pub fn write_oam_address(&mut self, address: u8) {
+    self.oam_address = address;
   }
 
-  fn write_oam_data(&mut self, data: u8) {
+  pub fn write_oam_data(&mut self, data: u8) {
     let idx = usize::try_from(self.oam_address).unwrap();
     self.oam_ram[idx] = data;
+    self.oam_address += self.oam_address.wrapping_add(1);
   }
 
   fn get_mut_cartridge(&mut self) -> RefMut<Cartridge> {
@@ -217,7 +218,7 @@ impl Registers {
       0x00 => self.write_control(data),
       0x01 => { self.mask_flags.0 = data; }
       0x02 => {}
-      0x03 => self.write_oam_address(address),
+      0x03 => self.write_oam_address(data),
       0x04 => self.write_oam_data(data),
       0x05 => self.write_scroll(data),
       0x06 => self.write_address(data),

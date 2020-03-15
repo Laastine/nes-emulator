@@ -1,5 +1,5 @@
-use std::cell::{RefCell, RefMut, Ref};
-use std::convert::TryFrom;
+use std::cell::{Ref, RefCell, RefMut};
+use std::convert::{TryFrom, TryInto};
 use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
@@ -14,12 +14,18 @@ pub struct Bus {
   controller: Rc<RefCell<[u8; 2]>>,
   controller_state: [u8; 2],
   registers: Rc<RefCell<Registers>>,
+  pub dma_transfer: bool,
+  dma_page: u8,
+  dma_data: u8,
 }
 
 impl Bus {
   pub fn new(cartridge: Rc<RefCell<Cartridge>>, registers: Rc<RefCell<Registers>>, controller: Rc<RefCell<[u8; 2]>>) -> Bus {
     let ram = [0u8; MEM_SIZE];
     let controller_state = [0u8; 2];
+    let dma_transfer = false;
+    let dma_page = 0x00;
+    let dma_data = 0x00;
 
     Bus {
       cartridge,
@@ -27,6 +33,9 @@ impl Bus {
       controller,
       controller_state,
       registers,
+      dma_transfer,
+      dma_page,
+      dma_data,
     }
   }
 
@@ -50,6 +59,10 @@ impl Bus {
       self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
     } else if (0x2000..=0x3FFF).contains(&address) {
       self.get_mut_registers().cpu_write(address & 0x0007, data)
+    } else if address == 0x4014 {
+      self.dma_page = data;
+      self.get_mut_registers().oam_address = 0x00;
+      self.dma_transfer = true;
     } else if (0x4016..=0x4017).contains(&address) {
       let idx = usize::try_from(address & 1).unwrap();
       let new_controller_state = self.get_controller()[idx];
@@ -72,6 +85,22 @@ impl Bus {
       if state > 0x00 { 1 } else { 0 }
     } else {
       0
+    }
+  }
+
+  pub fn oam_dma_access(&mut self, system_cycles: u64) {
+    if self.dma_transfer {
+      if system_cycles % 2 == 0 {
+        let oam_address = u16::try_from(self.get_mut_registers().oam_address).unwrap();
+        self.dma_data = self.read_u8(u16::try_from(u16::try_from(self.dma_page).unwrap().wrapping_shl(8) | oam_address).unwrap(), false).try_into().unwrap();
+      } else {
+        let dma_data = self.dma_data;
+        self.get_mut_registers().write_oam_data(dma_data);
+
+        if self.get_mut_registers().oam_address == 0 {
+          self.dma_transfer = false;
+        }
+      }
     }
   }
 }
