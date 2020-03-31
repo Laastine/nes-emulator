@@ -18,6 +18,24 @@ bitfield! {
     pub u8, enable_nmi, _: 7;
 }
 
+impl PpuCtrlFlags {
+  pub fn get_pattern_background(self) -> u16 {
+    u16::try_from(self.pattern_background()).unwrap() * 0x1000
+  }
+
+  pub fn get_sprite_size(self) -> u8 {
+    if self.sprite_size() {
+      16
+    } else {
+      8
+    }
+  }
+
+  pub fn get_sprite_tile_base(self) -> u16 {
+    u16::try_from(self.pattern_sprite_table_addr()).unwrap() * 0x1000
+  }
+}
+
 bitfield! {
   #[derive(Copy, Clone, PartialEq)]
   pub struct PpuMaskFlags(u8); impl Debug;
@@ -31,6 +49,20 @@ bitfield! {
     pub u8, emphasize_blue, _: 7;
 }
 
+impl PpuMaskFlags {
+  pub fn is_rendering(self) -> bool {
+    self.show_sprites() || self.show_background()
+  }
+
+  pub fn is_rendering_background(self, x: usize) -> bool {
+    self.show_background() && (self.show_sprites_in_left_margin() || x > 7)
+  }
+
+  pub fn is_rendering_sprites(self, x: usize) -> bool {
+    self.show_sprites() && (self.show_sprites_in_left_margin() || x > 7)
+  }
+}
+
 bitfield! {
   #[derive(Copy, Clone, PartialEq)]
   pub struct PpuStatusFlags(u8); impl Debug;
@@ -39,7 +71,6 @@ bitfield! {
     pub u8, vertical_blank,  set_vertical_blank:                7;
 }
 
-// https://wiki.nesdev.com/w/index.php/PPU_scrolling
 bitfield! {
   #[derive(Copy, Clone, PartialEq)]
   pub struct ScrollRegister(u16); impl Debug;
@@ -48,12 +79,13 @@ bitfield! {
     pub u8,    nametable_x,  set_nametable_x:   10;
     pub u8,    nametable_y,  set_nametable_y:   11;
     pub u8,    fine_y,       set_fine_y:        14, 12;
-    pub u8,    _unused,       _:                15, 15;
     pub u8,    hi_byte,      set_hi_byte:       13, 8;
     pub u8,    lo_byte,      set_lo_byte:       7,  0;
 }
 
-const OAM_RAM_SIZE: usize = 0x100;
+pub fn get_nth_bit<T: Into<u16>, U: Into<u16>>(number: T, nth: U) -> u8 {
+  u8::try_from((number.into() >> nth.into()) & 1).unwrap()
+}
 
 #[derive(Clone)]
 pub struct Registers {
@@ -72,14 +104,16 @@ pub struct Registers {
 
   pub oam_address: u8,
   pub oam_ram: [u8; 0x100],
-  sprite_count: u8,
-  sprite_shifter_pattern_lo: u8,
-  sprite_shifter_pattern_hi: u8,
+  pub sprite_count: u8,
+  pub sprite_shifter_pattern_lo: u8,
+  pub sprite_shifter_pattern_hi: u8,
 
   // Sprite collision flags
-  sprite_zero_hit_possible: bool,
-  sprite_zero_being_rendered: bool,
+  pub sprite_zero_hit_possible: bool,
+  pub sprite_zero_being_rendered: bool,
 
+  pub vblank_suppress: bool,
+  pub force_nmi: bool,
 }
 
 impl Registers {
@@ -99,23 +133,34 @@ impl Registers {
       cartridge,
 
       oam_address: 0,
-      oam_ram: [0u8; OAM_RAM_SIZE],
+      oam_ram: [0u8; 0x100],
       sprite_count: 0,
       sprite_shifter_pattern_lo: 0,
       sprite_shifter_pattern_hi: 0,
       sprite_zero_hit_possible: false,
-      sprite_zero_being_rendered: false
+      sprite_zero_being_rendered: false,
+      vblank_suppress: false,
+      force_nmi: false,
     }
   }
 
-  pub fn write_oam_address(&mut self, address: u8) {
+  fn write_oam_address(&mut self, address: u8) {
     self.oam_address = address;
   }
 
   pub fn write_oam_data(&mut self, data: u8) {
     let idx = usize::try_from(self.oam_address).unwrap();
     self.oam_ram[idx] = data;
-    self.oam_address += self.oam_address.wrapping_add(1);
+    self.oam_address = self.oam_address.wrapping_add(1);
+  }
+
+  fn read_oam_data(&mut self) -> u8 {
+    let idx = usize::try_from(self.oam_address).unwrap();
+    if idx % 4 == 2 {
+      self.oam_ram[idx] & 0xE7
+    } else {
+      self.oam_ram[idx]
+    }
   }
 
   fn get_mut_cartridge(&mut self) -> RefMut<Cartridge> {
@@ -293,7 +338,7 @@ impl Registers {
         0x01 => 0x00,
         0x02 => self.read_status(),
         0x03 => 0x00,
-        0x04 => 0x00,
+        0x04 => self.read_oam_data(),
         0x05 => 0x00,
         0x06 => 0x00,
         0x07 => self.read_ppu_data(),
@@ -303,10 +348,10 @@ impl Registers {
   }
 
   fn read_status(&mut self) -> u8 {
-    let status_flags = self.status_flags;
-    let res = (status_flags.0 & 0xE0) | (self.ppu_data_buffer & 0x1F);
+    let res = self.status_flags.0;
     self.status_flags.set_vertical_blank(false);
     self.address_latch = false;
+    self.vblank_suppress = true;
     res
   }
 

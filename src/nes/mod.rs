@@ -152,9 +152,9 @@ impl Nes {
 
       if delta > 0.016 {
         last_time = time::Instant::now();
-        if self.ppu.frame_ready {
+        if self.ppu.is_frame_ready {
           self.render_screen();
-          self.ppu.frame_ready = false;
+          self.ppu.is_frame_ready = false;
         }
       }
     } // app loop

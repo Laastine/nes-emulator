@@ -17,6 +17,7 @@ pub struct Bus {
   pub dma_transfer: bool,
   dma_page: u8,
   dma_data: u8,
+  is_odd_cycle: bool,
 }
 
 impl Bus {
@@ -36,6 +37,7 @@ impl Bus {
       dma_transfer,
       dma_page,
       dma_data,
+      is_odd_cycle: true,
     }
   }
 
@@ -89,17 +91,20 @@ impl Bus {
   }
 
   pub fn oam_dma_access(&mut self, system_cycles: u64) {
-    if self.dma_transfer {
-      if system_cycles % 2 == 0 {
-        let oam_address = u16::try_from(self.get_mut_registers().oam_address).unwrap();
-        self.dma_data = self.read_u8(u16::try_from(u16::try_from(self.dma_page).unwrap().wrapping_shl(8) | oam_address).unwrap(), false).try_into().unwrap();
-      } else {
-        let dma_data = self.dma_data;
-        self.get_mut_registers().write_oam_data(dma_data);
+    if self.is_odd_cycle {
+      if system_cycles % 2 == 1 {
+        self.is_odd_cycle = false;
+      }
+    } else if system_cycles % 2 == 0 {
+      let oam_address = u16::try_from(self.get_mut_registers().oam_address).unwrap();
+      self.dma_data = self.read_u8(u16::try_from(u16::try_from(self.dma_page).unwrap().wrapping_shl(8) | oam_address).unwrap(), false).try_into().unwrap();
+    } else {
+      let dma_data = self.dma_data;
+      self.get_mut_registers().write_oam_data(dma_data);
 
-        if self.get_mut_registers().oam_address == 0 {
-          self.dma_transfer = false;
-        }
+      if self.get_mut_registers().oam_address == 0 {
+        self.dma_transfer = false;
+        self.is_odd_cycle = true;
       }
     }
   }
