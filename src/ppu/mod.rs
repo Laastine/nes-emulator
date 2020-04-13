@@ -310,8 +310,8 @@ impl Ppu {
     let y = if self.scan_line > -1 { u32::try_from(self.scan_line).unwrap() } else { 0xFFF };
 
     if (0..=255).contains(&x) && (0..=239).contains(&y) {
-      let pixel = self.get_color(bg_palette, bg_pixel);
-      self.image_buffer.put_pixel(x, 239 - y, Rgb(pixel.val));
+      let color = Rgb(self.get_color(bg_palette, bg_pixel).to_value());
+      self.image_buffer.put_pixel(x, 239 - y, color);
     }
   }
 
