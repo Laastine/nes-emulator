@@ -22,6 +22,7 @@ pub struct Rom {
   pub rom_header: RomHeader,
   pub prg_rom: Vec<u8>,
   pub chr_rom: Vec<u8>,
+  pub chr_ram: Vec<u8>,
   pub title: String,
 }
 
@@ -119,6 +120,8 @@ impl Rom {
       panic!("Couldn't read CHR rom");
     }
 
+    let chr_ram = vec![0u8; rom_header.chr_ram_len];
+
     let title_bytes = bytes.take(0x80).collect::<Vec<u8>>();
     let title = String::from_utf8_lossy(&title_bytes).to_string();
 
@@ -133,6 +136,7 @@ impl Rom {
       title,
       prg_rom,
       chr_rom,
+      chr_ram
     }
   }
 
@@ -157,6 +161,7 @@ impl Rom {
       rom_header,
       prg_rom: vec![0u8; rom_header.prg_rom_len],
       chr_rom: vec![0u8; rom_header.chr_rom_len],
+      chr_ram: vec![0u8; rom_header.chr_ram_len],
       title: "test".to_string(),
     }
   }

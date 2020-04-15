@@ -127,7 +127,11 @@ impl Registers {
 
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_ppu_u8(addr);
     if is_address_in_range {
-      self.get_mut_cartridge().rom.chr_rom[mapped_addr]
+      if self.get_mut_cartridge().rom.chr_rom.is_empty() {
+        self.get_mut_cartridge().rom.chr_ram[mapped_addr]
+      } else  {
+        self.get_mut_cartridge().rom.chr_rom[mapped_addr]
+      }
     } else if (0x0000..=0x1FFF).contains(&addr) {
       let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
       let second_idx = usize::try_from(addr & 0x0FFF).unwrap();
@@ -173,7 +177,11 @@ impl Registers {
 
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr);
     if is_address_in_range {
-      self.get_mut_cartridge().rom.chr_rom[mapped_addr] = data;
+      if self.get_mut_cartridge().rom.chr_rom.is_empty() {
+        self.get_mut_cartridge().rom.chr_ram[mapped_addr] = data;
+      } else {
+        self.get_mut_cartridge().rom.chr_rom[mapped_addr] = data;
+      }
     } else if (0x0000..=0x1FFF).contains(&addr) {
       let fst_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
       let snd_idx = usize::try_from(addr & 0x0FFF).unwrap();
