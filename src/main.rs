@@ -27,7 +27,6 @@ fn print_version() {
 
 fn main() {
   let args: Vec<String> = env::args().collect();
-  println!("Args {:?}", args);
 
   let mut opts = Options::new();
   opts.optflag("r", "rom", "ROM file name");
