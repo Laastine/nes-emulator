@@ -72,14 +72,14 @@ impl Bus {
     }
   }
 
-  pub fn read_u8(&mut self, address: u16, read_only: bool) -> u16 {
+  pub fn read_u8(&mut self, address: u16) -> u16 {
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_cpu_u8(address);
     if is_address_in_range {
       u16::try_from(self.get_mut_cartridge().rom.prg_rom[mapped_addr]).unwrap()
     } else if (0x0000..=0x1FFF).contains(&address) {
       u16::try_from(self.ram[usize::try_from(address).unwrap() & 0x07FF]).unwrap()
     } else if (0x2000..=0x3FFF).contains(&address) {
-      self.get_mut_registers().cpu_read(address & 0x0007, read_only).into()
+      self.get_mut_registers().cpu_read(address & 0x0007).into()
     } else if (0x4016..=0x4017).contains(&address) {
       let idx = usize::try_from(address & 0x0001).unwrap();
       let state = self.controller_state[idx] & 0x80;
@@ -97,7 +97,7 @@ impl Bus {
       }
     } else if system_cycles % 2 == 0 {
       let oam_address = u16::try_from(self.get_mut_registers().oam_address).unwrap();
-      self.dma_data = self.read_u8(u16::try_from(u16::try_from(self.dma_page).unwrap().wrapping_shl(8) | oam_address).unwrap(), false).try_into().unwrap();
+      self.dma_data = self.read_u8(u16::try_from(u16::try_from(self.dma_page).unwrap().wrapping_shl(8) | oam_address).unwrap()).try_into().unwrap();
     } else {
       let dma_data = self.dma_data;
       self.get_mut_registers().write_oam_data(dma_data);

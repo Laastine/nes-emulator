@@ -64,7 +64,7 @@ impl Cpu {
   }
 
   fn bus_mut_read_u8(&mut self, address: u16) -> u16 {
-    self.bus.read_u8(address, false).try_into().unwrap()
+    self.bus.read_u8(address).try_into().unwrap()
   }
 
   fn bus_write_u8(&mut self, address: u16, data: u8) {
@@ -898,110 +898,6 @@ impl Cpu {
     self.acc = self.y;
     self.set_flags_zero_and_negative(self.acc.into());
     0
-  }
-
-  #[cfg(feature = "terminal_debug")]
-  pub fn disassemble(&mut self, start: u16, end: u16) -> HashMap<u16, String> {
-    use std::collections::HashMap;
-
-    let mut addr = start as u32;
-    let mut map: HashMap<u16, String> = HashMap::new();
-
-    while addr < end as u32 {
-      let line_addr = u16::try_from(addr).unwrap();
-      let mut codes = format!("$:{}: ", hex(usize::try_from(addr).unwrap(), 4));
-      let opcode = self.bus_read_u8(u16::try_from(addr).unwrap());
-      addr += 1;
-
-      let name = self.lookup.get_name(opcode.try_into().unwrap());
-      codes = format!("{} {} ", codes, name);
-
-      let addr_mode = *self.lookup.get_addr_mode(opcode.try_into().unwrap());
-
-      match addr_mode {
-        ADDRMODE6502::IMP => {
-          codes.push_str(" {{IMP}}\t");
-        }
-        ADDRMODE6502::IMM => {
-          let value = self.bus_read_u8(addr.try_into().unwrap());
-          addr += 1;
-          codes.push_str(&format!("${} {{IMM}}\t", hex(usize::from(value), 2)));
-        }
-        ADDRMODE6502::ZP0 => {
-          let lo_byte = self.bus_read_u8(u16::try_from(addr).unwrap());
-          addr += 1;
-          codes.push_str(&format!("${} {{ZP0}}\t", hex(usize::from(lo_byte), 2)));
-        }
-        ADDRMODE6502::ZPX => {
-          let lo_byte = self.bus_read_u8(addr.try_into().unwrap());
-          addr += 1;
-          codes.push_str(&format!("${} {{ZPX}}\t", hex(usize::from(lo_byte), 2)));
-        }
-        ADDRMODE6502::ZPY => {
-          let lo_byte = self.bus_read_u8(addr.try_into().unwrap());
-          addr += 1;
-          codes.push_str(&format!("${} {{ZPY}}\t", hex(usize::from(lo_byte), 2)));
-        }
-        ADDRMODE6502::REL => {
-          let value = self.bus_read_u8(addr.try_into().unwrap());
-          addr += 1;
-          codes.push_str(&format!(
-            "${} [${}] {{REL}}\t",
-            hex(usize::from(value), 2),
-            hex((addr.wrapping_add(value.into())).try_into().unwrap(), 4)
-          ));
-        }
-        ADDRMODE6502::ABS => {
-          let (lo_byte, hi_byte) = self.extract_addr_16(addr);
-          codes.push_str(&format!(
-            "${} {{ABS}}\t",
-            hex(usize::from(hi_byte.wrapping_shl(8) | lo_byte), 4)
-          ));
-        }
-        ADDRMODE6502::ABX => {
-          let (lo_byte, hi_byte) = self.extract_addr_16(addr);
-          codes.push_str(&format!(
-            "${} X {{ABX}}\t",
-            hex(usize::from(hi_byte.wrapping_shl(8) | lo_byte), 4)
-          ));
-        }
-        ADDRMODE6502::ABY => {
-          let (lo_byte, hi_byte) = self.extract_addr_16(addr);
-          codes.push_str(&format!(
-            "${}, Y {{ABY}}\t",
-            hex(usize::from(hi_byte.wrapping_shl(8) | lo_byte), 4)
-          ));
-        }
-        ADDRMODE6502::IND => {
-          let (lo_byte, hi_byte) = self.extract_addr_16(addr);
-          codes.push_str(&format!(
-            "(${}) {{IND}}\t",
-            hex(usize::from(hi_byte.wrapping_shl(8) | lo_byte), 4)
-          ));
-        }
-        ADDRMODE6502::IZX => {
-          let lo_byte = self.bus_read_u8(addr.try_into().unwrap());
-          addr += 1;
-          codes.push_str(&format!("${} {{IZX}}\t", hex(usize::from(lo_byte), 2)));
-        }
-        ADDRMODE6502::IZY => {
-          let lo_byte = self.bus_read_u8(addr.try_into().unwrap());
-          addr += 1;
-          codes.push_str(&format!("${} {{IZY}}\t", hex(usize::from(lo_byte), 2)));
-        }
-      }
-
-      map.insert(line_addr, codes);
-    }
-    map
-  }
-
-  #[cfg(feature = "terminal_debug")]
-  fn extract_addr_16(&mut self, mut addr: u32) -> (u16, u16) {
-    let lo_byte = self.bus_read_u8(addr.try_into().unwrap());
-    addr += 1;
-    let hi_byte = self.bus_read_u8(addr.try_into().unwrap());
-    (lo_byte, hi_byte)
   }
 }
 

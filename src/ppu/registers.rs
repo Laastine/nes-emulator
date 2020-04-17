@@ -174,7 +174,7 @@ impl Registers {
     if is_address_in_range {
       if self.get_mut_cartridge().rom.chr_rom.is_empty() {
         self.get_mut_cartridge().rom.chr_ram[mapped_addr]
-      } else  {
+      } else {
         self.get_mut_cartridge().rom.chr_rom[mapped_addr]
       }
     } else if (0x0000..=0x1FFF).contains(&addr) {
@@ -319,31 +319,17 @@ impl Registers {
     self.ppu_write(vram_addr.0, data);
   }
 
-  pub fn cpu_read(&mut self, address: u16, read_only: bool) -> u8 {
-    if read_only {
-      match address {
-        0x00 => self.ctrl_flags.0,
-        0x01 => self.mask_flags.0,
-        0x02 => self.status_flags.0,
-        0x03 => 0x00,
-        0x04 => 0x00,
-        0x05 => 0x00,
-        0x06 => 0x00,
-        0x07 => 0x00,
-        _ => 0x00,
-      }
-    } else {
-      match address {
-        0x00 => 0x00,
-        0x01 => 0x00,
-        0x02 => self.read_status(),
-        0x03 => 0x00,
-        0x04 => self.read_oam_data(),
-        0x05 => 0x00,
-        0x06 => 0x00,
-        0x07 => self.read_ppu_data(),
-        _ => panic!("read_ppu_u8 address: {} not in range", address),
-      }
+  pub fn cpu_read(&mut self, address: u16) -> u8 {
+    match address {
+      0x00 => 0x00,
+      0x01 => 0x00,
+      0x02 => self.read_status(),
+      0x03 => 0x00,
+      0x04 => self.read_oam_data(),
+      0x05 => 0x00,
+      0x06 => 0x00,
+      0x07 => self.read_ppu_data(),
+      _ => panic!("read_ppu_u8 address: {} not in range", address),
     }
   }
 
