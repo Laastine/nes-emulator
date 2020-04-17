@@ -49,7 +49,7 @@ fn main() {
   }
 
   let rom_file = if !matches.free.is_empty() {
-    matches.free[0].clone()
+    matches.free[0].to_string()
   } else {
     panic!("No ROM file parameter given")
   };
