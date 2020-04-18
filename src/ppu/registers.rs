@@ -355,29 +355,37 @@ impl Registers {
   }
 }
 
-#[test]
-fn ppu_table_write_and_read() {
-  let cart = Cartridge::mock_cartridge();
-  let mut registers = Registers::new(Rc::new(RefCell::new(cart)));
+#[cfg(test)]
+mod test {
+  use crate::cartridge::Cartridge;
+  use crate::ppu::registers::Registers;
+  use std::rc::Rc;
+  use std::cell::RefCell;
 
-  registers.ppu_write(0x2000u16, 1u8);
-  let res = registers.ppu_read(0x2000u16);
+  #[test]
+  fn ppu_table_write_and_read() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(cart)));
 
-  assert_eq!(res, 1u8)
-}
+    registers.ppu_write(0x2000u16, 1u8);
+    let res = registers.ppu_read(0x2000u16);
 
-#[test]
-fn ppu_status_register_write_and_read() {
-  let cart = Cartridge::mock_cartridge();
-  let mut registers = Registers::new(Rc::new(RefCell::new(cart)));
+    assert_eq!(res, 1u8)
+  }
 
-  registers.status_flags.set_sprite_overflow(true);
+  #[test]
+  fn ppu_status_register_write_and_read() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(cart)));
 
-  assert_eq!(registers.status_flags.sprite_overflow(), true);
-  assert_eq!(registers.status_flags.0, 0b00_10_00_00);
+    registers.status_flags.set_sprite_overflow(true);
 
-  registers.status_flags.set_sprite_overflow(false);
+    assert_eq!(registers.status_flags.sprite_overflow(), true);
+    assert_eq!(registers.status_flags.0, 0b00_10_00_00);
 
-  assert_eq!(registers.status_flags.sprite_overflow(), false);
-  assert_eq!(registers.status_flags.0, 0b00_00_00_00);
+    registers.status_flags.set_sprite_overflow(false);
+
+    assert_eq!(registers.status_flags.sprite_overflow(), false);
+    assert_eq!(registers.status_flags.0, 0b00_00_00_00);
+  }
 }
