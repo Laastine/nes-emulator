@@ -49,12 +49,16 @@ impl Bus {
     self.cartridge.borrow_mut()
   }
 
+  pub fn get_cartridge(&self) -> Ref<Cartridge> {
+    self.cartridge.borrow()
+  }
+
   pub fn get_mut_registers(&mut self) -> RefMut<Registers> {
     self.registers.borrow_mut()
   }
 
   pub fn write_u8(&mut self, address: u16, data: u8) {
-    let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_cpu_u8(address);
+    let (is_address_in_range, mapped_addr) = self.get_cartridge().mapper.mapped_read_cpu_u8(address);
     if is_address_in_range {
       self.get_mut_cartridge().rom.prg_rom[mapped_addr] = data;
     } else if (0x0000..=0x1FFF).contains(&address) {
@@ -73,7 +77,7 @@ impl Bus {
   }
 
   pub fn read_u8(&mut self, address: u16) -> u16 {
-    let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_cpu_u8(address);
+    let (is_address_in_range, mapped_addr) = self.get_cartridge().mapper.mapped_read_cpu_u8(address);
     if is_address_in_range {
       u16::try_from(self.get_mut_cartridge().rom.prg_rom[mapped_addr]).unwrap()
     } else if (0x0000..=0x1FFF).contains(&address) {

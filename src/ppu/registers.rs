@@ -1,4 +1,4 @@
-use std::cell::{RefCell, RefMut};
+use std::cell::{RefCell, RefMut, Ref};
 use std::convert::TryFrom;
 use std::rc::Rc;
 
@@ -154,7 +154,7 @@ impl Registers {
     self.oam_address = self.oam_address.wrapping_add(1);
   }
 
-  fn read_oam_data(&mut self) -> u8 {
+  fn read_oam_data(&self) -> u8 {
     let idx = usize::try_from(self.oam_address).unwrap();
     if idx % 4 == 2 {
       self.oam_ram[idx] & 0xE7
@@ -167,15 +167,19 @@ impl Registers {
     self.cartridge.borrow_mut()
   }
 
-  pub fn ppu_read(&mut self, address: u16) -> u8 {
+  fn get_cartridge(&self) -> Ref<Cartridge> {
+    self.cartridge.borrow()
+  }
+
+  pub fn ppu_read(&self, address: u16) -> u8 {
     let mut addr = address & 0x3FFF;
 
-    let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_read_ppu_u8(addr);
+    let (is_address_in_range, mapped_addr) = self.get_cartridge().mapper.mapped_read_ppu_u8(addr);
     if is_address_in_range {
-      if self.get_mut_cartridge().rom.chr_rom.is_empty() {
-        self.get_mut_cartridge().rom.chr_ram[mapped_addr]
+      if self.get_cartridge().rom.chr_rom.is_empty() {
+        self.get_cartridge().rom.chr_ram[mapped_addr]
       } else {
-        self.get_mut_cartridge().rom.chr_rom[mapped_addr]
+        self.get_cartridge().rom.chr_rom[mapped_addr]
       }
     } else if (0x0000..=0x1FFF).contains(&addr) {
       let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
@@ -184,7 +188,7 @@ impl Registers {
     } else if (0x2000..=0x3EFF).contains(&addr) {
       addr &= 0x0FFF;
       let idx = usize::try_from(addr & 0x03FF).unwrap();
-      let mirror_mode = self.get_mut_cartridge().get_mirror_mode();
+      let mirror_mode = self.get_cartridge().get_mirror_mode();
       match mirror_mode {
         Mirroring::Vertical => {
           match addr {
@@ -222,7 +226,7 @@ impl Registers {
 
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr);
     if is_address_in_range {
-      if self.get_mut_cartridge().rom.chr_rom.is_empty() {
+      if self.get_cartridge().rom.chr_rom.is_empty() {
         self.get_mut_cartridge().rom.chr_ram[mapped_addr] = data;
       } else {
         self.get_mut_cartridge().rom.chr_rom[mapped_addr] = data;
@@ -234,7 +238,7 @@ impl Registers {
     } else if (0x2000..=0x3EFF).contains(&addr) {
       addr &= 0x0FFF;
       let snd_idx = usize::try_from(addr & 0x03FF).unwrap();
-      let mirror_mode = self.get_mut_cartridge().get_mirror_mode();
+      let mirror_mode = self.get_cartridge().get_mirror_mode();
       let fst_idx = match mirror_mode {
         Mirroring::Vertical => {
           match addr {
@@ -357,10 +361,11 @@ impl Registers {
 
 #[cfg(test)]
 mod test {
+  use std::cell::RefCell;
+  use std::rc::Rc;
+
   use crate::cartridge::Cartridge;
   use crate::ppu::registers::Registers;
-  use std::rc::Rc;
-  use std::cell::RefCell;
 
   #[test]
   fn ppu_table_write_and_read() {
