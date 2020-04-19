@@ -1,6 +1,4 @@
 use std::convert::{TryFrom, TryInto};
-use std::fs::OpenOptions;
-use std::io::Write;
 
 use crate::bus::Bus;
 use crate::cpu::instruction_table::{ADDRMODE6502, FLAGS6502, LookUpTable, OPCODES6502};
@@ -138,9 +136,10 @@ impl Cpu {
     self.cycles -= 1;
   }
 
-  #[cfg(debug_assertions)]
   #[allow(dead_code)]
   fn log(&self, log_pc: usize) {
+    use std::fs::OpenOptions;
+    use std::io::Write;
     let mut file = OpenOptions::new()
       .write(true)
       .append(true)
@@ -901,6 +900,7 @@ impl Cpu {
   }
 }
 
+#[allow(dead_code)]
 pub fn hex(num: usize, len: usize) -> String {
   match len {
     2 => format!("{:0>2X}", num),
