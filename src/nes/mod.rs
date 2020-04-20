@@ -2,7 +2,7 @@ use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 use std::time;
 
-use glutin::{ElementState, ElementState::Pressed, KeyboardInput, VirtualKeyCode::{A, Down, Escape, LAlt, LControl, Left, R, Right, S, Space, Up}, WindowEvent};
+use glutin::{ElementState, ElementState::Pressed, KeyboardInput, VirtualKeyCode::{A, Down, Escape, LAlt, LControl, Left, R, Right, S, Up}, WindowEvent};
 use luminance::context::GraphicsContext as _;
 use luminance::framebuffer::Framebuffer;
 use luminance::pipeline::PipelineState;
@@ -23,7 +23,6 @@ pub struct Nes {
   ppu: Ppu,
   system_cycles: u64,
   window_context: WindowContext,
-  debug_mode: bool,
   controller: Rc<RefCell<[u8; 2]>>,
 }
 
@@ -46,14 +45,11 @@ impl Nes {
     let ppu = Ppu::new(registers, &mut window_context.surface);
     let system_cycles = 0;
 
-    let debug_mode = false;
-
     Nes {
       cpu,
       ppu,
       system_cycles,
       window_context,
-      debug_mode,
       controller,
     }
   }
@@ -115,9 +111,6 @@ impl Nes {
                 KeyboardInput { state, virtual_keycode: Some(Right), .. } => {
                   controller_button_state = if state == Pressed { KeyCodes::Right.value() } else { 0 };
                 }
-                KeyboardInput { virtual_keycode: Some(Space), .. } => {
-                  keyboard_state = Some(KeyboardCommand::Debug)
-                }
                 KeyboardInput { state: Pressed, virtual_keycode: Some(R), .. } => {
                   keyboard_state = Some(KeyboardCommand::Reset)
                 }
@@ -133,7 +126,6 @@ impl Nes {
       });
 
       match keyboard_state {
-        Some(KeyboardCommand::Debug) => self.debug_mode = !self.debug_mode,
         Some(KeyboardCommand::Exit) => break 'app,
         Some(KeyboardCommand::Reset) => self.cpu.reset(),
         Some(KeyboardCommand::Resize) => self.window_context.resize = true,
@@ -146,9 +138,7 @@ impl Nes {
         self.get_controller()[0] = 0;
       }
 
-      if !self.debug_mode {
-        self.clock();
-      }
+      self.clock();
 
       if delta > 0.016 {
         last_time = time::Instant::now();
