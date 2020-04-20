@@ -34,10 +34,10 @@ pub struct Ppu {
   curr_address: u16,
   attribute_shift_lo: u8,
   attribute_shift_hi: u8,
-  pub primary_oam: Vec<Sprite>,
-  pub secondary_oam: Vec<Sprite>,
   pub is_frame_ready: bool,
-  pub is_even_frame: bool,
+  primary_oam: Vec<Sprite>,
+  secondary_oam: Vec<Sprite>,
+  is_even_frame: bool,
   off_screen_pixels: Vec<Rgb<u8>>
 }
 

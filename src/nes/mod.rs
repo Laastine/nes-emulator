@@ -58,6 +58,7 @@ impl Nes {
     self.reset();
   }
 
+  #[inline]
   fn get_controller(&mut self) -> RefMut<[u8; 2]> {
     self.controller.borrow_mut()
   }
@@ -69,7 +70,7 @@ impl Nes {
     let mut controller_button_state = 0x00;
     'app: loop {
       let elapsed = last_time.elapsed();
-      let delta = f64::from(elapsed.subsec_nanos()) / 1e9 + elapsed.as_secs() as f64;
+      let delta = elapsed.subsec_millis();
 
       self.window_context.surface.event_loop.poll_events(|event| {
         if let glutin::Event::WindowEvent { event, .. } = event {
@@ -140,7 +141,8 @@ impl Nes {
 
       self.clock();
 
-      if delta > 0.016 {
+      // 16ms per frame ~ 60FPS
+      if delta > 16  {
         last_time = time::Instant::now();
         if self.ppu.is_frame_ready {
           self.render_screen();
