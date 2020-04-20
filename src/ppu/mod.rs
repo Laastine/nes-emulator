@@ -1,5 +1,5 @@
-use std::cell::{RefCell, RefMut, Ref};
-use std::convert::{TryFrom, TryInto};
+use std::cell::{Ref, RefCell, RefMut};
+use std::convert::TryFrom;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::rc::Rc;
@@ -38,6 +38,7 @@ pub struct Ppu {
   pub secondary_oam: Vec<Sprite>,
   pub is_frame_ready: bool,
   pub is_even_frame: bool,
+  off_screen_pixels: Vec<Rgb<u8>>
 }
 
 impl Ppu {
@@ -69,7 +70,8 @@ impl Ppu {
       primary_oam: Vec::with_capacity(8),
       secondary_oam: Vec::with_capacity(8),
       is_frame_ready: false,
-      is_even_frame: true
+      is_even_frame: true,
+      off_screen_pixels: Vec::with_capacity(256 * 240),
     }
   }
 
@@ -122,6 +124,7 @@ impl Ppu {
     self.secondary_oam.clear();
     self.is_frame_ready = false;
     self.is_even_frame = true;
+    self.off_screen_pixels = vec![Rgb([0u8, 0u8, 0u8]); 256 * 240];
   }
 
   fn update_shifters(&mut self) {
@@ -254,6 +257,9 @@ impl Ppu {
       }
       240 => {
         if self.cycles == 0 {
+          for (x, y, pixel) in self.image_buffer.enumerate_pixels_mut() {
+            *pixel = self.off_screen_pixels[y as usize * 256 + x as usize];
+          }
           self
             .texture
             .upload_raw(GenMipmaps::No, &self.image_buffer)
@@ -472,8 +478,7 @@ impl Ppu {
           [bg_pixel, sprite_pixel]
         };
         let c = if color[0] > 0 { color[0] } else { color[1] };
-        let screen_color = self.get_color(c).to_value();
-        self.image_buffer.put_pixel(x.try_into().unwrap(), (239 - y).try_into().unwrap(), Rgb(screen_color));
+        self.off_screen_pixels[(239 - y) * 256 + x] = Rgb(self.get_color(c).to_value());
       }
     }
 
