@@ -37,8 +37,8 @@ pub struct Ppu {
   pub is_frame_ready: bool,
   primary_oam: Vec<Sprite>,
   secondary_oam: Vec<Sprite>,
-  is_even_frame: bool,
-  off_screen_pixels: Vec<Rgb<u8>>
+  pub is_even_frame: bool,
+  off_screen_pixels: Vec<[u8; 3]>
 }
 
 impl Ppu {
@@ -90,14 +90,14 @@ impl Ppu {
     self.get_registers().ppu_read(address)
   }
 
-  fn get_color(&mut self, pixel: u8) -> Color {
+  fn get_pixel_color(&mut self, pixel: u8) -> Color {
     let palette = if self.get_registers().mask_flags.is_rendering() {
       pixel
     } else {
       0
     };
-    let idx = self.read_ppu_u8(0x3F00u16.wrapping_add(u16::try_from(palette).unwrap()));
-    COLORS[usize::try_from(idx).unwrap() & 0x3F]
+    let idx = self.read_ppu_u8(0x3F00u16 + u16::try_from(palette).unwrap());
+    COLORS[usize::try_from(idx).unwrap()]
   }
 
   pub fn reset(&mut self) {
@@ -124,7 +124,7 @@ impl Ppu {
     self.secondary_oam.clear();
     self.is_frame_ready = false;
     self.is_even_frame = true;
-    self.off_screen_pixels = vec![Rgb([0u8, 0u8, 0u8]); 256 * 240];
+    self.off_screen_pixels = vec![[0u8; 3]; 256 * 240];
   }
 
   fn update_shifters(&mut self) {
@@ -258,7 +258,7 @@ impl Ppu {
       240 => {
         if self.cycles == 0 {
           for (x, y, pixel) in self.image_buffer.enumerate_pixels_mut() {
-            *pixel = self.off_screen_pixels[y as usize * 256 + x as usize];
+            *pixel = Rgb(self.off_screen_pixels[y as usize * 256 + x as usize]);
           }
           self
             .texture
@@ -464,7 +464,7 @@ impl Ppu {
       let x = self.cycles - 2;
       let y = self.scan_line;
 
-      if (0..=255).contains(&x) && (0..=239).contains(&y) {
+      if x < 256 && y < 240 {
         let bg_pixel = self.render_background_pixel(x);
         let (sprite_pixel, sprite_behind, possible_zero_hit) = self.render_sprite_pixel(x);
 
@@ -472,13 +472,14 @@ impl Ppu {
           self.get_mut_registers().status_flags.set_sprite_zero_hit(true);
         }
 
-        let color = if !sprite_behind {
+        let colors = if !sprite_behind {
           [sprite_pixel, bg_pixel]
         } else {
           [bg_pixel, sprite_pixel]
         };
-        let c = if color[0] > 0 { color[0] } else { color[1] };
-        self.off_screen_pixels[(239 - y) * 256 + x] = Rgb(self.get_color(c).to_value());
+        let color = if colors[0] > 0 { colors[0] } else { colors[1] };
+        let pixel = self.get_pixel_color(color).to_value();
+        self.off_screen_pixels[(239 - y) * 256 + x] = pixel;
       }
     }
 
