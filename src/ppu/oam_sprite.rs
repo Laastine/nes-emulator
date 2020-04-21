@@ -1,6 +1,6 @@
 use std::convert::{TryFrom, TryInto};
 
-use crate::ppu::registers::{PpuCtrlFlags, get_nth_bit};
+use crate::ppu::registers::{get_nth_bit, PpuCtrlFlags};
 
 bitfield! {
   #[derive(Copy, Clone, PartialEq)]

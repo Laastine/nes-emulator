@@ -136,7 +136,7 @@ impl Rom {
       title,
       prg_rom,
       chr_rom,
-      chr_ram
+      chr_ram,
     }
   }
 

@@ -38,7 +38,7 @@ pub struct Ppu {
   primary_oam: Vec<Sprite>,
   secondary_oam: Vec<Sprite>,
   pub is_even_frame: bool,
-  off_screen_pixels: Vec<[u8; 3]>
+  off_screen_pixels: Vec<[u8; 3]>,
 }
 
 impl Ppu {
@@ -366,16 +366,15 @@ impl Ppu {
 
     if self.cycles == 338 {
       self.nametable_entry = self.read_ppu_u8(self.curr_address);
-
     }
 
     if self.cycles == 340 {
       self.nametable_entry = self.read_ppu_u8(self.curr_address);
-      if is_pre_render && self.get_mut_registers().mask_flags.is_rendering() && self.is_even_frame {
+
+      if is_pre_render && self.get_registers().mask_flags.is_rendering() && self.is_even_frame {
         self.cycles += 1;
       }
     }
-
   }
 
   fn process_sprites(&mut self, is_pre_render: bool) {

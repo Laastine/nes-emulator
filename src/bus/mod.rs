@@ -1,6 +1,7 @@
 use std::cell::{Ref, RefCell, RefMut};
 use std::convert::{TryFrom, TryInto};
 use std::rc::Rc;
+
 use crate::cartridge::Cartridge;
 use crate::ppu::registers::Registers;
 

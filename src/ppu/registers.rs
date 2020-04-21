@@ -1,4 +1,4 @@
-use std::cell::{RefCell, RefMut, Ref};
+use std::cell::{Ref, RefCell, RefMut};
 use std::convert::TryFrom;
 use std::rc::Rc;
 

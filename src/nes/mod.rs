@@ -142,7 +142,7 @@ impl Nes {
       self.clock();
 
       // 16ms per frame ~ 60FPS
-      if delta > 16  {
+      if delta > 16 {
         last_time = time::Instant::now();
         if self.ppu.is_frame_ready {
           self.render_screen();
