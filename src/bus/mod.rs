@@ -1,7 +1,6 @@
 use std::cell::{Ref, RefCell, RefMut};
 use std::convert::{TryFrom, TryInto};
 use std::rc::Rc;
-
 use crate::cartridge::Cartridge;
 use crate::ppu::registers::Registers;
 
@@ -94,18 +93,17 @@ impl Bus {
     }
   }
 
-  pub fn oam_dma_access(&mut self, system_cycles: u64) {
+  pub fn oam_dma_access(&mut self, system_cycles: u32) {
     if self.is_odd_cycle {
       if system_cycles % 2 == 1 {
         self.is_odd_cycle = false;
       }
     } else if system_cycles % 2 == 0 {
       let oam_address = u16::try_from(self.get_mut_registers().oam_address).unwrap();
-      self.dma_data = self.read_u8(u16::try_from(u16::try_from(self.dma_page).unwrap().wrapping_shl(8) | oam_address).unwrap()).try_into().unwrap();
+      self.dma_data = self.read_u8(u16::try_from(u16::try_from(self.dma_page).unwrap() << 8 | oam_address).unwrap()).try_into().unwrap();
     } else {
       let dma_data = self.dma_data;
       self.get_mut_registers().write_oam_data(dma_data);
-
       if self.get_mut_registers().oam_address == 0 {
         self.dma_transfer = false;
         self.is_odd_cycle = true;

@@ -21,7 +21,7 @@ pub mod constants;
 pub struct Nes {
   cpu: Cpu,
   ppu: Ppu,
-  system_cycles: u64,
+  system_cycles: u32,
   window_context: WindowContext,
   controller: Rc<RefCell<[u8; 2]>>,
 }
@@ -154,13 +154,10 @@ impl Nes {
 
   fn clock(&mut self) {
     self.ppu.clock();
-    if (self.system_cycles % 3) == 0 {
-      if self.cpu.bus.dma_transfer {
-        let system_cycles = self.system_cycles;
-        self.cpu.bus.oam_dma_access(system_cycles);
-      } else {
-        self.cpu.clock();
-      }
+    if self.cpu.bus.dma_transfer {
+      self.cpu.bus.oam_dma_access(self.system_cycles);
+    } else if (self.system_cycles % 3) == 0 {
+      self.cpu.clock();
     }
 
     if self.ppu.nmi {
