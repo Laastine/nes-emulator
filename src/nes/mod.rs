@@ -2,7 +2,7 @@ use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 use std::time;
 
-use glutin::{ElementState, ElementState::Pressed, KeyboardInput, VirtualKeyCode::{A, Down, Escape, LAlt, LControl, Left, R, Right, S, Up}, WindowEvent};
+use glutin::{ElementState::{Pressed, Released}, KeyboardInput, VirtualKeyCode::{A, Down, Escape, LAlt, LControl, Left, R, Right, S, Up}, WindowEvent};
 use luminance::context::GraphicsContext as _;
 use luminance::framebuffer::Framebuffer;
 use luminance::pipeline::PipelineState;
@@ -75,19 +75,12 @@ impl Nes {
       self.window_context.surface.event_loop.poll_events(|event| {
         if let glutin::Event::WindowEvent { event, .. } = event {
           match event {
-            WindowEvent::CloseRequested
-            | WindowEvent::Destroyed
-            | WindowEvent::KeyboardInput {
-              input:
-              KeyboardInput {
-                state: ElementState::Released,
-                virtual_keycode: Some(Escape),
-                ..
-              },
-              ..
-            } => keyboard_state = Some(KeyboardCommand::Exit),
+            WindowEvent::CloseRequested | WindowEvent::Destroyed => { keyboard_state = Some(KeyboardCommand::Exit) },
             WindowEvent::KeyboardInput { input, .. } => {
               match input {
+                KeyboardInput {state: Released, virtual_keycode: Some(Escape), ..} => {
+                  keyboard_state = Some(KeyboardCommand::Exit);
+                }
                 KeyboardInput { state, virtual_keycode: Some(LAlt), .. } => {
                   controller_button_state = if state == Pressed { KeyCodes::ButtonA.value() } else { 0 };
                 }
@@ -154,10 +147,11 @@ impl Nes {
 
   fn clock(&mut self) {
     self.ppu.clock();
-    if self.cpu.bus.dma_transfer {
-      self.cpu.bus.oam_dma_access(self.system_cycles);
-    } else if (self.system_cycles % 3) == 0 {
+
+    if !self.cpu.bus.dma_transfer && (self.system_cycles % 3) == 0 {
       self.cpu.clock();
+    } else if self.cpu.bus.dma_transfer {
+      self.cpu.bus.oam_dma_access(self.system_cycles);
     }
 
     if self.ppu.nmi {

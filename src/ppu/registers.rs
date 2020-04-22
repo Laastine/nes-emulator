@@ -211,11 +211,11 @@ impl Registers {
       }
     } else if (0x3F00..=0x3FFF).contains(&addr) {
       addr &= 0x001F;
-      let idx: usize = match addr {
-        0x0010 | 0x0014 | 0x0018 | 0x001C => usize::try_from(addr).unwrap() - 0x10,
-        _ => addr.into()
+      let idx = match addr {
+        0x0010 | 0x0014 | 0x0018 | 0x001C => addr - 0x10,
+        _ => addr
       };
-      self.palette_table[idx] & if self.mask_flags.grayscale() { 0x30 } else { 0x3F }
+      self.palette_table[usize::try_from(idx).unwrap()] & if self.mask_flags.grayscale() { 0x30 } else { 0x3F }
     } else {
       0
     }
