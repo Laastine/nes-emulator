@@ -9,8 +9,8 @@ Learning project to build Nintendo Entertainment System emulator.
 `Arrow keys` - D-pad<br>
 `S` - Start<br>
 `A` - Select<br>
-`Left Ctrl` - Button B<br>
-`Left Alt` - Button A<br>
+`Z` - Button B<br>
+`X` - Button A<br>
 `R` - Reset<br>
 `Esc` - Quit  
 
