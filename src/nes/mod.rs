@@ -2,7 +2,7 @@ use std::cell::{RefCell, RefMut};
 use std::rc::Rc;
 use std::time;
 
-use glutin::{ElementState::{Pressed, Released}, KeyboardInput, VirtualKeyCode::{A, Down, Escape, LAlt, LControl, Left, R, Right, S, Up}, WindowEvent};
+use glutin::{ElementState::{Pressed, Released}, KeyboardInput, VirtualKeyCode::{A, Down, Escape, Z, X, Left, R, Right, S, Up}, WindowEvent};
 use luminance::context::GraphicsContext as _;
 use luminance::framebuffer::Framebuffer;
 use luminance::pipeline::PipelineState;
@@ -75,17 +75,17 @@ impl Nes {
       self.window_context.surface.event_loop.poll_events(|event| {
         if let glutin::Event::WindowEvent { event, .. } = event {
           match event {
-            WindowEvent::CloseRequested | WindowEvent::Destroyed => { keyboard_state = Some(KeyboardCommand::Exit) },
+            WindowEvent::CloseRequested | WindowEvent::Destroyed => { keyboard_state = Some(KeyboardCommand::Exit) }
             WindowEvent::KeyboardInput { input, .. } => {
               match input {
-                KeyboardInput {state: Released, virtual_keycode: Some(Escape), ..} => {
+                KeyboardInput { state: Released, virtual_keycode: Some(Escape), .. } => {
                   keyboard_state = Some(KeyboardCommand::Exit);
                 }
-                KeyboardInput { state, virtual_keycode: Some(LAlt), .. } => {
-                  controller_button_state = if state == Pressed { KeyCodes::ButtonA.value() } else { 0 };
-                }
-                KeyboardInput { state, virtual_keycode: Some(LControl), .. } => {
+                KeyboardInput { state, virtual_keycode: Some(Z), .. } => {
                   controller_button_state = if state == Pressed { KeyCodes::ButtonB.value() } else { 0 };
+                }
+                KeyboardInput { state, virtual_keycode: Some(X), .. } => {
+                  controller_button_state = if state == Pressed { KeyCodes::ButtonA.value() } else { 0 };
                 }
                 KeyboardInput { state, virtual_keycode: Some(A), .. } => {
                   controller_button_state = if state == Pressed { KeyCodes::Select.value() } else { 0 };
@@ -110,13 +110,13 @@ impl Nes {
                 }
                 _ => {}
               }
-            }
+            },
             WindowEvent::Resized(_) => {
               keyboard_state = Some(KeyboardCommand::Resize)
             }
             _ => (),
-          }
-        };
+          };
+        }
       });
 
       match keyboard_state {
@@ -137,10 +137,26 @@ impl Nes {
       // 16ms per frame ~ 60FPS
       if delta > 16 {
         last_time = time::Instant::now();
+
+        if keyboard_state == Some(KeyboardCommand::Resize) {
+          self.window_context.resize = true;
+        }
         if self.ppu.is_frame_ready {
           self.render_screen();
           self.ppu.is_frame_ready = false;
         }
+      } else {
+        if controller_button_state > 0 {
+          self.get_controller()[0] |= controller_button_state;
+        } else {
+          self.get_controller()[0] = 0;
+        }
+
+        if keyboard_state == Some(KeyboardCommand::Reset) {
+          self.cpu.reset();
+        }
+
+        self.clock();
       }
     } // app loop
   }
