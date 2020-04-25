@@ -94,9 +94,9 @@ pub struct Registers {
   pub status_flags: PpuStatusFlags,
   pub vram_addr: ScrollRegister,
   pub tram_addr: ScrollRegister,
-  palette_table: [u8; 32],
-  table_pattern: [[u8; 4096]; 2],
-  name_table: [[u8; 1024]; 2],
+  pub palette_table: [u8; 32],
+  table_pattern: [[u8; 0x1000]; 2],
+  name_table: [[u8; 0x0400]; 2],
   address_latch: bool,
   pub ppu_data_buffer: u8,
   pub fine_x: u8,
@@ -124,9 +124,9 @@ impl Registers {
       status_flags: PpuStatusFlags(0x00),
       vram_addr: ScrollRegister(0x00),
       tram_addr: ScrollRegister(0x00),
-      palette_table: [0; 32],
-      table_pattern: [[0; 4096]; 2],
-      name_table: [[0; 1024]; 2],
+      palette_table: [0; 0x20],
+      table_pattern: [[0; 0x1000]; 2],
+      name_table: [[0; 0x0400]; 2],
       address_latch: false,
       ppu_data_buffer: 0x00,
       fine_x: 0x00,
@@ -144,6 +144,20 @@ impl Registers {
     }
   }
 
+  pub fn reset(&mut self) {
+    self.status_flags = PpuStatusFlags(0);
+    self.mask_flags = PpuMaskFlags(0);
+    self.ctrl_flags = PpuCtrlFlags(0);
+    self.vram_addr = ScrollRegister(0);
+    self.tram_addr = ScrollRegister(0);
+    self.ppu_data_buffer = 0;
+    self.fine_x = 0;
+    self.oam_ram = [0; 0x0100];
+    self.palette_table = [0; 0x20];
+    self.name_table = [[0u8; 0x0400]; 2];
+    self.table_pattern = [[0; 0x1000]; 2];
+  }
+
   fn write_oam_address(&mut self, address: u8) {
     self.oam_address = address;
   }
@@ -157,7 +171,7 @@ impl Registers {
   fn read_oam_data(&self) -> u8 {
     let idx = usize::try_from(self.oam_address).unwrap();
     if idx % 4 == 2 {
-      self.oam_ram[idx] & 0xE7
+      self.oam_ram[idx] & 0xE3
     } else {
       self.oam_ram[idx]
     }
@@ -171,7 +185,7 @@ impl Registers {
     self.cartridge.borrow()
   }
 
-  pub fn ppu_read(&self, address: u16) -> u8 {
+  pub fn ppu_read_reg(&self, address: u16) -> u8 {
     let mut addr = address & 0x3FFF;
 
     let (is_address_in_range, mapped_addr) = self.get_cartridge().mapper.mapped_read_ppu_u8(addr);
@@ -221,7 +235,7 @@ impl Registers {
     }
   }
 
-  pub fn ppu_write(&mut self, address: u16, data: u8) {
+  pub fn ppu_write_reg(&mut self, address: u16, data: u8) {
     let mut addr = address & 0x3FFF;
 
     let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr);
@@ -270,21 +284,25 @@ impl Registers {
     }
   }
 
-  pub fn cpu_write(&mut self, address: u16, data: u8) {
-    match address {
+  pub fn cpu_write_reg(&mut self, address: u16, data: u8) {
+    self.ppu_data_buffer = data;
+    match address % 8 {
       0x00 => self.write_control(data),
       0x01 => { self.mask_flags.0 = data; }
-      0x02 => {}
+      0x02 => (),
       0x03 => self.write_oam_address(data),
       0x04 => self.write_oam_data(data),
       0x05 => self.write_scroll(data),
       0x06 => self.write_address(data),
       0x07 => self.write_data(data),
-      _ => panic!("write_ppu_registers address: {} not in range", address),
+      _ => panic!("cpu_write_reg address: {} not in range", address),
     };
   }
 
   fn write_control(&mut self, data: u8) {
+    if !self.ctrl_flags.enable_nmi() && PpuCtrlFlags(data).enable_nmi() {
+      self.force_nmi = true;
+    }
     self.ctrl_flags.0 = data;
 
     let ctrl_flags = self.ctrl_flags;
@@ -293,11 +311,11 @@ impl Registers {
   }
 
   fn write_scroll(&mut self, data: u8) {
-    if self.address_latch {                    // Y
-      self.tram_addr.set_fine_y(data & 0x07);
+    if self.address_latch {
+      self.tram_addr.set_fine_y(data);
       self.tram_addr.set_coarse_y(data >> 3);
       self.address_latch = false;
-    } else { // X
+    } else {
       self.fine_x = data & 0x07;
       self.tram_addr.set_coarse_x(data >> 3);
       self.address_latch = true;
@@ -317,44 +335,47 @@ impl Registers {
   }
 
   fn write_data(&mut self, data: u8) {
-    let vram_addr = self.vram_addr;
     let increment_val = if self.ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
-    self.vram_addr.0 = vram_addr.0.wrapping_add(increment_val);
-    self.ppu_write(vram_addr.0, data);
+    self.ppu_write_reg(self.vram_addr.0, data);
+    let addr = self.vram_addr.0;
+    self.vram_addr = ScrollRegister(addr.wrapping_add(increment_val));
   }
 
-  pub fn cpu_read(&mut self, address: u16) -> u8 {
-    match address {
-      0x00 => 0x00,
-      0x01 => 0x00,
-      0x02 => self.read_status(),
-      0x03 => 0x00,
+  pub fn cpu_read_reg(&mut self, address: u16) -> u8 {
+    let res = match address % 8 {
+      0x00 => self.ppu_data_buffer,
+      0x01 => self.ppu_data_buffer,
+      0x02 => self.read_reg_status(),
+      0x03 => self.ppu_data_buffer,
       0x04 => self.read_oam_data(),
-      0x05 => 0x00,
-      0x06 => 0x00,
+      0x05 => self.ppu_data_buffer,
+      0x06 => self.ppu_data_buffer,
       0x07 => self.read_ppu_data(),
-      _ => panic!("read_ppu_u8 address: {} not in range", address),
-    }
+      _ => panic!("cpu_read_reg address: {} not in range", address),
+    };
+    self.ppu_data_buffer = res;
+    res
   }
 
-  fn read_status(&mut self) -> u8 {
+  fn read_reg_status(&mut self) -> u8 {
     let res = self.status_flags.0;
     self.status_flags.set_vertical_blank(false);
     self.address_latch = false;
     self.vblank_suppress = true;
-    res
+    res | (self.ppu_data_buffer & 0x1F)
   }
 
   fn read_ppu_data(&mut self) -> u8 {
-    let mut data = self.ppu_data_buffer;
-    let vram_addr = self.vram_addr;
+    let vram_addr = self.vram_addr.0;
 
     let increment_val = if self.ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
-    self.vram_addr.0 = vram_addr.0.wrapping_add(increment_val);
+    self.vram_addr.0 = self.vram_addr.0.wrapping_add(increment_val);
 
-    if self.vram_addr.0 >= 0x3F00 {
-      data = self.ppu_read(vram_addr.0);
-    }
+    let data = if (0x3F00..=0x3FFF).contains(&vram_addr) {
+      self.ppu_read_reg(vram_addr) | (self.ppu_data_buffer & 0xC0)
+    } else {
+      self.ppu_read_reg(vram_addr)
+    };
     data
   }
 }
@@ -372,8 +393,8 @@ mod test {
     let cart = Cartridge::mock_cartridge();
     let mut registers = Registers::new(Rc::new(RefCell::new(cart)));
 
-    registers.ppu_write(0x2000u16, 1u8);
-    let res = registers.ppu_read(0x2000u16);
+    registers.ppu_write_reg(0x2000u16, 1u8);
+    let res = registers.ppu_read_reg(0x2000u16);
 
     assert_eq!(res, 1u8)
   }

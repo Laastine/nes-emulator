@@ -11,7 +11,7 @@ use luminance_glutin::GlutinSurface;
 
 use crate::nes::constants::{Color, COLORS, SCREEN_RES_X, SCREEN_RES_Y};
 use crate::ppu::oam_sprite::Sprite;
-use crate::ppu::registers::{get_nth_bit, PpuCtrlFlags, PpuMaskFlags, PpuStatusFlags, Registers, ScrollRegister};
+use crate::ppu::registers::{get_nth_bit, Registers};
 
 pub mod registers;
 mod oam_sprite;
@@ -87,7 +87,7 @@ impl Ppu {
 
   #[inline]
   fn read_ppu_u8(&self, address: u16) -> u8 {
-    self.get_registers().ppu_read(address)
+    self.get_registers().ppu_read_reg(address)
   }
 
   fn get_pixel_color(&mut self, pixel: u8) -> Color {
@@ -103,13 +103,6 @@ impl Ppu {
   pub fn reset(&mut self) {
     self.scan_line = 0;
     self.cycles = 0;
-    self.get_mut_registers().status_flags = PpuStatusFlags(0);
-    self.get_mut_registers().mask_flags = PpuMaskFlags(0);
-    self.get_mut_registers().ctrl_flags = PpuCtrlFlags(0);
-    self.get_mut_registers().vram_addr = ScrollRegister(0);
-    self.get_mut_registers().tram_addr = ScrollRegister(0);
-    self.get_mut_registers().ppu_data_buffer = 0;
-    self.get_mut_registers().fine_x = 0;
     self.nametable_entry = 0;
     self.bg_next_tile_attribute = 0;
     self.bg_next_tile_lo = 0;
@@ -125,6 +118,7 @@ impl Ppu {
     self.is_frame_ready = false;
     self.is_even_frame = true;
     self.off_screen_pixels = vec![[0u8; 3]; 256 * 240];
+    self.get_mut_registers().reset();
   }
 
   fn update_shifters(&mut self) {
@@ -417,8 +411,8 @@ impl Ppu {
     for sprite in sprites.iter_mut() {
       let scan_line = usize::try_from(self.scan_line).unwrap();
       let tile_address = sprite.tile_address(self.get_registers().ctrl_flags, scan_line);
-      sprite.data_lo = self.get_registers().ppu_read(tile_address);
-      sprite.data_hi = self.get_registers().ppu_read(tile_address + 8);
+      sprite.data_lo = self.get_registers().ppu_read_reg(tile_address);
+      sprite.data_hi = self.get_registers().ppu_read_reg(tile_address + 8);
     }
     self.primary_oam = sprites;
   }

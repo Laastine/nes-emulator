@@ -64,7 +64,7 @@ impl Bus {
     } else if (0x0000..=0x1FFF).contains(&address) {
       self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
     } else if (0x2000..=0x3FFF).contains(&address) {
-      self.get_mut_registers().cpu_write(address & 0x0007, data)
+      self.get_mut_registers().cpu_write_reg(address, data)
     } else if address == 0x4014 {
       self.dma_page = data;
       self.get_mut_registers().oam_address = 0x00;
@@ -83,7 +83,7 @@ impl Bus {
     } else if (0x0000..=0x1FFF).contains(&address) {
       u16::try_from(self.ram[usize::try_from(address).unwrap() & 0x07FF]).unwrap()
     } else if (0x2000..=0x3FFF).contains(&address) {
-      self.get_mut_registers().cpu_read(address & 0x0007).into()
+      self.get_mut_registers().cpu_read_reg(address).into()
     } else if (0x4016..=0x4017).contains(&address) {
       let idx = usize::try_from(address & 0x0001).unwrap();
       let state = self.controller_state[idx] & 0x80;
@@ -101,7 +101,7 @@ impl Bus {
       }
     } else if system_cycles % 2 == 0 {
       let oam_address = u16::try_from(self.get_mut_registers().oam_address).unwrap();
-      self.dma_data = self.read_u8(u16::try_from(u16::try_from(self.dma_page).unwrap() << 8 | oam_address).unwrap()).try_into().unwrap();
+      self.dma_data = self.read_u8(u16::try_from(self.dma_page).unwrap() << 8 | oam_address).try_into().unwrap();
     } else {
       let dma_data = self.dma_data;
       self.get_mut_registers().write_oam_data(dma_data);
