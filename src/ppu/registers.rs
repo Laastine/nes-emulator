@@ -371,12 +371,11 @@ impl Registers {
     let increment_val = if self.ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
     self.vram_addr.0 = self.vram_addr.0.wrapping_add(increment_val);
 
-    let data = if (0x3F00..=0x3FFF).contains(&vram_addr) {
+    if (0x3F00..=0x3FFF).contains(&vram_addr) {
       self.ppu_read_reg(vram_addr) | (self.ppu_data_buffer & 0xC0)
     } else {
       self.ppu_read_reg(vram_addr)
-    };
-    data
+    }
   }
 }
 
