@@ -267,10 +267,19 @@ impl Ppu {
 
           if self.get_registers().ctrl_flags.enable_nmi() {
             self.nmi = true;
+          } else {
+            self.nmi = false;
           }
         }
       }
       _ => ()
+    }
+
+    if !self.nmi {
+      self.nmi = {
+        let reg = self.get_mut_registers();
+        reg.status_flags.vertical_blank() && reg.force_nmi && !reg.vblank_suppress
+      };
     }
 
     self.get_mut_registers().force_nmi = false;
@@ -365,7 +374,7 @@ impl Ppu {
     if self.cycles == 340 {
       self.nametable_entry = self.read_ppu_u8(self.curr_address);
 
-      if is_pre_render && self.get_registers().mask_flags.is_rendering() && self.is_even_frame {
+      if is_pre_render && self.get_registers().mask_flags.is_rendering() && !self.is_even_frame {
         self.cycles += 1;
       }
     }
@@ -388,9 +397,9 @@ impl Ppu {
 
   fn evaluate_sprites(&mut self) {
     self.secondary_oam.clear();
-    for idx in 0..64 {
+    for idx in 0..=63 {
       let address = idx * 4;
-      let sprite = Sprite::new(idx, &self.get_registers().oam_ram[address..address + 4]);
+      let sprite = Sprite::new(idx, &self.get_registers().oam_ram[address..(address + 4)]);
 
       let sprite_size = usize::try_from(self.get_registers().ctrl_flags.get_sprite_size()).unwrap();
       let scan_line = usize::try_from(self.scan_line).unwrap();
@@ -453,7 +462,7 @@ impl Ppu {
   }
 
   fn update_image_buffer(&mut self) {
-    if (2..=257).contains(&self.cycles) {
+    if (2..=257).contains(&self.cycles) || (322..=337).contains(&self.cycles) {
       let x = self.cycles - 2;
       let y = self.scan_line;
 
@@ -474,9 +483,6 @@ impl Ppu {
         let pixel = self.get_pixel_color(color).to_value();
         self.off_screen_pixels[(239 - y) * 256 + x] = pixel;
       }
-    }
-
-    if (2..=257).contains(&self.cycles) || (322..=337).contains(&self.cycles) {
       self.update_shifters();
     }
   }

@@ -16,8 +16,6 @@ pub struct Bus {
   registers: Rc<RefCell<Registers>>,
   pub dma_transfer: bool,
   dma_page: u8,
-  dma_data: u8,
-  is_odd_cycle: bool,
 }
 
 impl Bus {
@@ -26,7 +24,6 @@ impl Bus {
     let controller_state = [0u8; 2];
     let dma_transfer = false;
     let dma_page = 0x00;
-    let dma_data = 0x00;
 
     Bus {
       cartridge,
@@ -36,8 +33,6 @@ impl Bus {
       registers,
       dma_transfer,
       dma_page,
-      dma_data,
-      is_odd_cycle: true,
     }
   }
 
@@ -94,21 +89,14 @@ impl Bus {
     }
   }
 
-  pub fn oam_dma_access(&mut self, system_cycles: u32) {
-    if self.is_odd_cycle {
-      if system_cycles % 2 == 1 {
-        self.is_odd_cycle = false;
-      }
-    } else if system_cycles % 2 == 0 {
-      let oam_address = u16::try_from(self.get_mut_registers().oam_address).unwrap();
-      self.dma_data = self.read_u8(u16::try_from(self.dma_page).unwrap() << 8 | oam_address).try_into().unwrap();
-    } else {
-      let dma_data = self.dma_data;
+  pub fn oam_dma_access(&mut self, system_cycles: u32) -> u32 {
+    let cpu_dma_cycles = 513 + (system_cycles % 2);
+    for i in 0..=255 {
+      let addr = (u16::try_from(self.dma_page).unwrap() << 8) + i;
+      let dma_data = self.read_u8(addr).try_into().unwrap();
       self.get_mut_registers().write_oam_data(dma_data);
-      if self.get_mut_registers().oam_address == 0 {
-        self.dma_transfer = false;
-        self.is_odd_cycle = true;
-      }
     }
+    self.dma_transfer = false;
+    cpu_dma_cycles
   }
 }

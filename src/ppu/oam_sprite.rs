@@ -50,7 +50,7 @@ impl Sprite {
     let mut y_offset = u16::try_from(scan_line - usize::try_from(self.y).unwrap()).unwrap() % sprite_size;
 
     if self.attributes.flip_y() {
-      y_offset = sprite_size - 1 - y_offset;
+      y_offset = u16::try_from(control_flags.get_sprite_size()).unwrap() - 1 - y_offset;
     }
 
     tile_address + y_offset + if y_offset < 8 { 0 } else { 8 }

@@ -78,6 +78,7 @@ bitfield! {
     pub u8,    coarse_y,     set_coarse_y:      9,  5;
     pub u8,    nametable_x,  set_nametable_x:   10;
     pub u8,    nametable_y,  set_nametable_y:   11;
+    pub u16,   address,      _:                 13, 0;
     pub u8,    fine_y,       set_fine_y:        14, 12;
     pub u8,    hi_byte,      set_hi_byte:       13, 8;
     pub u8,    lo_byte,      set_lo_byte:       7,  0;
@@ -94,7 +95,7 @@ pub struct Registers {
   pub status_flags: PpuStatusFlags,
   pub vram_addr: ScrollRegister,
   pub tram_addr: ScrollRegister,
-  pub palette_table: [u8; 32],
+  pub palette_table: [u8; 0x20],
   table_pattern: [[u8; 0x1000]; 2],
   name_table: [[u8; 0x0400]; 2],
   address_latch: bool,
@@ -114,6 +115,7 @@ pub struct Registers {
 
   pub vblank_suppress: bool,
   pub force_nmi: bool,
+  read_buffer: u8,
 }
 
 impl Registers {
@@ -126,7 +128,7 @@ impl Registers {
       tram_addr: ScrollRegister(0x00),
       palette_table: [0; 0x20],
       table_pattern: [[0; 0x1000]; 2],
-      name_table: [[0; 0x0400]; 2],
+      name_table: [[0xFF; 0x0400]; 2],
       address_latch: false,
       ppu_data_buffer: 0x00,
       fine_x: 0x00,
@@ -141,6 +143,7 @@ impl Registers {
       sprite_zero_being_rendered: false,
       vblank_suppress: false,
       force_nmi: false,
+      read_buffer: 0,
     }
   }
 
@@ -224,12 +227,12 @@ impl Registers {
         }
       }
     } else if (0x3F00..=0x3FFF).contains(&addr) {
-      addr &= 0x001F;
+      let addr = addr % 0x20;
       let idx = match addr {
         0x0010 | 0x0014 | 0x0018 | 0x001C => addr - 0x10,
         _ => addr
       };
-      self.palette_table[usize::try_from(idx).unwrap()] & if self.mask_flags.grayscale() { 0x30 } else { 0x3F }
+      self.palette_table[usize::try_from(idx).unwrap()]
     } else {
       0
     }
@@ -366,16 +369,25 @@ impl Registers {
   }
 
   fn read_ppu_data(&mut self) -> u8 {
-    let vram_addr = self.vram_addr.0;
+    let vram_addr = self.vram_addr.address();
+    if (0x3F00..=0x3FFF).contains(&vram_addr) {
+      self.read_data() | (self.ppu_data_buffer & 0xC0)
+    } else {
+      self.read_data()
+    }
+  }
 
+  fn read_data(&mut self) -> u8 {
+    let addr = self.vram_addr.address();
     let increment_val = if self.ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
     self.vram_addr.0 = self.vram_addr.0.wrapping_add(increment_val);
+    self.buffered_read_byte(addr)
+  }
 
-    if (0x3F00..=0x3FFF).contains(&vram_addr) {
-      self.ppu_read_reg(vram_addr) | (self.ppu_data_buffer & 0xC0)
-    } else {
-      self.ppu_read_reg(vram_addr)
-    }
+  fn buffered_read_byte(&mut self, addr: u16) -> u8 {
+    let prev_read_buffer = self.read_buffer;
+    self.read_buffer = self.ppu_read_reg(addr);
+    prev_read_buffer
   }
 }
 

@@ -30,6 +30,7 @@ pub const COLORS: [Color; 64] = [
   Color([0, 0, 0]),
   Color([0, 0, 0]),
   Color([0, 0, 0]),
+
   Color([152, 150, 152]),
   Color([8, 76, 196]),
   Color([48, 50, 236]),
@@ -46,6 +47,7 @@ pub const COLORS: [Color; 64] = [
   Color([0, 0, 0]),
   Color([0, 0, 0]),
   Color([0, 0, 0]),
+
   Color([236, 238, 236]),
   Color([76, 154, 236]),
   Color([120, 124, 236]),
@@ -62,6 +64,7 @@ pub const COLORS: [Color; 64] = [
   Color([60, 60, 60]),
   Color([0, 0, 0]),
   Color([0, 0, 0]),
+
   Color([236, 238, 236]),
   Color([168, 204, 236]),
   Color([188, 188, 236]),
