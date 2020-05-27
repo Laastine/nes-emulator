@@ -18,7 +18,7 @@ impl FLAGS6502 {
       FLAGS6502::I => 4,   // Disable Interrupts
       FLAGS6502::D => 8,   // Decimal Mode
       FLAGS6502::B => 16,  // Break
-      FLAGS6502::U => 32,  // Unused
+      FLAGS6502::U => 32,  // Push
       FLAGS6502::V => 64,  // Overflow
       FLAGS6502::N => 128, // Negative
     }
