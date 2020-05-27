@@ -1,7 +1,5 @@
 use std::cell::{Ref, RefCell, RefMut};
 use std::convert::TryFrom;
-use std::fs::OpenOptions;
-use std::io::Write;
 use std::rc::Rc;
 
 use image::{ImageBuffer, Rgb};
@@ -186,55 +184,6 @@ impl Ppu {
       self.get_mut_registers().vram_addr.set_nametable_y(tram_addr.nametable_y());
       self.get_mut_registers().vram_addr.set_coarse_y(tram_addr.coarse_y());
     }
-  }
-
-  #[allow(dead_code)]
-  fn log(&mut self) {
-    let mut file = OpenOptions::new()
-      .write(true)
-      .append(true)
-      .open("ppu.txt")
-      .expect("File append error");
-
-    let cycle = self.cycles;
-    let fine_x = self.get_registers().fine_x;
-    let nmi = if self.nmi { 1 } else { 0 };
-    let bg_next_tile_id = self.nametable_entry;
-    let bg_next_tile_attrib = self.bg_next_tile_attribute;
-    let bg_next_tile_lsb = self.bg_next_tile_lo;
-    let bg_next_tile_msb = self.bg_next_tile_hi;
-    let bg_shifter_pattern_lo = self.bg_shifter_pattern_lo;
-    let bg_shifter_pattern_hi = self.bg_shifter_pattern_hi;
-    let bg_shifter_attrib_lo = self.bg_shifter_attrib_lo;
-    let bg_shifter_attrib_hi = self.bg_shifter_attrib_hi;
-    let scan_line = self.scan_line;
-    let reg = self.get_registers();
-    file
-      .write_all(
-        format!(
-          "{:?},{},{}, {},{},{},{},{},{},{},{},{} {} -> sta:{:?}, msk:{:?}, ctrl:{:?}, tram:{:?}, vram:{:?}\n",
-          cycle,
-          scan_line,
-          reg.ppu_data_buffer,
-          fine_x,
-          bg_next_tile_id,
-          bg_next_tile_attrib,
-          bg_next_tile_lsb,
-          bg_next_tile_msb,
-          bg_shifter_pattern_lo,
-          bg_shifter_pattern_hi,
-          bg_shifter_attrib_lo,
-          bg_shifter_attrib_hi,
-          nmi,
-          reg.status_flags.0,
-          reg.mask_flags.0,
-          reg.ctrl_flags.0,
-          reg.tram_addr.0,
-          reg.vram_addr.0,
-        )
-          .as_bytes(),
-      )
-      .expect("File write error");
   }
 
   pub fn clock(&mut self) {
