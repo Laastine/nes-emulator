@@ -1,4 +1,5 @@
 use std::cell::{RefCell, RefMut};
+use std::fs;
 use std::rc::Rc;
 use std::time;
 use std::time::Duration;
@@ -29,7 +30,8 @@ pub struct Nes {
 
 impl Nes {
   pub fn new(rom_file: &str) -> Nes {
-    let cartridge = Cartridge::new(rom_file);
+    let rom_bytes = fs::read(rom_file).expect("Rom file read error");
+    let cartridge = Cartridge::new(rom_bytes);
     let cart = Rc::new(RefCell::new(cartridge));
     let c = [0u8; 2];
 

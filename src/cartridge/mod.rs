@@ -1,5 +1,3 @@
-use std::fs;
-
 use crate::cartridge::rom_reading::{Mirroring, Rom};
 use crate::mapper::Mapper;
 
@@ -12,8 +10,7 @@ pub struct Cartridge {
 }
 
 impl Cartridge {
-  pub fn new(rom_file: &str) -> Cartridge {
-    let rom_bytes = fs::read(rom_file).expect("Rom file read error");
+  pub fn new(rom_bytes: Vec<u8>) -> Cartridge {
     let rom = Rom::read_from_file(rom_bytes.into_iter());
 
     let prg_banks = rom.rom_header.prg_rom_len / 0x4000;
