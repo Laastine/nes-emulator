@@ -251,7 +251,7 @@ impl Ppu {
       match self.cycles % 8 {
         0x01 => {
           let vram_addr = self.get_registers().vram_addr;
-          self.curr_address = u16::try_from(0x2000 | (vram_addr.0 & 0x0FFF)).unwrap();
+          self.curr_address = 0x2000 | (vram_addr.0 & 0x0FFF);
           self.load_background_shifters();
         }
         0x02 => {
@@ -351,7 +351,7 @@ impl Ppu {
       let sprite = Sprite::new(idx, &self.get_registers().oam_ram[address..(address + 4)]);
 
       let sprite_size = usize::try_from(self.get_registers().ctrl_flags.get_sprite_size()).unwrap();
-      let scan_line = usize::try_from(self.scan_line).unwrap();
+      let scan_line = self.scan_line;
       let sprite_y = usize::try_from(sprite.y).unwrap();
 
       if scan_line >= sprite_y && scan_line < (sprite_y + sprite_size) {
@@ -367,7 +367,7 @@ impl Ppu {
   fn load_sprites(&mut self) {
     let mut sprites = self.secondary_oam.clone();
     for sprite in sprites.iter_mut() {
-      let scan_line = usize::try_from(self.scan_line).unwrap();
+      let scan_line = self.scan_line;
       let tile_address = sprite.tile_address(self.get_registers().ctrl_flags, scan_line);
       sprite.data_lo = self.get_registers().ppu_read_reg(tile_address);
       sprite.data_hi = self.get_registers().ppu_read_reg(tile_address + 8);
@@ -444,10 +444,10 @@ impl Ppu {
     let coarse_x = u16::try_from(vram_addr.coarse_x()).unwrap();
     let coarse_y = u16::try_from(vram_addr.coarse_y()).unwrap();
 
-    u16::try_from(0x23C0
+    0x23C0
       | (nametable_y << 11)
       | (nametable_x << 10)
       | ((coarse_y >> 2) << 3)
-      | (coarse_x >> 2)).unwrap()
+      | (coarse_x >> 2)
   }
 }

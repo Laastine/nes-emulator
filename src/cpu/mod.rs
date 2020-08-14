@@ -62,7 +62,7 @@ impl Cpu {
   }
 
   fn bus_mut_read_u8(&mut self, address: u16) -> u16 {
-    self.bus.read_u8(address).try_into().unwrap()
+    self.bus.read_u8(address)
   }
 
   fn bus_write_u8(&mut self, address: u16, data: u8) {
@@ -276,7 +276,7 @@ impl Cpu {
 
   /// Relative
   pub fn rel(&mut self) -> u8 {
-    self.addr_rel = u16::try_from(self.bus_mut_read_u8(self.pc)).unwrap();
+    self.addr_rel = self.bus_mut_read_u8(self.pc);
     self.pc_increment();
     if (self.addr_rel & 0x80) > 0 {
       self.addr_rel |= 0xFF00;
@@ -334,8 +334,8 @@ impl Cpu {
     self.pc_increment();
 
     let x = u16::try_from(self.x).unwrap();
-    let lo_byte: u16 = self.bus_mut_read_u8(byte.wrapping_add(x) & 0xFF).try_into().unwrap();
-    let hi_byte: u16 = self.bus_mut_read_u8((byte.wrapping_add(x).wrapping_add(1)) & 0xFF).try_into().unwrap();
+    let lo_byte: u16 = self.bus_mut_read_u8(byte.wrapping_add(x) & 0xFF);
+    let hi_byte: u16 = self.bus_mut_read_u8((byte.wrapping_add(x).wrapping_add(1)) & 0xFF);
     self.addr_abs = (hi_byte << 8) | lo_byte;
 
     0
@@ -346,8 +346,8 @@ impl Cpu {
     let byte = self.bus_mut_read_u8(self.pc);
     self.pc_increment();
 
-    let lo_byte: u16 = self.bus_mut_read_u8(byte & 0xFF).try_into().unwrap();
-    let hi_byte: u16 = self.bus_mut_read_u8((byte.wrapping_add(1)) & 0xFF).try_into().unwrap();
+    let lo_byte: u16 = self.bus_mut_read_u8(byte & 0xFF);
+    let hi_byte: u16 = self.bus_mut_read_u8((byte.wrapping_add(1)) & 0xFF);
     self.addr_abs = (hi_byte << 8) | lo_byte;
     self.addr_abs = self.addr_abs.wrapping_add(u16::try_from(self.y).unwrap());
 
@@ -441,7 +441,7 @@ impl Cpu {
       &FLAGS6502::V,
       ((!(u16::try_from(self.acc).unwrap()
         ^ u16::try_from(self.fetched).unwrap())
-        & (u16::try_from(self.acc).unwrap() ^ u16::try_from(val).unwrap()))
+        & (u16::try_from(self.acc).unwrap() ^ val))
         & 0x80)
         > 0,
     );

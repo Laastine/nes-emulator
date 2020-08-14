@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::iter::Iterator;
 
 #[derive(Copy, Clone, Debug)]
@@ -72,12 +71,11 @@ impl Rom {
     let prg_rom_len = prg_rom_size as usize * 0x4000;
     let chr_rom_len = chr_rom_size as usize * 0x2000;
 
-    let prg_ram_len = usize::try_from(match (prg_ram_size, flag_prg_ram) {
+    let prg_ram_len = match (prg_ram_size, flag_prg_ram) {
       (_, false) => 0,
       (0, true) => 0x2000,
       (_, true) => prg_ram_size as usize * 0x2000,
-    })
-      .unwrap();
+    };
 
     let chr_ram_len = if chr_rom_size == 0 { 0x2000 } else { 0 };
 
