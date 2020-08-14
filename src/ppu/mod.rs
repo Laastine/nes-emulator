@@ -444,10 +444,10 @@ impl Ppu {
     let coarse_x = u16::try_from(vram_addr.coarse_x()).unwrap();
     let coarse_y = u16::try_from(vram_addr.coarse_y()).unwrap();
 
-    u16::try_from(self.read_ppu_u8(0x23C0
+    u16::try_from(0x23C0
       | (nametable_y << 11)
       | (nametable_x << 10)
       | ((coarse_y >> 2) << 3)
-      | (coarse_x >> 2))).unwrap()
+      | (coarse_x >> 2)).unwrap()
   }
 }
