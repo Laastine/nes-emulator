@@ -18,7 +18,7 @@ impl FLAGS6502 {
       FLAGS6502::I => 4,   // Disable Interrupts
       FLAGS6502::D => 8,   // Decimal Mode
       FLAGS6502::B => 16,  // Break
-      FLAGS6502::U => 32,  // Unused
+      FLAGS6502::U => 32,  // Push
       FLAGS6502::V => 64,  // Overflow
       FLAGS6502::N => 128, // Negative
     }
@@ -397,11 +397,6 @@ impl LookUpTable {
 
   pub fn get_operate(&self, index: usize) -> &OPCODES6502 {
     &self.instructions[index].operate
-  }
-
-  #[cfg(feature = "terminal_debug")]
-  pub fn get_name(&self, index: usize) -> String {
-    format!("{:?}", self.instructions[index].operate)
   }
 
   pub fn get_cycles(&self, index: usize) -> u8 { self.instructions[index].cycles }

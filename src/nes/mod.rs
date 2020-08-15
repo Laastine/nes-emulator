@@ -1,8 +1,10 @@
 use std::cell::{RefCell, RefMut};
+use std::fs;
 use std::rc::Rc;
 use std::time;
+use std::time::Duration;
 
-use glutin::{ElementState, ElementState::Pressed, KeyboardInput, VirtualKeyCode::{A, Down, Escape, LAlt, LControl, Left, R, Right, S, Space, Up}, WindowEvent};
+use glutin::{ElementState::{Pressed, Released}, KeyboardInput, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Up, X, Z}, WindowEvent};
 use luminance::context::GraphicsContext as _;
 use luminance::framebuffer::Framebuffer;
 use luminance::pipeline::PipelineState;
@@ -21,15 +23,15 @@ pub mod constants;
 pub struct Nes {
   cpu: Cpu,
   ppu: Ppu,
-  system_cycles: u64,
+  system_cycles: u32,
   window_context: WindowContext,
-  debug_mode: bool,
   controller: Rc<RefCell<[u8; 2]>>,
 }
 
 impl Nes {
   pub fn new(rom_file: &str) -> Nes {
-    let cartridge = Cartridge::new(rom_file);
+    let rom_bytes = fs::read(rom_file).expect("Rom file read error");
+    let cartridge = Cartridge::new(rom_bytes);
     let cart = Rc::new(RefCell::new(cartridge));
     let c = [0u8; 2];
 
@@ -46,14 +48,11 @@ impl Nes {
     let ppu = Ppu::new(registers, &mut window_context.surface);
     let system_cycles = 0;
 
-    let debug_mode = false;
-
     Nes {
       cpu,
       ppu,
       system_cycles,
       window_context,
-      debug_mode,
       controller,
     }
   }
@@ -62,6 +61,7 @@ impl Nes {
     self.reset();
   }
 
+  #[inline]
   fn get_controller(&mut self) -> RefMut<[u8; 2]> {
     self.controller.borrow_mut()
   }
@@ -73,97 +73,98 @@ impl Nes {
     let mut controller_button_state = 0x00;
     'app: loop {
       let elapsed = last_time.elapsed();
-      let delta = f64::from(elapsed.subsec_nanos()) / 1e9 + elapsed.as_secs() as f64;
+      let delta = elapsed.as_secs_f32();
 
-      self.window_context.surface.event_loop.poll_events(|event| {
-        if let glutin::Event::WindowEvent { event, .. } = event {
-          match event {
-            WindowEvent::CloseRequested
-            | WindowEvent::Destroyed
-            | WindowEvent::KeyboardInput {
-              input:
-              KeyboardInput {
-                state: ElementState::Released,
-                virtual_keycode: Some(Escape),
-                ..
-              },
-              ..
-            } => keyboard_state = Some(KeyboardCommand::Exit),
-            WindowEvent::KeyboardInput { input, .. } => {
-              match input {
-                KeyboardInput { state, virtual_keycode: Some(LAlt), .. } => {
-                  controller_button_state = if state == Pressed { KeyCodes::ButtonA.value() } else { 0 };
+      // 16ms per frame ~ 60FPS
+      if delta > 0.0166 {
+        self.window_context.surface.event_loop.poll_events(|event| {
+          if let glutin::Event::WindowEvent { event, .. } = event {
+            match event {
+              WindowEvent::CloseRequested | WindowEvent::Destroyed => { keyboard_state = Some(KeyboardCommand::Exit) }
+              WindowEvent::KeyboardInput { input, .. } => {
+                match input {
+                  KeyboardInput { state: Released, virtual_keycode: Some(Escape), .. } => {
+                    keyboard_state = Some(KeyboardCommand::Exit);
+                  }
+                  KeyboardInput { state, virtual_keycode: Some(Z), .. } => {
+                    controller_button_state = if state == Pressed { KeyCodes::ButtonB.value() } else { 0 };
+                  }
+                  KeyboardInput { state, virtual_keycode: Some(X), .. } => {
+                    controller_button_state = if state == Pressed { KeyCodes::ButtonA.value() } else { 0 };
+                  }
+                  KeyboardInput { state, virtual_keycode: Some(A), .. } => {
+                    controller_button_state = if state == Pressed { KeyCodes::Select.value() } else { 0 };
+                  }
+                  KeyboardInput { state, virtual_keycode: Some(S), .. } => {
+                    controller_button_state = if state == Pressed { KeyCodes::Start.value() } else { 0 };
+                  }
+                  KeyboardInput { state, virtual_keycode: Some(Up), .. } => {
+                    controller_button_state = if state == Pressed { KeyCodes::Up.value() } else { 0 };
+                  }
+                  KeyboardInput { state, virtual_keycode: Some(Down), .. } => {
+                    controller_button_state = if state == Pressed { KeyCodes::Down.value() } else { 0 };
+                  }
+                  KeyboardInput { state, virtual_keycode: Some(Left), .. } => {
+                    controller_button_state = if state == Pressed { KeyCodes::Left.value() } else { 0 };
+                  }
+                  KeyboardInput { state, virtual_keycode: Some(Right), .. } => {
+                    controller_button_state = if state == Pressed { KeyCodes::Right.value() } else { 0 };
+                  }
+                  KeyboardInput { state: Pressed, virtual_keycode: Some(R), .. } => {
+                    keyboard_state = Some(KeyboardCommand::Reset)
+                  }
+                  _ => {}
                 }
-                KeyboardInput { state, virtual_keycode: Some(LControl), .. } => {
-                  controller_button_state = if state == Pressed { KeyCodes::ButtonB.value() } else { 0 };
-                }
-                KeyboardInput { state, virtual_keycode: Some(A), .. } => {
-                  controller_button_state = if state == Pressed { KeyCodes::Select.value() } else { 0 };
-                }
-                KeyboardInput { state, virtual_keycode: Some(S), .. } => {
-                  controller_button_state = if state == Pressed { KeyCodes::Start.value() } else { 0 };
-                }
-                KeyboardInput { state, virtual_keycode: Some(Up), .. } => {
-                  controller_button_state = if state == Pressed { KeyCodes::Up.value() } else { 0 };
-                }
-                KeyboardInput { state, virtual_keycode: Some(Down), .. } => {
-                  controller_button_state = if state == Pressed { KeyCodes::Down.value() } else { 0 };
-                }
-                KeyboardInput { state, virtual_keycode: Some(Left), .. } => {
-                  controller_button_state = if state == Pressed { KeyCodes::Left.value() } else { 0 };
-                }
-                KeyboardInput { state, virtual_keycode: Some(Right), .. } => {
-                  controller_button_state = if state == Pressed { KeyCodes::Right.value() } else { 0 };
-                }
-                KeyboardInput { virtual_keycode: Some(Space), .. } => {
-                  keyboard_state = Some(KeyboardCommand::Debug)
-                }
-                KeyboardInput { state: Pressed, virtual_keycode: Some(R), .. } => {
-                  keyboard_state = Some(KeyboardCommand::Reset)
-                }
-                _ => {}
               }
-            }
-            WindowEvent::Resized(_) => {
-              keyboard_state = Some(KeyboardCommand::Resize)
-            }
-            _ => (),
+              WindowEvent::Resized(_) => {
+                keyboard_state = Some(KeyboardCommand::Resize)
+              }
+              _ => (),
+            };
           }
-        };
-      });
+        });
 
-      match keyboard_state {
-        Some(KeyboardCommand::Debug) => self.debug_mode = !self.debug_mode,
-        Some(KeyboardCommand::Exit) => break 'app,
-        Some(KeyboardCommand::Reset) => self.cpu.reset(),
-        Some(KeyboardCommand::Resize) => self.window_context.resize = true,
-        _ => {}
-      }
-
-      if controller_button_state > 0 {
-        self.get_controller()[0] |= controller_button_state;
-      } else {
-        self.get_controller()[0] = 0;
-      }
-
-      if !self.debug_mode {
-        self.clock();
-      }
-
-      if delta > 0.016 {
-        last_time = time::Instant::now();
-        if self.ppu.frame_ready {
-          self.render_screen();
-          self.ppu.frame_ready = false;
+        match keyboard_state {
+          Some(KeyboardCommand::Exit) => break 'app,
+          Some(KeyboardCommand::Reset) => self.cpu.reset(),
+          Some(KeyboardCommand::Resize) => self.window_context.resize = true,
+          _ => {}
         }
+
+        last_time = time::Instant::now();
+        if self.ppu.is_frame_ready {
+          if keyboard_state == Some(KeyboardCommand::Resize) {
+            self.window_context.resize = true;
+          }
+          self.render_screen();
+          self.ppu.is_frame_ready = false;
+        }
+      } else if delta >= 0.008 {
+        if controller_button_state > 0 {
+          self.get_controller()[0] |= controller_button_state;
+        } else {
+          self.get_controller()[0] = 0;
+        }
+
+        if keyboard_state == Some(KeyboardCommand::Reset) {
+          self.cpu.reset();
+        }
+        self.clock();
+      } else {
+        std::thread::sleep(Duration::from_millis(1));
       }
     } // app loop
   }
 
   fn clock(&mut self) {
     self.ppu.clock();
+
     if (self.system_cycles % 3) == 0 {
-      self.cpu.clock();
+      if !self.cpu.bus.dma_transfer {
+        self.cpu.clock();
+      } else if self.cpu.bus.dma_transfer {
+        self.system_cycles = self.system_cycles.wrapping_add(self.cpu.bus.oam_dma_access(self.system_cycles));
+      }
     }
 
     if self.ppu.nmi {

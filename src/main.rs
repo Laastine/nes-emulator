@@ -2,9 +2,6 @@
 extern crate bitfield;
 extern crate getopts;
 extern crate image;
-#[cfg(target_family = "unix")]
-#[cfg(feature = "terminal_debug")]
-extern crate termion;
 
 use std::env;
 
@@ -19,9 +16,6 @@ mod gfx;
 mod mapper;
 mod nes;
 mod ppu;
-#[cfg(target_family = "unix")]
-#[cfg(feature = "terminal_debug")]
-mod terminal_debug;
 
 fn print_usage() {
   println!("USAGE:\nnes-emulator [FLAGS]\n\nFLAGS:\n-h, --help\t\t\tPrints help information\n-v, --version\t\t\tPrints version information\n-r, --rom\t\t\tRom filename to load");
@@ -33,7 +27,6 @@ fn print_version() {
 
 fn main() {
   let args: Vec<String> = env::args().collect();
-  println!("Args {:?}", args);
 
   let mut opts = Options::new();
   opts.optflag("r", "rom", "ROM file name");
@@ -55,7 +48,7 @@ fn main() {
   }
 
   let rom_file = if !matches.free.is_empty() {
-    matches.free[0].clone()
+    matches.free[0].to_string()
   } else {
     panic!("No ROM file parameter given")
   };

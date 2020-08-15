@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 use std::iter::Iterator;
 
 #[derive(Copy, Clone, Debug)]
@@ -22,6 +21,7 @@ pub struct Rom {
   pub rom_header: RomHeader,
   pub prg_rom: Vec<u8>,
   pub chr_rom: Vec<u8>,
+  pub chr_ram: Vec<u8>,
   pub title: String,
 }
 
@@ -71,12 +71,11 @@ impl Rom {
     let prg_rom_len = prg_rom_size as usize * 0x4000;
     let chr_rom_len = chr_rom_size as usize * 0x2000;
 
-    let prg_ram_len = usize::try_from(match (prg_ram_size, flag_prg_ram) {
+    let prg_ram_len = match (prg_ram_size, flag_prg_ram) {
       (_, false) => 0,
       (0, true) => 0x2000,
       (_, true) => prg_ram_size as usize * 0x2000,
-    })
-      .unwrap();
+    };
 
     let chr_ram_len = if chr_rom_size == 0 { 0x2000 } else { 0 };
 
@@ -119,6 +118,8 @@ impl Rom {
       panic!("Couldn't read CHR rom");
     }
 
+    let chr_ram = vec![0u8; rom_header.chr_ram_len];
+
     let title_bytes = bytes.take(0x80).collect::<Vec<u8>>();
     let title = String::from_utf8_lossy(&title_bytes).to_string();
 
@@ -133,6 +134,7 @@ impl Rom {
       title,
       prg_rom,
       chr_rom,
+      chr_ram,
     }
   }
 
@@ -157,6 +159,7 @@ impl Rom {
       rom_header,
       prg_rom: vec![0u8; rom_header.prg_rom_len],
       chr_rom: vec![0u8; rom_header.chr_rom_len],
+      chr_ram: vec![0u8; rom_header.chr_ram_len],
       title: "test".to_string(),
     }
   }
