@@ -1,5 +1,5 @@
 use std::cell::{Ref, RefCell, RefMut};
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
@@ -23,7 +23,7 @@ impl PpuCtrlFlags {
     u16::try_from(self.pattern_background()).unwrap() * 0x1000
   }
 
-  pub fn get_sprite_size(self) -> u8 {
+  pub fn get_sprite_size(self) -> u16 {
     if self.sprite_size() {
       16
     } else {
@@ -73,7 +73,7 @@ bitfield! {
 
 bitfield! {
   #[derive(Copy, Clone, PartialEq)]
-  pub struct ScrollRegister(u16); impl Debug;
+  pub struct AddressRegister(u16); impl Debug;
     pub u8,    coarse_x,     set_coarse_x:      4,  0;
     pub u8,    coarse_y,     set_coarse_y:      9,  5;
     pub u8,    nametable_x,  set_nametable_x:   10;
@@ -85,7 +85,7 @@ bitfield! {
 }
 
 pub fn get_nth_bit<T: Into<u16>, U: Into<u16>>(number: T, nth: U) -> u8 {
-  u8::try_from((number.into() >> nth.into()) & 1).unwrap()
+  ((number.into() >> nth.into()) & 1).try_into().unwrap()
 }
 
 #[derive(Clone)]
@@ -93,8 +93,8 @@ pub struct Registers {
   pub ctrl_flags: PpuCtrlFlags,
   pub mask_flags: PpuMaskFlags,
   pub status_flags: PpuStatusFlags,
-  pub vram_addr: ScrollRegister,
-  pub tram_addr: ScrollRegister,
+  pub vram_addr: AddressRegister,
+  pub tram_addr: AddressRegister,
   pub palette_table: [u8; 0x20],
   table_pattern: [[u8; 0x1000]; 2],
   name_table: [[u8; 0x0400]; 2],
@@ -124,8 +124,8 @@ impl Registers {
       ctrl_flags: PpuCtrlFlags(0x00),
       mask_flags: PpuMaskFlags(0x00),
       status_flags: PpuStatusFlags(0x00),
-      vram_addr: ScrollRegister(0x00),
-      tram_addr: ScrollRegister(0x00),
+      vram_addr: AddressRegister(0x00),
+      tram_addr: AddressRegister(0x00),
       palette_table: [0; 0x20],
       table_pattern: [[0; 0x1000]; 2],
       name_table: [[0xFF; 0x0400]; 2],
@@ -151,8 +151,8 @@ impl Registers {
     self.status_flags = PpuStatusFlags(0);
     self.mask_flags = PpuMaskFlags(0);
     self.ctrl_flags = PpuCtrlFlags(0);
-    self.vram_addr = ScrollRegister(0);
-    self.tram_addr = ScrollRegister(0);
+    self.vram_addr = AddressRegister(0);
+    self.tram_addr = AddressRegister(0);
     self.ppu_data_buffer = 0;
     self.fine_x = 0;
     self.oam_ram = [0; 0x0100];
@@ -341,7 +341,7 @@ impl Registers {
     let increment_val = if self.ctrl_flags.vram_addr_increment_mode() { 32 } else { 1 };
     self.ppu_write_reg(self.vram_addr.0, data);
     let addr = self.vram_addr.0;
-    self.vram_addr = ScrollRegister(addr.wrapping_add(increment_val));
+    self.vram_addr = AddressRegister(addr.wrapping_add(increment_val));
   }
 
   pub fn cpu_read_reg(&mut self, address: u16) -> u8 {

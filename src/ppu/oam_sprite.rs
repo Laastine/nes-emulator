@@ -46,11 +46,11 @@ impl Sprite {
       control_flags.get_sprite_tile_base() + 0x10 * u16::try_from(index).unwrap()
     };
 
-    let sprite_size = u16::try_from(control_flags.get_sprite_size()).unwrap();
+    let sprite_size = control_flags.get_sprite_size();
     let mut y_offset = u16::try_from(scan_line - usize::try_from(self.y).unwrap()).unwrap() % sprite_size;
 
     if self.attributes.flip_y() {
-      y_offset = u16::try_from(control_flags.get_sprite_size()).unwrap() - 1 - y_offset;
+      y_offset = control_flags.get_sprite_size() - 1 - y_offset;
     }
 
     tile_address + y_offset + if y_offset < 8 { 0 } else { 8 }
