@@ -2,6 +2,8 @@
 
 [![Build Status](https://travis-ci.org/Laastine/nes-emulator.svg?branch=master)](https://travis-ci.org/Laastine/nes-emulator)
 
+<img src="assets/nes-emulator.png">
+
 Learning project to build Nintendo Entertainment System emulator.
 
 ## Controls
