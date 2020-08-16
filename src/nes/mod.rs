@@ -1,4 +1,5 @@
 use std::cell::{RefCell, RefMut};
+use std::collections::HashMap;
 use std::fs;
 use std::rc::Rc;
 use std::time;
@@ -15,7 +16,7 @@ use crate::bus::Bus;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
-use crate::nes::constants::{KeyboardCommand, KeyCodes};
+use crate::nes::constants::{KeyboardCommand, KeyCode};
 use crate::ppu::{Ppu, registers::Registers};
 
 pub mod constants;
@@ -67,10 +68,22 @@ impl Nes {
   }
 
   pub fn render_loop(&mut self) {
+    fn get_controller_state(key_map: &HashMap<KeyCode, u8>) -> u8 {
+      key_map.get(&KeyCode::ButtonB).unwrap_or(&0u8)
+        | key_map.get(&KeyCode::ButtonA).unwrap_or(&0u8)
+        | key_map.get(&KeyCode::Select).unwrap_or(&0u8)
+        | key_map.get(&KeyCode::Start).unwrap_or(&0u8)
+        | key_map.get(&KeyCode::Up).unwrap_or(&0u8)
+        | key_map.get(&KeyCode::Down).unwrap_or(&0u8)
+        | key_map.get(&KeyCode::Left).unwrap_or(&0u8)
+        | key_map.get(&KeyCode::Right).unwrap_or(&0u8)
+    }
+
     let mut last_time = time::Instant::now();
 
     let mut keyboard_state = None;
-    let mut controller_button_state = 0x00;
+    let mut key_map: HashMap<KeyCode, u8> = HashMap::new();
+
     'app: loop {
       let elapsed = last_time.elapsed();
       let delta = elapsed.as_secs_f32();
@@ -87,28 +100,36 @@ impl Nes {
                     keyboard_state = Some(KeyboardCommand::Exit);
                   }
                   KeyboardInput { state, virtual_keycode: Some(Z), .. } => {
-                    controller_button_state = if state == Pressed { KeyCodes::ButtonB.value() } else { 0 };
+                    *key_map.entry(KeyCode::ButtonB)
+                      .or_insert_with(|| KeyCode::ButtonB.value()) = if state == Pressed { KeyCode::ButtonB.value() } else { 0 };
                   }
                   KeyboardInput { state, virtual_keycode: Some(X), .. } => {
-                    controller_button_state = if state == Pressed { KeyCodes::ButtonA.value() } else { 0 };
+                    *key_map.entry(KeyCode::ButtonA)
+                      .or_insert_with(|| KeyCode::ButtonA.value()) = if state == Pressed { KeyCode::ButtonA.value() } else { 0 };
                   }
                   KeyboardInput { state, virtual_keycode: Some(A), .. } => {
-                    controller_button_state = if state == Pressed { KeyCodes::Select.value() } else { 0 };
+                    *key_map.entry(KeyCode::Select)
+                      .or_insert_with(|| KeyCode::Select.value()) = if state == Pressed { KeyCode::Select.value() } else { 0 };
                   }
                   KeyboardInput { state, virtual_keycode: Some(S), .. } => {
-                    controller_button_state = if state == Pressed { KeyCodes::Start.value() } else { 0 };
+                    *key_map.entry(KeyCode::Start)
+                      .or_insert_with(|| KeyCode::Start.value()) = if state == Pressed { KeyCode::Start.value() } else { 0 };
                   }
                   KeyboardInput { state, virtual_keycode: Some(Up), .. } => {
-                    controller_button_state = if state == Pressed { KeyCodes::Up.value() } else { 0 };
+                    *key_map.entry(KeyCode::Up)
+                      .or_insert_with(|| KeyCode::Up.value()) = if state == Pressed { KeyCode::Up.value() } else { 0 };
                   }
                   KeyboardInput { state, virtual_keycode: Some(Down), .. } => {
-                    controller_button_state = if state == Pressed { KeyCodes::Down.value() } else { 0 };
+                    *key_map.entry(KeyCode::Down)
+                      .or_insert_with(|| KeyCode::Down.value()) = if state == Pressed { KeyCode::Down.value() } else { 0 };
                   }
                   KeyboardInput { state, virtual_keycode: Some(Left), .. } => {
-                    controller_button_state = if state == Pressed { KeyCodes::Left.value() } else { 0 };
+                    *key_map.entry(KeyCode::Left)
+                      .or_insert_with(|| KeyCode::Left.value()) = if state == Pressed { KeyCode::Left.value() } else { 0 };
                   }
                   KeyboardInput { state, virtual_keycode: Some(Right), .. } => {
-                    controller_button_state = if state == Pressed { KeyCodes::Right.value() } else { 0 };
+                    *key_map.entry(KeyCode::Right)
+                      .or_insert_with(|| KeyCode::Right.value()) = if state == Pressed { KeyCode::Right.value() } else { 0 };
                   }
                   KeyboardInput { state: Pressed, virtual_keycode: Some(R), .. } => {
                     keyboard_state = Some(KeyboardCommand::Reset)
@@ -139,12 +160,8 @@ impl Nes {
           self.render_screen();
           self.ppu.is_frame_ready = false;
         }
-      } else if delta >= 0.008 {
-        if controller_button_state > 0 {
-          self.get_controller()[0] |= controller_button_state;
-        } else {
-          self.get_controller()[0] = 0;
-        }
+      } else if delta >= 0.001 {
+        self.get_controller()[0] = get_controller_state(&key_map);
 
         if keyboard_state == Some(KeyboardCommand::Reset) {
           self.cpu.reset();

@@ -83,7 +83,8 @@ pub const COLORS: [Color; 64] = [
   Color([0, 0, 0]),
 ];
 
-pub enum KeyCodes {
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum KeyCode {
   ButtonA,
   ButtonB,
   Select,
@@ -94,17 +95,17 @@ pub enum KeyCodes {
   Right,
 }
 
-impl KeyCodes {
+impl KeyCode {
   pub fn value(&self) -> u8 {
     match *self {
-      KeyCodes::ButtonA => 0x80,
-      KeyCodes::ButtonB => 0x40,
-      KeyCodes::Select => 0x20,
-      KeyCodes::Start => 0x10,
-      KeyCodes::Up => 0x08,
-      KeyCodes::Down => 0x04,
-      KeyCodes::Left => 0x02,
-      KeyCodes::Right => 0x01,
+      KeyCode::ButtonA => 0x80,
+      KeyCode::ButtonB => 0x40,
+      KeyCode::Select => 0x20,
+      KeyCode::Start => 0x10,
+      KeyCode::Up => 0x08,
+      KeyCode::Down => 0x04,
+      KeyCode::Left => 0x02,
+      KeyCode::Right => 0x01,
     }
   }
 }
