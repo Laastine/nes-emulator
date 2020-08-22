@@ -8,7 +8,6 @@ use std::env;
 use getopts::Options;
 
 use crate::nes::Nes;
-use crate::mapper::{Mapper, Mapper0};
 
 mod bus;
 mod cartridge;

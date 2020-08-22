@@ -17,7 +17,6 @@ use crate::cartridge::Cartridge;
 use crate::cartridge::rom_reading::Rom;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
-use crate::mapper::{Mapper0, Mapper};
 use crate::nes::constants::{KeyboardCommand, KeyCode};
 use crate::ppu::{Ppu, registers::Registers};
 

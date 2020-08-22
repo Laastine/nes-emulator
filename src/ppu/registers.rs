@@ -402,7 +402,7 @@ mod test {
   #[test]
   fn ppu_table_write_and_read() {
     let cart = Cartridge::mock_cartridge();
-    let mut registers = Registers::new(Rc::new(RefCell::new(cart)));
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
 
     registers.ppu_write_reg(0x2000u16, 1u8);
     let res = registers.ppu_read_reg(0x2000u16);
@@ -413,7 +413,7 @@ mod test {
   #[test]
   fn ppu_status_register_write_and_read() {
     let cart = Cartridge::mock_cartridge();
-    let mut registers = Registers::new(Rc::new(RefCell::new(cart)));
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
 
     registers.status_flags.set_sprite_overflow(true);
 

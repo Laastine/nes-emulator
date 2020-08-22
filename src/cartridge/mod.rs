@@ -1,5 +1,5 @@
 use crate::cartridge::rom_reading::{Mirroring, Rom};
-use crate::mapper::{Mapper, Mapper0, MapperClone};
+use crate::mapper::{Mapper, Mapper0};
 
 pub mod rom_reading;
 
@@ -43,7 +43,7 @@ mod test {
       let prg_banks = rom.rom_header.prg_rom_len / 0x4000;
       let chr_banks = rom.rom_header.chr_rom_len / 0x2000;
 
-      let mapper = Mapper0::new(prg_banks, chr_banks);
+      let mapper = Box::new(Mapper0::new(prg_banks, chr_banks));
 
       Cartridge { mapper, rom }
     }
