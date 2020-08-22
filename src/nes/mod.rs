@@ -14,11 +14,12 @@ use luminance::texture::Sampler;
 
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
+use crate::cartridge::rom_reading::Rom;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
+use crate::mapper::{Mapper0, Mapper};
 use crate::nes::constants::{KeyboardCommand, KeyCode};
 use crate::ppu::{Ppu, registers::Registers};
-use crate::cartridge::rom_reading::Rom;
 
 pub mod constants;
 
@@ -30,10 +31,11 @@ pub struct Nes {
   controller: Rc<RefCell<[u8; 2]>>,
 }
 
-impl Nes {
-  pub fn new(rom_file: &str) -> Nes {
+impl Nes  {
+  pub fn new(rom_file: &str) -> Self {
     let rom_bytes = fs::read(rom_file).expect("Rom file read error");
     let rom = Rom::read_from_file(rom_bytes.into_iter());
+
 
     let cartridge = Cartridge::new(rom);
     let cart = Rc::new(RefCell::new(cartridge));

@@ -101,7 +101,7 @@ pub struct Registers {
   address_latch: bool,
   pub ppu_data_buffer: u8,
   pub fine_x: u8,
-  cartridge: Rc<RefCell<Cartridge>>,
+  cartridge: Rc<RefCell<Box<Cartridge>>>,
 
   pub oam_address: u8,
   pub oam_ram: [u8; 0x100],
@@ -119,7 +119,7 @@ pub struct Registers {
 }
 
 impl Registers {
-  pub fn new(cartridge: Rc<RefCell<Cartridge>>) -> Registers {
+  pub fn new(cartridge: Rc<RefCell<Box<Cartridge>>>) -> Registers {
     Registers {
       ctrl_flags: PpuCtrlFlags(0x00),
       mask_flags: PpuMaskFlags(0x00),
@@ -180,11 +180,11 @@ impl Registers {
     }
   }
 
-  fn get_mut_cartridge(&mut self) -> RefMut<Cartridge> {
+  fn get_mut_cartridge(&mut self) -> RefMut<Box<Cartridge>> {
     self.cartridge.borrow_mut()
   }
 
-  fn get_cartridge(&self) -> Ref<Cartridge> {
+  fn get_cartridge(&self) -> Ref<Box<Cartridge>> {
     self.cartridge.borrow()
   }
 

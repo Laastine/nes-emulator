@@ -9,7 +9,7 @@ pub const MEM_SIZE: usize = 0x0800;
 
 #[derive(Clone)]
 pub struct Bus {
-  pub cartridge: Rc<RefCell<Cartridge>>,
+  pub cartridge: Rc<RefCell<Box<Cartridge>>>,
   pub ram: [u8; MEM_SIZE],
   controller: Rc<RefCell<[u8; 2]>>,
   controller_state: [u8; 2],
@@ -19,7 +19,7 @@ pub struct Bus {
 }
 
 impl Bus {
-  pub fn new(cartridge: Rc<RefCell<Cartridge>>, registers: Rc<RefCell<Registers>>, controller: Rc<RefCell<[u8; 2]>>) -> Bus {
+  pub fn new(cartridge: Rc<RefCell<Box<Cartridge>>>, registers: Rc<RefCell<Registers>>, controller: Rc<RefCell<[u8; 2]>>) -> Bus {
     let ram = [0u8; MEM_SIZE];
     let controller_state = [0u8; 2];
     let dma_transfer = false;
@@ -40,11 +40,11 @@ impl Bus {
     self.controller.borrow()
   }
 
-  pub fn get_mut_cartridge(&mut self) -> RefMut<Cartridge> {
+  pub fn get_mut_cartridge(&mut self) -> RefMut<Box<Cartridge>> {
     self.cartridge.borrow_mut()
   }
 
-  pub fn get_cartridge(&self) -> Ref<Cartridge> {
+  pub fn get_cartridge(&self) -> Ref<Box<Cartridge>> {
     self.cartridge.borrow()
   }
 
