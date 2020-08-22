@@ -18,6 +18,7 @@ use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
 use crate::nes::constants::{KeyboardCommand, KeyCode};
 use crate::ppu::{Ppu, registers::Registers};
+use crate::cartridge::rom_reading::Rom;
 
 pub mod constants;
 
@@ -32,7 +33,9 @@ pub struct Nes {
 impl Nes {
   pub fn new(rom_file: &str) -> Nes {
     let rom_bytes = fs::read(rom_file).expect("Rom file read error");
-    let cartridge = Cartridge::new(rom_bytes);
+    let rom = Rom::read_from_file(rom_bytes.into_iter());
+
+    let cartridge = Cartridge::new(rom);
     let cart = Rc::new(RefCell::new(cartridge));
     let c = [0u8; 2];
 

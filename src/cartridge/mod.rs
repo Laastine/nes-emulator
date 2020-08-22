@@ -10,9 +10,7 @@ pub struct Cartridge {
 }
 
 impl Cartridge {
-  pub fn new(rom_bytes: Vec<u8>) -> Cartridge {
-    let rom = Rom::read_from_file(rom_bytes.into_iter());
-
+  pub fn new(rom: Rom) -> Cartridge {
     let prg_banks = rom.rom_header.prg_rom_len / 0x4000;
     let chr_banks = rom.rom_header.chr_rom_len / 0x2000;
 
