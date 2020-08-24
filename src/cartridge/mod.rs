@@ -1,33 +1,27 @@
-use crate::cartridge::rom_reading::{Mirroring, Rom};
-use crate::mapper::{Mapper, Mapper0};
+use crate::cartridge::rom_reading::{Rom, RomHeader};
+use crate::mapper::{Mapper, mapper0::Mapper0};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub mod rom_reading;
 
 #[derive(Clone)]
 pub struct Cartridge {
-  pub rom: Rom,
   pub mapper: Box<dyn Mapper>,
+  pub rom_header: RomHeader,
 }
 
 impl Cartridge {
-  pub fn new(rom: Rom) -> Box<Cartridge> {
+  pub fn new(rom: Rc<RefCell<Rom>>) -> Box<Cartridge> {
 
-    let rom_header = rom.rom_header;
-
-    let prg_banks = rom_header.prg_rom_len / 0x4000;
-    let chr_banks = rom_header.chr_rom_len / 0x2000;
+    let rom_header = rom.borrow().rom_header;
 
     let mapper: Box<dyn Mapper> = match rom_header.mapper {
-      0 => Box::new(Mapper0::new(prg_banks, chr_banks)),
-      1 => Box::new(Mapper0::new(prg_banks, chr_banks)),
+      0 => Box::new(Mapper0::new(rom)),
       _ => panic!("Mapper {} not implemented", rom_header.mapper),
     };
 
-    Box::from(Cartridge { mapper, rom })
-  }
-
-  pub fn get_mirror_mode(&self) -> Mirroring {
-    self.rom.rom_header.mirroring
+    Box::from(Cartridge { mapper, rom_header })
   }
 }
 
@@ -36,6 +30,7 @@ mod test {
   use crate::cartridge::Cartridge;
   use crate::cartridge::rom_reading::{Mirroring, Rom};
   use crate::mapper::Mapper0;
+  use crate::mapper::mapper0::Mapper0;
 
   impl Cartridge {
     pub fn mock_cartridge() -> Cartridge {
@@ -43,15 +38,9 @@ mod test {
       let prg_banks = rom.rom_header.prg_rom_len / 0x4000;
       let chr_banks = rom.rom_header.chr_rom_len / 0x2000;
 
-      let mapper = Box::new(Mapper0::new(prg_banks, chr_banks));
+      let mapper = Box::new(Mapper0::new(rom));
 
-      Cartridge { mapper, rom }
+      Cartridge { mapper }
     }
-  }
-
-  #[test]
-  fn rom_read_test() {
-    let cart = Cartridge::mock_cartridge();
-    assert_eq!(cart.get_mirror_mode(), Mirroring::Horizontal);
   }
 }

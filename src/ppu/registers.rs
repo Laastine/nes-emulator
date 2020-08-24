@@ -191,22 +191,20 @@ impl Registers {
   pub fn ppu_read_reg(&self, address: u16) -> u8 {
     let mut addr = address & 0x3FFF;
 
-    let (is_address_in_range, mapped_addr) = self.get_cartridge().mapper.mapped_read_ppu_u8(addr);
-    if is_address_in_range {
-      if self.get_cartridge().rom.chr_rom.is_empty() {
-        self.get_cartridge().rom.chr_ram[mapped_addr]
-      } else {
-        self.get_cartridge().rom.chr_rom[mapped_addr]
-      }
-    } else if (0x0000..=0x1FFF).contains(&addr) {
+    /*
+    else if (0x0000..=0x1FFF).contains(&addr) {
       let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
       let second_idx = usize::try_from(addr & 0x0FFF).unwrap();
       self.table_pattern[first_idx][second_idx]
-    } else if (0x2000..=0x3EFF).contains(&addr) {
+    }
+   */
+    if (0x0000..=0x1FFF).contains(&addr) {
+      self.get_cartridge().mapper.mapped_read_ppu_u8(addr)
+    }
+    else if (0x2000..=0x3EFF).contains(&addr) {
       addr &= 0x0FFF;
       let idx = usize::try_from(addr & 0x03FF).unwrap();
-      let mirror_mode = self.get_cartridge().get_mirror_mode();
-      match mirror_mode {
+      match self.get_cartridge().rom_header.mirroring {
         Mirroring::Vertical => {
           match addr {
             0x0000..=0x03FF => self.name_table[0][idx],
@@ -241,22 +239,21 @@ impl Registers {
   pub fn ppu_write_reg(&mut self, address: u16, data: u8) {
     let mut addr = address & 0x3FFF;
 
-    let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr);
-    if is_address_in_range {
-      if self.get_cartridge().rom.chr_rom.is_empty() {
-        self.get_mut_cartridge().rom.chr_ram[mapped_addr] = data;
-      } else {
-        self.get_mut_cartridge().rom.chr_rom[mapped_addr] = data;
-      }
-    } else if (0x0000..=0x1FFF).contains(&addr) {
+    if (0x0000..=0x1FFF).contains(&addr) {
+      // if self.get_cartridge().rom.chr_rom.is_empty() {
+      //   self.get_mut_cartridge().rom.chr_ram[mapped_addr] = data;
+      // } else {
+      //   self.get_mut_cartridge().rom.chr_rom[mapped_addr] = data;
+      // }
+      self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr, data)
+    } /*else if (0x0000..=0x1FFF).contains(&addr) {
       let fst_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
       let snd_idx = usize::try_from(addr & 0x0FFF).unwrap();
       self.table_pattern[fst_idx][snd_idx] = data;
-    } else if (0x2000..=0x3EFF).contains(&addr) {
+    }*/ else if (0x2000..=0x3EFF).contains(&addr) {
       addr &= 0x0FFF;
       let snd_idx = usize::try_from(addr & 0x03FF).unwrap();
-      let mirror_mode = self.get_cartridge().get_mirror_mode();
-      let fst_idx = match mirror_mode {
+      let fst_idx = match self.get_cartridge().rom_header.mirroring {
         Mirroring::Vertical => {
           match addr {
             0x0000..=0x03FF => 0,

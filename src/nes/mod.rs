@@ -35,8 +35,9 @@ impl Nes  {
     let rom_bytes = fs::read(rom_file).expect("Rom file read error");
     let rom = Rom::read_from_file(rom_bytes.into_iter());
 
+    let rom_ref = Rc::new(RefCell::new(rom));
 
-    let cartridge = Cartridge::new(rom);
+    let cartridge = Cartridge::new(rom_ref);
     let cart = Rc::new(RefCell::new(cartridge));
     let c = [0u8; 2];
 

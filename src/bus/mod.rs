@@ -53,9 +53,8 @@ impl Bus {
   }
 
   pub fn write_u8(&mut self, address: u16, data: u8) {
-    let (is_address_in_range, mapped_addr) = self.get_cartridge().mapper.mapped_read_cpu_u8(address);
-    if is_address_in_range {
-      self.get_mut_cartridge().rom.prg_rom[mapped_addr] = data;
+    if (0x8000..0xFFFF).contains(&address) {
+      self.get_mut_cartridge().mapper.mapped_write_cpu_u8(address, data);
     } else if (0x0000..=0x1FFF).contains(&address) {
       self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
     } else if (0x2000..=0x3FFF).contains(&address) {
@@ -72,9 +71,8 @@ impl Bus {
   }
 
   pub fn read_u8(&mut self, address: u16) -> u16 {
-    let (is_address_in_range, mapped_addr) = self.get_cartridge().mapper.mapped_read_cpu_u8(address);
-    if is_address_in_range {
-      u16::try_from(self.get_mut_cartridge().rom.prg_rom[mapped_addr]).unwrap()
+    if (0x8000..=0xFFFF).contains(&address) {
+      self.get_cartridge().mapper.mapped_read_cpu_u8(address)
     } else if (0x0000..=0x1FFF).contains(&address) {
       u16::try_from(self.ram[usize::try_from(address).unwrap() & 0x07FF]).unwrap()
     } else if (0x2000..=0x3FFF).contains(&address) {
