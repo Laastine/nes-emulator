@@ -5,6 +5,7 @@ use crate::cartridge::rom_with_pager::RomData;
 use crate::mapper::Mapper;
 use crate::mapper::pager::Page;
 use crate::mapper::pager::PageSize::{EightKb, SixteenKb};
+use crate::cartridge::{PRG_ROM_BANK_SIZE, CHR_ROM_BANK_SIZE};
 
 #[derive(Clone)]
 pub struct Mapper0 {
@@ -16,8 +17,8 @@ pub struct Mapper0 {
 impl Mapper0 {
   pub fn new(rom: Rc<RefCell<RomData>>) -> Mapper0 {
     let rom_header = rom.borrow().rom_header;
-    let prg_bank = rom_header.prg_rom_len / 0x4000;
-    let chr_bank = rom_header.chr_rom_len / 0x2000;
+    let prg_bank = rom_header.prg_rom_len / PRG_ROM_BANK_SIZE;
+    let chr_bank = rom_header.chr_rom_len / CHR_ROM_BANK_SIZE;
 
     Mapper0 {
       prg_bank,
