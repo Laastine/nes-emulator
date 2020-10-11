@@ -96,7 +96,6 @@ pub struct Registers {
   pub vram_addr: AddressRegister,
   pub tram_addr: AddressRegister,
   pub palette_table: [u8; 0x20],
-  table_pattern: [[u8; 0x1000]; 2],
   name_table: [[u8; 0x0400]; 2],
   address_latch: bool,
   pub ppu_data_buffer: u8,
@@ -108,10 +107,6 @@ pub struct Registers {
   sprite_count: u8,
   sprite_shifter_pattern_lo: u8,
   sprite_shifter_pattern_hi: u8,
-
-  // Sprite collision flags
-  sprite_zero_hit_possible: bool,
-  sprite_zero_being_rendered: bool,
 
   pub vblank_suppress: bool,
   pub force_nmi: bool,
@@ -127,7 +122,6 @@ impl Registers {
       vram_addr: AddressRegister(0x00),
       tram_addr: AddressRegister(0x00),
       palette_table: [0; 0x20],
-      table_pattern: [[0; 0x1000]; 2],
       name_table: [[0xFF; 0x0400]; 2],
       address_latch: false,
       ppu_data_buffer: 0x00,
@@ -139,8 +133,6 @@ impl Registers {
       sprite_count: 0,
       sprite_shifter_pattern_lo: 0,
       sprite_shifter_pattern_hi: 0,
-      sprite_zero_hit_possible: false,
-      sprite_zero_being_rendered: false,
       vblank_suppress: false,
       force_nmi: false,
       read_buffer: 0,
@@ -158,7 +150,6 @@ impl Registers {
     self.oam_ram = [0; 0x0100];
     self.palette_table = [0; 0x20];
     self.name_table = [[0u8; 0x0400]; 2];
-    self.table_pattern = [[0; 0x1000]; 2];
   }
 
   fn write_oam_address(&mut self, address: u8) {
@@ -189,19 +180,11 @@ impl Registers {
   }
 
   pub fn ppu_read_reg(&self, address: u16) -> u8 {
-    let mut addr = address & 0x3FFF;
+    let mut addr = address;
 
-    /*
-    else if (0x0000..=0x1FFF).contains(&addr) {
-      let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
-      let second_idx = usize::try_from(addr & 0x0FFF).unwrap();
-      self.table_pattern[first_idx][second_idx]
-    }
-   */
     if (0x0000..=0x1FFF).contains(&addr) {
       self.get_cartridge().mapper.mapped_read_ppu_u8(addr)
-    }
-    else if (0x2000..=0x3EFF).contains(&addr) {
+    } else if (0x2000..=0x3EFF).contains(&addr) {
       addr &= 0x0FFF;
       let idx = usize::try_from(addr & 0x03FF).unwrap();
       match self.get_cartridge().rom_header.mirroring {
@@ -237,20 +220,11 @@ impl Registers {
   }
 
   pub fn ppu_write_reg(&mut self, address: u16, data: u8) {
-    let mut addr = address & 0x3FFF;
+    let mut addr = address;
 
     if (0x0000..=0x1FFF).contains(&addr) {
-      // if self.get_cartridge().rom.chr_rom.is_empty() {
-      //   self.get_mut_cartridge().rom.chr_ram[mapped_addr] = data;
-      // } else {
-      //   self.get_mut_cartridge().rom.chr_rom[mapped_addr] = data;
-      // }
       self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr, data)
-    } /*else if (0x0000..=0x1FFF).contains(&addr) {
-      let fst_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
-      let snd_idx = usize::try_from(addr & 0x0FFF).unwrap();
-      self.table_pattern[fst_idx][snd_idx] = data;
-    }*/ else if (0x2000..=0x3EFF).contains(&addr) {
+    } else if (0x2000..=0x3EFF).contains(&addr) {
       addr &= 0x0FFF;
       let snd_idx = usize::try_from(addr & 0x03FF).unwrap();
       let fst_idx = match self.get_cartridge().rom_header.mirroring {

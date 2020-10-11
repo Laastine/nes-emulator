@@ -20,9 +20,9 @@ pub struct RomHeader {
 pub struct Rom {
   pub rom_header: RomHeader,
   pub prg_rom: Vec<u8>,
+  pub prg_ram: Vec<u8>,
   pub chr_rom: Vec<u8>,
   pub chr_ram: Vec<u8>,
-  pub title: String,
 }
 
 impl Rom {
@@ -58,7 +58,7 @@ impl Rom {
     let flag_vs_unisystem = (flags_7 & 0x01) > 0x00;
     let flag_playchoice_10 = (flags_7 & 0x02) > 0x00;
     let flag_rom_format = (flags_7 & 0x0C) >> 2;
-    let mapper_hi = (flags_7 & 0xF0) >> 4;
+    let mapper_hi = flags_7 & 0xF0;
 
     let flag_tv_system = flags_10 & 0x03;
     let flag_prg_ram = (flags_10 & 0x10) > 0x00;
@@ -74,7 +74,7 @@ impl Rom {
     let prg_ram_len = match (prg_ram_size, flag_prg_ram) {
       (_, false) => 0,
       (0, true) => 0x2000,
-      (_, true) => prg_ram_size as usize * 0x2000,
+      (prg_ram_size, true) => prg_ram_size as usize * 0x2000,
     };
 
     let chr_ram_len = if chr_rom_size == 0 { 0x2000 } else { 0 };
@@ -85,11 +85,7 @@ impl Rom {
       _ => panic!("Mirroring mode {}, {} not supported", flag_mirror, flag_four_screen_vram)
     };
 
-    let mapper = mapper_lo | (mapper_hi << 4);
-
-    if mapper > 0 {
-      panic!("Mapper {} not implemented", mapper);
-    }
+    let mapper = mapper_lo | mapper_hi;
 
     let tv_system = TVSystem::get_tv_system(flag_tv_system);
 
@@ -110,29 +106,28 @@ impl Rom {
 
     let prg_rom = bytes.take(rom_header.prg_rom_len).collect::<Vec<u8>>();
     if prg_rom.len() != rom_header.prg_rom_len {
-      panic!("Couldn't read PRG rom");
+      panic!("Couldn't initialize PRG ROM");
     }
+
+    let prg_ram = vec![0u8; rom_header.prg_ram_len];
 
     let chr_rom = bytes.take(rom_header.chr_rom_len).collect::<Vec<u8>>();
     if chr_rom.len() != rom_header.chr_rom_len {
-      panic!("Couldn't read CHR rom");
+      panic!("Couldn't initialize CHR ROM");
     }
 
     let chr_ram = vec![0u8; rom_header.chr_ram_len];
-
-    let title_bytes = bytes.take(0x80).collect::<Vec<u8>>();
-    let title = String::from_utf8_lossy(&title_bytes).to_string();
 
     if bytes.next().is_some() {
       panic!("Unexpected ROM size");
     }
 
-    println!("Loading {}", title);
+    println!("Loading");
 
     Rom {
       rom_header,
-      title,
       prg_rom,
+      prg_ram,
       chr_rom,
       chr_ram,
     }
@@ -158,9 +153,9 @@ impl Rom {
     Rom {
       rom_header,
       prg_rom: vec![0u8; rom_header.prg_rom_len],
+      prg_ram: vec![0u8; rom_header.prg_ram_len],
       chr_rom: vec![0u8; rom_header.chr_rom_len],
       chr_ram: vec![0u8; rom_header.chr_ram_len],
-      title: "test".to_string(),
     }
   }
 }

@@ -1,9 +1,12 @@
-use crate::cartridge::rom_reading::{Rom, RomHeader};
-use crate::mapper::{Mapper, mapper0::Mapper0};
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use crate::cartridge::rom_reading::RomHeader;
+use crate::cartridge::rom_with_pager::RomData;
+use crate::mapper::{Mapper, mapper0::Mapper0};
+
 pub mod rom_reading;
+pub mod rom_with_pager;
 
 #[derive(Clone)]
 pub struct Cartridge {
@@ -12,8 +15,7 @@ pub struct Cartridge {
 }
 
 impl Cartridge {
-  pub fn new(rom: Rc<RefCell<Rom>>) -> Box<Cartridge> {
-
+  pub fn new(rom: Rc<RefCell<RomData>>) -> Box<Cartridge> {
     let rom_header = rom.borrow().rom_header;
 
     let mapper: Box<dyn Mapper> = match rom_header.mapper {

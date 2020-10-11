@@ -19,6 +19,7 @@ use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
 use crate::nes::constants::{KeyboardCommand, KeyCode};
 use crate::ppu::{Ppu, registers::Registers};
+use crate::cartridge::rom_with_pager::RomData;
 
 pub mod constants;
 
@@ -35,7 +36,9 @@ impl Nes  {
     let rom_bytes = fs::read(rom_file).expect("Rom file read error");
     let rom = Rom::read_from_file(rom_bytes.into_iter());
 
-    let rom_ref = Rc::new(RefCell::new(rom));
+
+    let rom_data = RomData::new(rom);
+    let rom_ref = Rc::new(RefCell::new(rom_data));
 
     let cartridge = Cartridge::new(rom_ref);
     let cart = Rc::new(RefCell::new(cartridge));

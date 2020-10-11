@@ -53,7 +53,7 @@ impl Bus {
   }
 
   pub fn write_u8(&mut self, address: u16, data: u8) {
-    if (0x8000..0xFFFF).contains(&address) {
+    if (0x6000..0xFFFF).contains(&address) {
       self.get_mut_cartridge().mapper.mapped_write_cpu_u8(address, data);
     } else if (0x0000..=0x1FFF).contains(&address) {
       self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
@@ -71,7 +71,7 @@ impl Bus {
   }
 
   pub fn read_u8(&mut self, address: u16) -> u16 {
-    if (0x8000..=0xFFFF).contains(&address) {
+    if (0x6000..=0xFFFF).contains(&address) {
       self.get_cartridge().mapper.mapped_read_cpu_u8(address)
     } else if (0x0000..=0x1FFF).contains(&address) {
       u16::try_from(self.ram[usize::try_from(address).unwrap() & 0x07FF]).unwrap()

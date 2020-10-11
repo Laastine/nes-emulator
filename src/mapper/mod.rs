@@ -1,5 +1,7 @@
 pub mod mapper0;
 // pub mod mapper1;
+// pub mod mapper2;
+pub mod pager;
 
 pub trait Mapper: MapperClone {
   fn mapped_read_cpu_u8(&self, address: u16) -> u16;
