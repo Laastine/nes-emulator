@@ -200,6 +200,26 @@ impl Cpu {
     self.cycles = 8;
   }
 
+  pub fn irq(&mut self) {
+    if self.get_flag(&FLAGS6502::I) {
+      self.bus_write_u8(self.get_stack_address(), u8::try_from((self.pc >> 8) & 0x00FF).unwrap());
+      self.stack_pointer_decrement();
+      self.bus_write_u8(self.get_stack_address(), u8::try_from(self.pc & 0x00FF).unwrap());
+      self.stack_pointer_decrement();
+
+      self.set_flag(&FLAGS6502::B, false);
+      self.set_flag(&FLAGS6502::U, true);
+      self.set_flag(&FLAGS6502::I, true);
+      self.bus_write_u8(self.get_stack_address(), self.status_register);
+      self.stack_pointer_decrement();
+
+      self.addr_abs = 0xFFFE;
+      self.pc = (self.bus_mut_read_u8(self.addr_abs) << 8) | self.bus_mut_read_u8(self.addr_abs + 1);
+
+      self.cycles = 7;
+    }
+  }
+
   /// Non-maskable interrupt
   pub fn nmi(&mut self) {
     self.bus_write_u8(self.get_stack_address(), u8::try_from((self.pc >> 8) & 0xFF).unwrap());

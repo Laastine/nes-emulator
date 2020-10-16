@@ -1,5 +1,6 @@
 #[derive(Copy, Clone)]
 pub enum PageSize {
+  OneKb = 0x0400,
   EightKb = 0x2000,
   SixteenKb = 0x4000,
 }
@@ -7,6 +8,7 @@ pub enum PageSize {
 impl PageSize {
   pub fn value(&self) -> usize {
     match *self {
+      PageSize::OneKb => 0x0400,
       PageSize::EightKb => 0x2000,
       PageSize::SixteenKb => 0x4000,
     }
@@ -18,6 +20,7 @@ pub enum Page {
   First(PageSize),
   FromNth(usize, PageSize),
   Last(PageSize),
+  FromEnd(usize, PageSize),
 }
 
 pub struct Pager {
@@ -46,24 +49,27 @@ impl Pager {
       panic!("Page size must divide evenly into data length")
     }
 
-    self.data.len() / (size as usize)
+    self.data.len() / (size as usize) - 1
   }
 
   fn index(&self, page: Page, offset: u16) -> usize {
     match page {
       Page::First(size) => self.index(Page::FromNth(0, size), offset),
       Page::Last(size) => {
-        let last_page = self.page_count(size) - 1;
+        let last_page = self.page_count(size);
         self.index(Page::FromNth(last_page, size), offset)
       }
       Page::FromNth(nth, size) => {
         if (offset as usize) > (size as usize) {
           panic!("Offset exceeded page size")
         }
-        if nth >= self.page_count(size) {
+        if nth > self.page_count(size) {
           panic!("Page indexing out bounds")
         }
         nth * (size as usize) + (offset as usize)
+      }
+      Page::FromEnd(nth, size) => {
+        self.index(Page::FromNth(self.page_count(size) - nth, size), offset)
       }
     }
   }

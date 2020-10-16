@@ -14,12 +14,11 @@ use luminance::texture::Sampler;
 
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
-use crate::cartridge::rom_reading::Rom;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
 use crate::nes::constants::{KeyboardCommand, KeyCode};
 use crate::ppu::{Ppu, registers::Registers};
-use crate::cartridge::rom_with_pager::RomData;
+use std::borrow::Borrow;
 
 pub mod constants;
 
@@ -34,13 +33,8 @@ pub struct Nes {
 impl Nes  {
   pub fn new(rom_file: &str) -> Self {
     let rom_bytes = fs::read(rom_file).expect("Rom file read error");
-    let rom = Rom::read_from_file(rom_bytes.into_iter());
 
-
-    let rom_data = RomData::new(rom);
-    let rom_ref = Rc::new(RefCell::new(rom_data));
-
-    let cartridge = Cartridge::new(rom_ref);
+    let cartridge = Cartridge::new(rom_bytes);
     let cart = Rc::new(RefCell::new(cartridge));
     let c = [0u8; 2];
 
@@ -195,6 +189,10 @@ impl Nes  {
     if self.ppu.nmi {
       self.ppu.nmi = false;
       self.cpu.nmi();
+    }
+
+    if self.cpu.bus.borrow().get_cartridge().irq_flag() {
+      self.cpu.irq();
     }
 
     self.system_cycles = self.system_cycles.wrapping_add(1);

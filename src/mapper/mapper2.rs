@@ -7,23 +7,26 @@ use crate::mapper::Mapper;
 use crate::mapper::pager::Page;
 use crate::mapper::pager::PageSize::{EightKb, SixteenKb};
 use crate::cartridge::CHR_ROM_BANK_SIZE;
+use crate::cartridge::rom_reading::Mirroring;
 
 #[derive(Clone)]
 pub struct Mapper2 {
   prg_bank_select: usize,
   chr_rom_pages: usize,
   rom: Rc<RefCell<RomData>>,
+  mirroring: Mirroring,
 }
 
 impl Mapper2 {
   pub fn new(rom: Rc<RefCell<RomData>>) -> Mapper2 {
-    let rom_header = rom.borrow().rom_header;
-    let chr_rom_pages = rom_header.chr_rom_len / CHR_ROM_BANK_SIZE;
+    let mirroring = rom.borrow().rom_header.mirroring;
+    let chr_rom_pages = rom.borrow().rom_header.chr_rom_len / CHR_ROM_BANK_SIZE;
 
     Mapper2 {
       prg_bank_select: 0,
       chr_rom_pages,
       rom,
+      mirroring,
     }
   }
 
@@ -66,5 +69,9 @@ impl Mapper for Mapper2 {
     if self.chr_rom_pages == 0 {
       self.get_mut_rom().chr_ram.write(Page::First(EightKb), address, data);
     }
+  }
+
+  fn mirroring(&self) -> Mirroring {
+    self.mirroring
   }
 }

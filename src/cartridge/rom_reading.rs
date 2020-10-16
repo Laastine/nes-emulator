@@ -38,11 +38,9 @@ impl Rom {
     let chr_rom_size = bytes.next().unwrap_or_else(|| panic!("chr_rom read error"));
     let flags_6 = bytes.next().unwrap_or_else(|| panic!("flags_6 read error"));
     let flags_7 = bytes.next().unwrap_or_else(|| panic!("flags_7 read error"));
-    let prg_ram_size = bytes.next().unwrap_or_else(|| panic!("flags_8 read error"));
+    let flags_8 = bytes.next().unwrap_or_else(|| panic!("flags_8 read error"));
     let _flags_9 = bytes.next().unwrap_or_else(|| panic!("flags_9 read error"));
-    let flags_10 = bytes
-      .next()
-      .unwrap_or_else(|| panic!("flags_10 read error"));
+    let flags_10 = bytes.next().unwrap_or_else(|| panic!("flags_10 read error"));
 
     let zeros = (&mut bytes).take(5);
     if [0, 0, 0, 0, 0].iter().cloned().ne(zeros) {
@@ -61,7 +59,6 @@ impl Rom {
     let mapper_hi = flags_7 & 0xF0;
 
     let flag_tv_system = flags_10 & 0x03;
-    let flag_prg_ram = (flags_10 & 0x10) > 0x00;
     let flag_bus_conflicts = (flags_10 & 0x20) > 0x00;
 
     if flag_rom_format == 2 {
@@ -71,11 +68,8 @@ impl Rom {
     let prg_rom_len = prg_rom_size as usize * 0x4000;
     let chr_rom_len = chr_rom_size as usize * 0x2000;
 
-    let prg_ram_len = match (prg_ram_size, flag_prg_ram) {
-      (_, false) => 0,
-      (0, true) => 0x2000,
-      (prg_ram_size, true) => prg_ram_size as usize * 0x2000,
-    };
+    let prg_ram_size = if flags_8 > 0 { flags_8 } else { 1 };
+    let prg_ram_len = prg_ram_size as usize * 0x2000;
 
     let chr_ram_len = if chr_rom_size == 0 { 0x2000 } else { 0 };
 
@@ -109,7 +103,9 @@ impl Rom {
       panic!("Couldn't initialize PRG ROM");
     }
 
-    let prg_ram = vec![0u8; rom_header.prg_ram_len];
+    dbg!(rom_header.prg_ram_len);
+
+    let prg_ram = vec![0u8; 1 as usize * 0x8000];
 
     let chr_rom = bytes.take(rom_header.chr_rom_len).collect::<Vec<u8>>();
     if chr_rom.len() != rom_header.chr_rom_len {

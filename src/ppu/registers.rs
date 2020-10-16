@@ -171,7 +171,7 @@ impl Registers {
     }
   }
 
-  fn get_mut_cartridge(&mut self) -> RefMut<Box<Cartridge>> {
+  pub fn get_mut_cartridge(&mut self) -> RefMut<Box<Cartridge>> {
     self.cartridge.borrow_mut()
   }
 
@@ -187,7 +187,7 @@ impl Registers {
     } else if (0x2000..=0x3EFF).contains(&addr) {
       addr &= 0x0FFF;
       let idx = usize::try_from(addr & 0x03FF).unwrap();
-      match self.get_cartridge().rom_header.mirroring {
+      match self.get_cartridge().mapper.mirroring() {
         Mirroring::Vertical => {
           match addr {
             0x0000..=0x03FF => self.name_table[0][idx],
@@ -227,7 +227,7 @@ impl Registers {
     } else if (0x2000..=0x3EFF).contains(&addr) {
       addr &= 0x0FFF;
       let snd_idx = usize::try_from(addr & 0x03FF).unwrap();
-      let fst_idx = match self.get_cartridge().rom_header.mirroring {
+      let fst_idx = match self.get_cartridge().mapper.mirroring() {
         Mirroring::Vertical => {
           match addr {
             0x0000..=0x03FF => 0,
