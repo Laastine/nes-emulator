@@ -180,33 +180,13 @@ impl Registers {
   }
 
   pub fn ppu_read_reg(&self, address: u16) -> u8 {
-    let mut addr = address;
+    let addr = address;
 
     if (0x0000..=0x1FFF).contains(&addr) {
       self.get_cartridge().mapper.mapped_read_ppu_u8(addr)
     } else if (0x2000..=0x3EFF).contains(&addr) {
-      addr &= 0x0FFF;
-      let idx = usize::try_from(addr & 0x03FF).unwrap();
-      match self.get_cartridge().mapper.mirroring() {
-        Mirroring::Vertical => {
-          match addr {
-            0x0000..=0x03FF => self.name_table[0][idx],
-            0x0400..=0x07FF => self.name_table[1][idx],
-            0x0800..=0x0BFF => self.name_table[0][idx],
-            0x0C00..=0x0FFF => self.name_table[1][idx],
-            _ => panic!("Unknown vertical mode table address"),
-          }
-        }
-        Mirroring::Horizontal => {
-          match addr {
-            0x0000..=0x03FF => self.name_table[0][idx],
-            0x0400..=0x07FF => self.name_table[0][idx],
-            0x0800..=0x0BFF => self.name_table[1][idx],
-            0x0C00..=0x0FFF => self.name_table[1][idx],
-            _ => panic!("Unknown horizontal mode table address"),
-          }
-        }
-      }
+      let (fst_idx, snd_idx) = mirror_name_table(self.get_cartridge().mapper.mirroring(), addr);
+      self.name_table[fst_idx][snd_idx]
     } else if (0x3F00..=0x3FFF).contains(&addr) {
       let addr = addr % 0x20;
       let idx = match addr {
@@ -225,28 +205,7 @@ impl Registers {
     if (0x0000..=0x1FFF).contains(&addr) {
       self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr, data)
     } else if (0x2000..=0x3EFF).contains(&addr) {
-      addr &= 0x0FFF;
-      let snd_idx = usize::try_from(addr & 0x03FF).unwrap();
-      let fst_idx = match self.get_cartridge().mapper.mirroring() {
-        Mirroring::Vertical => {
-          match addr {
-            0x0000..=0x03FF => 0,
-            0x0400..=0x07FF => 1,
-            0x0800..=0x0BFF => 0,
-            0x0C00..=0x0FFF => 1,
-            _ => panic!("Unknown vertical mode table address"),
-          }
-        }
-        Mirroring::Horizontal => {
-          match addr {
-            0x0000..=0x03FF => 0,
-            0x0400..=0x07FF => 0,
-            0x0800..=0x0BFF => 1,
-            0x0C00..=0x0FFF => 1,
-            _ => panic!("Unknown horizontal mode table address"),
-          }
-        }
-      };
+      let (fst_idx, snd_idx) = mirror_name_table(self.get_cartridge().mapper.mirroring(), addr);
       self.name_table[fst_idx][snd_idx] = data;
     } else if (0x3F00..=0x3FFF).contains(&addr) {
       addr &= 0x001F;
@@ -362,13 +321,39 @@ impl Registers {
   }
 }
 
+fn mirror_name_table(mirror_mode: Mirroring, addr: u16) -> (usize, usize) {
+  let addr_range = addr & 0x0FFF;
+  let idx = usize::try_from(addr & 0x03FF).unwrap();
+  match mirror_mode {
+    Mirroring::Vertical => {
+      match addr_range {
+        0x0000..=0x03FF => (0, idx),
+        0x0400..=0x07FF => (1, idx),
+        0x0800..=0x0BFF => (0, idx),
+        0x0C00..=0x0FFF => (1, idx),
+        _ => panic!("Unknown vertical mode table address")
+      }
+    }
+    Mirroring::Horizontal => {
+      match addr_range {
+        0x0000..=0x03FF => (0, idx),
+        0x0400..=0x07FF => (0, idx),
+        0x0800..=0x0BFF => (1, idx),
+        0x0C00..=0x0FFF => (1, idx),
+        _ => panic!("Unknown horizontal mode table address")
+      }
+    }
+  }
+}
+
 #[cfg(test)]
 mod test {
   use std::cell::RefCell;
   use std::rc::Rc;
 
   use crate::cartridge::Cartridge;
-  use crate::ppu::registers::Registers;
+  use crate::cartridge::rom_reading::Mirroring;
+  use crate::ppu::registers::{mirror_name_table, Registers};
 
   #[test]
   fn ppu_table_write_and_read() {
