@@ -12,10 +12,10 @@ pub struct RomData {
 impl RomData {
   pub fn new(rom: Rom) -> RomData {
     let rom_header = rom.rom_header;
-    let prg_rom = Pager::new(rom.prg_rom.to_vec());
-    let prg_ram = Pager::new(rom.prg_ram.to_vec());
-    let chr_rom = Pager::new(rom.chr_rom.to_vec());
-    let chr_ram = Pager::new(rom.chr_ram.to_vec());
+    let prg_rom = Pager::new(rom.prg_rom);
+    let prg_ram = Pager::new(rom.prg_ram);
+    let chr_rom = Pager::new(rom.chr_rom);
+    let chr_ram = Pager::new(rom.chr_ram);
 
     RomData {
       rom_header,
