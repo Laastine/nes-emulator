@@ -179,9 +179,7 @@ impl Registers {
     self.cartridge.borrow()
   }
 
-  pub fn ppu_read_reg(&self, address: u16) -> u8 {
-    let addr = address;
-
+  pub fn ppu_read_reg(&self, addr: u16) -> u8 {
     if (0x0000..=0x1FFF).contains(&addr) {
       self.get_cartridge().mapper.mapped_read_ppu_u8(addr)
     } else if (0x2000..=0x3EFF).contains(&addr) {
@@ -189,32 +187,20 @@ impl Registers {
       let (fst_idx, snd_idx) = mirror_name_table(m, addr);
       self.name_table[fst_idx][snd_idx]
     } else if (0x3F00..=0x3FFF).contains(&addr) {
-      let addr = addr & 0x1F;
-      let idx: usize = match addr {
-        0x0010 | 0x0014 | 0x0018 | 0x001C => usize::try_from(addr).unwrap() - 0x10,
-        _ => addr.into()
-      };
-      self.palette_table[idx]
+      self.palette_table[palette_table(addr)]
     } else {
       0
     }
   }
 
-  pub fn ppu_write_reg(&mut self, address: u16, data: u8) {
-    let mut addr = address;
-
+  pub fn ppu_write_reg(&mut self, addr: u16, data: u8) {
     if (0x0000..=0x1FFF).contains(&addr) {
       self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr, data)
     } else if (0x2000..=0x3EFF).contains(&addr) {
       let (fst_idx, snd_idx) = mirror_name_table(self.get_cartridge().mapper.mirroring(), addr);
       self.name_table[fst_idx][snd_idx] = data;
     } else if (0x3F00..=0x3FFF).contains(&addr) {
-      addr &= 0x001F;
-      let idx: usize = match addr {
-        0x0010 | 0x0014 | 0x0018 | 0x001C => usize::try_from(addr).unwrap() - 0x10,
-        _ => addr.into()
-      };
-      self.palette_table[idx] = data;
+      self.palette_table[palette_table(addr)] = data;
     }
   }
 
@@ -344,6 +330,14 @@ fn mirror_name_table(mirror_mode: Mirroring, addr: u16) -> (usize, usize) {
         _ => panic!("Unknown horizontal mode table address")
       }
     }
+  }
+}
+
+fn palette_table(addr: u16) -> usize {
+  let address = addr & 0x001F;
+  match address {
+    0x0010 | 0x0014 | 0x0018 | 0x001C => usize::try_from(address).unwrap() - 0x10,
+    _ => address.into()
   }
 }
 
