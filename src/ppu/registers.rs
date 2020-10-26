@@ -310,7 +310,7 @@ impl Registers {
 
 fn mirror_name_table(mirror_mode: Mirroring, addr: u16) -> (usize, usize) {
   let addr_range = addr & 0x0FFF;
-  let idx = usize::try_from(addr & 0x03FF).unwrap();
+  let idx = usize::try_from(addr_range & 0x03FF).unwrap();
   match mirror_mode {
     Mirroring::Vertical => {
       match addr_range {

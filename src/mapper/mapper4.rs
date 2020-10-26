@@ -64,7 +64,6 @@ impl Mapper for Mapper4 {
   }
 
   fn mapped_write_cpu_u8(&mut self, address: u16, data: u8) {
-    dbg!(self.get_mut_rom().prg_ram.data.len());
     match (address, address % 2) {
       (0x6000..=0x7FFF, _) => self.get_mut_rom().prg_ram.write(Page::First(EightKb), address - 0x6000, data),
       (0x8000..=0x9FFF, 0) => {

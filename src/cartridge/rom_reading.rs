@@ -103,8 +103,6 @@ impl Rom {
       panic!("Couldn't initialize PRG ROM");
     }
 
-    dbg!(rom_header.prg_ram_len);
-
     let prg_ram = vec![0u8; rom_header.prg_ram_len];
 
     let chr_rom = bytes.take(rom_header.chr_rom_len).collect::<Vec<u8>>();
