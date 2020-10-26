@@ -185,15 +185,16 @@ impl Registers {
     if (0x0000..=0x1FFF).contains(&addr) {
       self.get_cartridge().mapper.mapped_read_ppu_u8(addr)
     } else if (0x2000..=0x3EFF).contains(&addr) {
-      let (fst_idx, snd_idx) = mirror_name_table(self.get_cartridge().mapper.mirroring(), addr);
+      let m = self.get_cartridge().mapper.mirroring();
+      let (fst_idx, snd_idx) = mirror_name_table(m, addr);
       self.name_table[fst_idx][snd_idx]
     } else if (0x3F00..=0x3FFF).contains(&addr) {
-      let addr = addr % 0x20;
-      let idx = match addr {
-        0x0010 | 0x0014 | 0x0018 | 0x001C => addr - 0x10,
-        _ => addr
+      let addr = addr & 0x1F;
+      let idx: usize = match addr {
+        0x0010 | 0x0014 | 0x0018 | 0x001C => usize::try_from(addr).unwrap() - 0x10,
+        _ => addr.into()
       };
-      self.palette_table[usize::try_from(idx).unwrap()]
+      self.palette_table[idx]
     } else {
       0
     }
@@ -217,7 +218,7 @@ impl Registers {
     }
   }
 
-  pub fn cpu_write_reg(&mut self, address: u16, data: u8) {
+  pub fn bus_write_ppu_reg(&mut self, address: u16, data: u8) {
     self.ppu_data_buffer = data;
     match address % 8 {
       0x00 => self.write_control(data),
@@ -274,7 +275,7 @@ impl Registers {
     self.vram_addr = AddressRegister(addr.wrapping_add(increment_val));
   }
 
-  pub fn cpu_read_reg(&mut self, address: u16) -> u8 {
+  pub fn bus_read_ppu_reg(&mut self, address: u16) -> u8 {
     let res = match address % 8 {
       0x00 => self.ppu_data_buffer,
       0x01 => self.ppu_data_buffer,
