@@ -389,7 +389,7 @@ impl Ppu {
       for sprite in self.primary_oam.iter().rev() {
         let sprite_color_idx = sprite.color_index(x);
 
-        if sprite_color_idx != 0 {
+        if sprite_color_idx > 0 {
           possible_zero_hit = sprite.oam_index == 0 && x != 0xFF;
           color = 0x10 | sprite.attributes.palette() << 2 | sprite_color_idx;
           is_behind = sprite.attributes.is_behind_background();
