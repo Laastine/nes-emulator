@@ -183,8 +183,7 @@ impl Registers {
     if (0x0000..=0x1FFF).contains(&addr) {
       self.get_cartridge().mapper.mapped_read_ppu_u8(addr)
     } else if (0x2000..=0x3EFF).contains(&addr) {
-      let m = self.get_cartridge().mapper.mirroring();
-      let (fst_idx, snd_idx) = mirror_name_table(m, addr);
+      let (fst_idx, snd_idx) = mirror_name_table(self.get_cartridge().mapper.mirroring(), addr);
       self.name_table[fst_idx][snd_idx]
     } else if (0x3F00..=0x3FFF).contains(&addr) {
       self.palette_table[palette_table(addr)]
@@ -347,8 +346,7 @@ mod test {
   use std::rc::Rc;
 
   use crate::cartridge::Cartridge;
-  use crate::cartridge::rom_reading::Mirroring;
-  use crate::ppu::registers::{mirror_name_table, Registers};
+  use crate::ppu::registers::Registers;
 
   #[test]
   fn ppu_table_write_and_read() {
@@ -375,5 +373,112 @@ mod test {
 
     assert_eq!(registers.status_flags.sprite_overflow(), false);
     assert_eq!(registers.status_flags.0, 0b00_00_00_00);
+  }
+
+  #[test]
+  fn control_reg_write() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.bus_write_ppu_reg(0x2000, 0xAF);
+    assert_eq!(registers.ctrl_flags.0, 0xAF)
+  }
+
+  #[test]
+  fn mask_reg_write() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.bus_write_ppu_reg(0x2001, 0xBF);
+    assert_eq!(registers.mask_flags.0, 0xBF)
+  }
+
+  #[test]
+  fn oam_data_reg_write() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.bus_write_ppu_reg(0x2003, 0xF0);
+    registers.bus_write_ppu_reg(0x2004, 0x04);
+    assert_eq!(registers.oam_ram[0xF0], 0x04);
+    assert_eq!(registers.oam_address, 0xF1);
+  }
+
+  #[test]
+  fn scroll_reg_write() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.bus_write_ppu_reg(0x2005, 0xEE);
+    assert_eq!(registers.fine_x, 6);
+    assert_eq!(registers.tram_addr.coarse_x(), 0x1D);
+    assert_eq!(registers.address_latch, true);
+
+
+    registers.bus_write_ppu_reg(0x2005, 0xFA);
+    assert_eq!(registers.fine_x, 6);
+    assert_eq!(registers.tram_addr.coarse_y(), 0x1F);
+    assert_eq!(registers.address_latch, false);
+  }
+
+  #[test]
+  fn address_reg_write() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.bus_write_ppu_reg(0x2006, 0x1A);
+    assert_eq!(registers.tram_addr.0, 0x1A00);
+    assert_eq!(registers.address_latch, true);
+
+
+    registers.bus_write_ppu_reg(0x2006, 0xB2);
+    assert_eq!(registers.tram_addr.0, 0x1AB2);
+    assert_eq!(registers.address_latch, false);
+  }
+
+  #[test]
+  fn data_write() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.vram_addr.0 = 0x2000;
+    registers.bus_write_ppu_reg(0x2007, 0xF0);
+    assert_eq!(registers.ppu_read_reg(0x2000), 0xF0);
+    assert_eq!(registers.vram_addr.0, 0x2001);
+
+    registers.ctrl_flags.0 = 0x04;
+    registers.bus_write_ppu_reg(0x2007, 0x0F);
+    assert_eq!(registers.ppu_read_reg(0x2001), 0x0F);
+    assert_eq!(registers.vram_addr.0, 0x2021);
+  }
+
+  #[test]
+  fn read_ghost_bits_reg_write() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.bus_write_ppu_reg(0x2002, 0xFA);
+    registers.status_flags.0 = 0;
+    assert_eq!(registers.bus_read_ppu_reg(0x2002), 0x1A);
+    assert_eq!(registers.bus_read_ppu_reg(0x2000), 0x1A);
+    assert_eq!(registers.bus_read_ppu_reg(0x2001), 0x1A);
+    assert_eq!(registers.bus_read_ppu_reg(0x2003), 0x1A);
+    assert_eq!(registers.bus_read_ppu_reg(0x2005), 0x1A);
+    assert_eq!(registers.bus_read_ppu_reg(0x2006), 0x1A);
+  }
+
+  #[test]
+  fn delayed_read_data() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.ppu_write_reg(0x2001, 0x07);
+    registers.ppu_write_reg(0x2002, 0x0B);
+    registers.ppu_write_reg(0x2003, 0x0E);
+    registers.vram_addr.0 = 0x2001;
+    registers.bus_read_ppu_reg(0x2007);
+    assert_eq!(registers.bus_read_ppu_reg(0x2007), 0x07);
+    assert_eq!(registers.bus_read_ppu_reg(0x2007), 0x0B);
+    assert_eq!(registers.bus_read_ppu_reg(0x2007), 0x0E);
   }
 }
