@@ -74,7 +74,7 @@ impl Rom {
     let prg_ram_size = if flags_8 > 0 { flags_8 } else { 1 };
     let prg_ram_len = prg_ram_size as usize * PRG_RAM_PAGE_SIZE;
 
-    let chr_ram_len = if chr_rom_pages == 0 { CHR_RAM_PAGE_SIZE } else { 0 };
+    let chr_ram_len = if chr_rom_pages == 0 { CHR_RAM_PAGE_SIZE } else { chr_rom_pages as usize * CHR_RAM_PAGE_SIZE };
 
     let mirroring = match (flag_mirror, flag_four_screen_vram) {
       (true, false) => Mirroring::Vertical,
@@ -110,7 +110,7 @@ impl Rom {
       panic!("Couldn't initialize CHR ROM");
     }
 
-    let chr_ram = vec![0u8; rom_header.chr_ram_len];
+    let chr_ram = vec![0u8; chr_ram_len];
 
     if bytes.next().is_some() {
       panic!("Unexpected ROM size");
