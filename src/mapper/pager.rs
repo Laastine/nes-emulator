@@ -46,7 +46,7 @@ impl Pager {
 
   fn page_count(&self, size: PageSize) -> usize {
     if self.data.len() % size.value() != 0 {
-      panic!("Page size must divide evenly into data length")
+      panic!("Page size must divide evenly into data length {} % {} == 0", self.data.len(), size.value())
     }
 
     self.data.len() / (size as usize) - 1
@@ -61,10 +61,10 @@ impl Pager {
       }
       Page::FromNth(nth, size) => {
         if (offset as usize) > (size as usize) {
-          panic!("Offset exceeded page size")
+          panic!("Offset exceeded page size {} > {}", offset as usize, size as usize)
         }
         if nth > self.page_count(size) {
-          panic!("Page indexing out bounds")
+          panic!("Page indexing out bounds {} > {}", nth, self.page_count(size))
         }
         nth * (size as usize) + (offset as usize)
       }
