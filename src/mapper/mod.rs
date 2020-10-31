@@ -17,6 +17,7 @@ pub trait Mapper: MapperClone {
     false
   }
   fn signal_scanline(&mut self) {}
+  fn clear_irq_flag(&mut self) {}
 }
 
 pub trait MapperClone {

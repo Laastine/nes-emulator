@@ -6,7 +6,6 @@ use crate::cartridge::rom_with_pager::RomData;
 use crate::mapper::Mapper;
 use crate::mapper::pager::Page;
 use crate::mapper::pager::PageSize::{EightKb, OneKb};
-use std::convert::TryFrom;
 
 #[derive(Clone)]
 pub struct Mapper4 {
@@ -18,7 +17,6 @@ pub struct Mapper4 {
   irq_counter: u8,
   irq_period: u8,
   irq_enabled: bool,
-  irq_reset: bool,
   flag_irq: bool,
   rom: Rc<RefCell<RomData>>,
 }
@@ -28,13 +26,12 @@ impl Mapper4 {
     Mapper4 {
       prg_select: false,
       chr_select: false,
-      registers: [0usize; 8],
+      registers: [0; 8],
       index: 0,
       mirroring: Mirroring::Horizontal,
       irq_counter: 0,
       irq_period: 0,
       irq_enabled: false,
-      irq_reset: false,
       flag_irq: false,
       rom,
     }
@@ -67,23 +64,23 @@ impl Mapper for Mapper4 {
     match (address, address % 2) {
       (0x6000..=0x7FFF, _) => self.get_mut_rom().prg_ram.write(Page::First(EightKb), address - 0x6000, data),
       (0x8000..=0x9FFF, 0) => {
-        self.index = usize::try_from(data).unwrap() & 0b111;
-        self.prg_select = data & 0b0100_0000 != 0;
-        self.chr_select = data & 0b1000_0000 != 0;
+        self.index = data as usize & 0x07;
+        self.prg_select = data & 0x40 > 0;
+        self.chr_select = data & 0x80 > 0;
       }
       (0x8000..=0x9FFF, 1) => {
-        self.registers[self.index] = usize::try_from(data).unwrap();
+        self.registers[self.index] = data as usize;
       }
       (0xA000..=0xBFFF, 0) => {
-        self.mirroring = if data & 1 == 0 { Mirroring::Vertical } else { Mirroring::Horizontal };
+        self.mirroring = if data % 2 == 0 { Mirroring::Vertical } else { Mirroring::Horizontal };
       }
       (0xC000..=0xDFFF, 0) => self.irq_period = data,
-      (0xC000..=0xDFFF, 1) => self.irq_reset = true,
+      (0xC000..=0xDFFF, 1) => self.irq_counter = 0,
       (0xE000..=0xFFFF, 0) => {
         self.irq_enabled = false;
         self.flag_irq = false;
       }
-      (0xF000..=0xFFFF, 1) => self.irq_enabled = true,
+      (0xE000..=0xFFFF, 1) => self.irq_enabled = true,
       _ => (),
     }
   }
@@ -109,8 +106,7 @@ impl Mapper for Mapper4 {
       (0x1C00..=0x1FFF, true) => self.registers[1] | 1,
       _ => panic!("Invalid mapped_read_ppu_u8 address 0x{:04X}", address),
     };
-
-    self.get_rom().chr_rom.read(Page::FromNth(bank, OneKb), address % 0x0400)
+    self.get_rom().chr_rom.read(Page::FromNth(bank, OneKb), address & 0x03FF)
   }
 
   fn mapped_write_ppu_u8(&mut self, _address: u16, _data: u8) {}
@@ -118,18 +114,23 @@ impl Mapper for Mapper4 {
   fn mirroring(&self) -> Mirroring {
     self.mirroring
   }
+
   fn irq_flag(&self) -> bool {
     self.flag_irq
   }
 
   fn signal_scanline(&mut self) {
-    if self.irq_counter == 0 || self.irq_reset {
-      if self.irq_enabled {
-        self.flag_irq = true;
-      }
+    if self.irq_counter == 0 {
       self.irq_counter = self.irq_period;
     } else {
       self.irq_counter -= 1;
     }
+    if self.irq_counter == 0 && self.irq_enabled {
+      self.flag_irq = true;
+    }
+  }
+
+  fn clear_irq_flag(&mut self) {
+    self.flag_irq = false;
   }
 }

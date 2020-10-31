@@ -235,9 +235,10 @@ impl Ppu {
     self.get_mut_registers().vblank_suppress = false;
 
     self.cycles += 1;
-    let cycles = self.cycles;
-    if self.get_mut_registers().mask_flags.is_rendering() && cycles == 260 {
-      self.get_mut_registers().get_mut_cartridge().mapper.signal_scanline();
+    if self.get_registers().mask_flags.is_rendering() {
+      if self.cycles == 260 && self.scan_line < 240 {
+        self.get_mut_registers().get_mut_cartridge().mapper.signal_scanline();
+      }
     }
 
     if self.cycles > 340 {

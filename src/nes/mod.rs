@@ -192,6 +192,7 @@ impl Nes  {
     }
 
     if self.cpu.bus.borrow().get_cartridge().irq_flag() {
+      self.cpu.bus.get_mut_cartridge().clear_irq_flag();
       self.cpu.irq();
     }
 

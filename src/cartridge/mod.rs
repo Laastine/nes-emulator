@@ -1,9 +1,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::cartridge::rom_reading::{Rom, RomHeader};
-use crate::mapper::{Mapper, mapper0::Mapper0, mapper2::Mapper2, mapper3::Mapper3, mapper4::Mapper4};
+use crate::cartridge::rom_reading::{Rom, RomHeader, Mirroring};
 use crate::cartridge::rom_with_pager::RomData;
+use crate::mapper::{Mapper, mapper0::Mapper0, mapper2::Mapper2, mapper3::Mapper3, mapper4::Mapper4};
 
 pub mod rom_reading;
 pub mod rom_with_pager;
@@ -38,16 +38,24 @@ impl Cartridge {
   pub fn irq_flag(&self) -> bool {
     self.mapper.irq_flag()
   }
+
+  pub fn clear_irq_flag(&mut self) { self.mapper.clear_irq_flag() }
+
+
+  pub fn get_mirror_mode(&self) -> Mirroring {
+    self.mapper.mirroring()
+  }
 }
 
 #[cfg(test)]
 mod test {
-  use crate::cartridge::Cartridge;
-  use crate::cartridge::rom_reading::Rom;
-  use crate::mapper::mapper0::Mapper0;
   use std::cell::RefCell;
   use std::rc::Rc;
+
+  use crate::cartridge::Cartridge;
+  use crate::cartridge::rom_reading::Rom;
   use crate::cartridge::rom_with_pager::RomData;
+  use crate::mapper::mapper0::Mapper0;
 
   impl Cartridge {
     pub fn mock_cartridge() -> Cartridge {

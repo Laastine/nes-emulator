@@ -181,9 +181,10 @@ impl Registers {
 
   pub fn ppu_read_reg(&self, addr: u16) -> u8 {
     if (0x0000..=0x1FFF).contains(&addr) {
-      self.get_cartridge().mapper.mapped_read_ppu_u8(addr)
+      // dbg!(addr);
+      self.get_cartridge().mapper.mapped_read_ppu_u8(addr & 0x3FFF)
     } else if (0x2000..=0x3EFF).contains(&addr) {
-      let (fst_idx, snd_idx) = mirror_name_table(self.get_cartridge().mapper.mirroring(), addr);
+      let (fst_idx, snd_idx) = mirror_name_table(self.get_cartridge().get_mirror_mode(), addr);
       self.name_table[fst_idx][snd_idx]
     } else if (0x3F00..=0x3FFF).contains(&addr) {
       self.palette_table[palette_table(addr)]
@@ -194,9 +195,9 @@ impl Registers {
 
   pub fn ppu_write_reg(&mut self, addr: u16, data: u8) {
     if (0x0000..=0x1FFF).contains(&addr) {
-      self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr, data)
+      self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr & 0x3FFF, data)
     } else if (0x2000..=0x3EFF).contains(&addr) {
-      let (fst_idx, snd_idx) = mirror_name_table(self.get_cartridge().mapper.mirroring(), addr);
+      let (fst_idx, snd_idx) = mirror_name_table(self.get_cartridge().get_mirror_mode(), addr);
       self.name_table[fst_idx][snd_idx] = data;
     } else if (0x3F00..=0x3FFF).contains(&addr) {
       self.palette_table[palette_table(addr)] = data;
