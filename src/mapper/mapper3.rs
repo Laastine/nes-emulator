@@ -32,7 +32,7 @@ impl Mapper3 {
 }
 
 impl Mapper for Mapper3 {
-  fn mapped_read_cpu_u8(&self, address: u16) -> u16 {
+  fn mapped_read_cpu_u8(&self, address: u16) -> u8 {
     match address {
       0x8000..=0xBFFF => self.get_rom().prg_rom.read(Page::First(SixteenKb), address - 0x8000),
       0xC000..=0xFFFF => self.get_rom().prg_rom.read(Page::Last(SixteenKb), address - 0xC000),

@@ -50,7 +50,7 @@ impl Mapper4 {
 }
 
 impl Mapper for Mapper4 {
-  fn mapped_read_cpu_u8(&self, address: u16) -> u16 {
+  fn mapped_read_cpu_u8(&self, address: u16) -> u8 {
     match (address, self.prg_select) {
       (0x6000..=0x7FFF, _) => self.get_rom().prg_ram.read(Page::First(EightKb), address - 0x6000),
       (0x8000..=0x9FFF, false) => self.get_rom().prg_rom.read(Page::FromNth(self.registers[6], EightKb), address - 0x8000),

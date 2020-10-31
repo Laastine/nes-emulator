@@ -8,7 +8,7 @@ pub mod mapper4;
 pub mod pager;
 
 pub trait Mapper: MapperClone {
-  fn mapped_read_cpu_u8(&self, address: u16) -> u16;
+  fn mapped_read_cpu_u8(&self, address: u16) -> u8;
   fn mapped_write_cpu_u8(&mut self, address: u16, data: u8);
   fn mapped_read_ppu_u8(&self, address: u16) -> u8;
   fn mapped_write_ppu_u8(&mut self, address: u16, data: u8);

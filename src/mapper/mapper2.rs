@@ -40,7 +40,7 @@ impl Mapper2 {
 }
 
 impl Mapper for Mapper2 {
-  fn mapped_read_cpu_u8(&self, address: u16) -> u16 {
+  fn mapped_read_cpu_u8(&self, address: u16) -> u8 {
     match address {
       0x6000..=0x7FFF => 0,
       0x8000..=0xBFFF => self.get_rom().prg_rom.read(Page::FromNth(self.prg_bank_select, SixteenKb), address - 0x8000),

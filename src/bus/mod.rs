@@ -81,7 +81,7 @@ impl Bus {
       self.controller_state[idx] <<= 1;
       if state > 0x00 { 1 } else { 0 }
     } else if (0x4018..=0xFFFF).contains(&address) {
-      self.get_cartridge().mapper.mapped_read_cpu_u8(address)
+      u16::try_from(self.get_cartridge().mapper.mapped_read_cpu_u8(address)).unwrap()
     } else {
       address >> 8
     }
