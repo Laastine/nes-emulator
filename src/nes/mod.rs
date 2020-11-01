@@ -17,12 +17,14 @@ use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
 use crate::nes::constants::{KeyboardCommand, KeyCode, SCREEN_RES_X, SCREEN_RES_Y};
-use crate::ppu::{Ppu, registers::Registers, PPUState};
+use crate::ppu::{Ppu, registers::Registers, PpuState};
 use std::borrow::Borrow;
 use image::{ImageBuffer, Rgb};
 use luminance::pixel::NormRGB8UI;
 
 pub mod constants;
+
+pub type OffScreenBuffer = [[u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
 
 pub struct Nes {
   cpu: Cpu,
@@ -32,7 +34,7 @@ pub struct Nes {
   controller: Rc<RefCell<[u8; 2]>>,
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
   pub texture: Texture<Flat, Dim2, NormRGB8UI>,
-  off_screen_pixels: Rc<RefCell<Vec<[u8; 3]>>>,
+  off_screen_pixels: Rc<RefCell<OffScreenBuffer>>,
 }
 
 impl Nes  {
@@ -54,7 +56,7 @@ impl Nes  {
 
     let cpu = Cpu::new(bus);
 
-    let off_screen = vec![[0u8; 3]; 256 * 240];
+    let off_screen: OffScreenBuffer = [[0u8; 3]; 256 * 240];
     let off_screen_pixels = Rc::new(RefCell::new(off_screen));
 
 
@@ -85,6 +87,11 @@ impl Nes  {
   #[inline]
   fn get_controller(&mut self) -> RefMut<[u8; 2]> {
     self.controller.borrow_mut()
+  }
+
+  #[inline]
+  fn get_off_screen_pixels(&mut self) -> RefMut<OffScreenBuffer> {
+    self.off_screen_pixels.borrow_mut()
   }
 
   pub fn render_loop(&mut self) {
@@ -196,7 +203,7 @@ impl Nes  {
   fn clock(&mut self) {
     let state = self.ppu.clock();
 
-    if state == PPUState::Render {
+    if state == PpuState::Render {
       self.update_image_buffer();
     }
 
@@ -222,8 +229,10 @@ impl Nes  {
   }
 
   fn update_image_buffer(&mut self) {
+    let pixel_buffer = *self.get_off_screen_pixels();
     for (x, y, pixel) in self.image_buffer.enumerate_pixels_mut() {
-      *pixel = Rgb(self.off_screen_pixels.borrow_mut()[y as usize * 256 + x as usize]);
+      let p  = pixel_buffer[y as usize * 256 + x as usize];
+      *pixel = Rgb(p);
     }
 
     self.texture
@@ -281,7 +290,7 @@ impl Nes  {
   fn reset(&mut self) {
     self.cpu.reset();
     self.ppu.reset();
-    self.off_screen_pixels.replace(vec![[0u8; 3]; 256 * 240]);
+    self.off_screen_pixels.replace([[0u8; 3]; 256 * 240]);
     self.system_cycles = 0;
   }
 }

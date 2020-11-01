@@ -3,6 +3,7 @@ use std::convert::TryFrom;
 use std::rc::Rc;
 
 use crate::nes::constants::{Color, COLORS};
+use crate::nes::OffScreenBuffer;
 use crate::ppu::oam_sprite::Sprite;
 use crate::ppu::registers::{get_nth_bit, Registers};
 
@@ -10,7 +11,7 @@ pub mod registers;
 mod oam_sprite;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum PPUState {
+pub enum PpuState {
   Render,
   NoOp
 }
@@ -35,11 +36,11 @@ pub struct Ppu {
   primary_oam: Vec<Sprite>,
   secondary_oam: Vec<Sprite>,
   pub is_even_frame: bool,
-  off_screen_pixels: Rc<RefCell<Vec<[u8; 3]>>>,
+  off_screen_pixels: Rc<RefCell<OffScreenBuffer>>,
 }
 
 impl Ppu {
-  pub fn new(registers: Rc<RefCell<Registers>>, off_screen_pixels: Rc<RefCell<Vec<[u8; 3]>>>) -> Ppu {
+  pub fn new(registers: Rc<RefCell<Registers>>, off_screen_pixels: Rc<RefCell<OffScreenBuffer>>) -> Ppu {
     Ppu {
       cycles: 0,
       scan_line: 0,
@@ -70,7 +71,7 @@ impl Ppu {
   }
 
   #[inline]
-  fn get_mut_off_screen_pixels(&mut self) -> RefMut<Vec<[u8; 3]>> {
+  fn get_mut_off_screen_pixels(&mut self) -> RefMut<OffScreenBuffer> {
     self.off_screen_pixels.borrow_mut()
   }
 
@@ -180,8 +181,8 @@ impl Ppu {
     }
   }
 
-  pub fn clock(&mut self) -> PPUState {
-    let mut state = PPUState::NoOp;
+  pub fn clock(&mut self) -> PpuState {
+    let mut state = PpuState::NoOp;
     match self.scan_line {
       (0..=239) => {
         self.process_sprites(false);
@@ -206,7 +207,7 @@ impl Ppu {
           // let off_screen_pixels = self.get_mut_off_screen_pixels();
           // update_image(&mut self.image_buffer, &self.texture, off_screen_pixels);
           self.is_frame_ready = true;
-          state = PPUState::Render
+          state = PpuState::Render
         }
       }
       241 => {
@@ -234,10 +235,9 @@ impl Ppu {
     self.get_mut_registers().vblank_suppress = false;
 
     self.cycles += 1;
-    if self.get_registers().mask_flags.is_rendering() {
-      if self.cycles == 260 && self.scan_line < 240 {
-        self.get_mut_registers().get_mut_cartridge().mapper.signal_scanline();
-      }
+    let mask_flags = self.get_registers().mask_flags;
+    if mask_flags.is_rendering() && self.cycles == 260 && self.scan_line < 240 {
+      self.get_mut_registers().get_mut_cartridge().mapper.signal_scanline();
     }
 
     if self.cycles > 340 {
