@@ -10,15 +10,17 @@ use luminance::context::GraphicsContext as _;
 use luminance::framebuffer::Framebuffer;
 use luminance::pipeline::PipelineState;
 use luminance::render_state::RenderState;
-use luminance::texture::Sampler;
+use luminance::texture::{Sampler, Dim2, Flat, Texture, GenMipmaps};
 
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
-use crate::nes::constants::{KeyboardCommand, KeyCode};
-use crate::ppu::{Ppu, registers::Registers};
+use crate::nes::constants::{KeyboardCommand, KeyCode, SCREEN_RES_X, SCREEN_RES_Y};
+use crate::ppu::{Ppu, registers::Registers, PPUState};
 use std::borrow::Borrow;
+use image::{ImageBuffer, Rgb};
+use luminance::pixel::NormRGB8UI;
 
 pub mod constants;
 
@@ -28,6 +30,9 @@ pub struct Nes {
   system_cycles: u32,
   window_context: WindowContext,
   controller: Rc<RefCell<[u8; 2]>>,
+  image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
+  pub texture: Texture<Flat, Dim2, NormRGB8UI>,
+  off_screen_pixels: Rc<RefCell<Vec<[u8; 3]>>>,
 }
 
 impl Nes  {
@@ -48,8 +53,18 @@ impl Nes  {
     let bus = Bus::new(cart, registers.clone(), controller.clone());
 
     let cpu = Cpu::new(bus);
-    let ppu = Ppu::new(registers, &mut window_context.surface);
+
+    let off_screen = vec![[0u8; 3]; 256 * 240];
+    let off_screen_pixels = Rc::new(RefCell::new(off_screen));
+
+
+    let ppu = Ppu::new(registers, off_screen_pixels.clone());
     let system_cycles = 0;
+    let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
+
+    let texture: Texture<Flat, Dim2, NormRGB8UI> =
+      Texture::new(&mut window_context.surface, [SCREEN_RES_X, SCREEN_RES_Y], 0, Sampler::default())
+        .expect("Texture create error");
 
     Nes {
       cpu,
@@ -57,6 +72,9 @@ impl Nes  {
       system_cycles,
       window_context,
       controller,
+      image_buffer,
+      texture,
+      off_screen_pixels,
     }
   }
 
@@ -176,7 +194,11 @@ impl Nes  {
   }
 
   fn clock(&mut self) {
-    self.ppu.clock();
+    let state = self.ppu.clock();
+
+    if state == PPUState::Render {
+      self.update_image_buffer();
+    }
 
     if (self.system_cycles % 3) == 0 {
       if !self.cpu.bus.dma_transfer {
@@ -199,6 +221,16 @@ impl Nes  {
     self.system_cycles = self.system_cycles.wrapping_add(1);
   }
 
+  fn update_image_buffer(&mut self) {
+    for (x, y, pixel) in self.image_buffer.enumerate_pixels_mut() {
+      *pixel = Rgb(self.off_screen_pixels.borrow_mut()[y as usize * 256 + x as usize]);
+    }
+
+    self.texture
+      .upload_raw(GenMipmaps::No, &self.image_buffer)
+      .expect("Texture update error");
+  }
+
   fn render_screen(&mut self) {
     if self.window_context.resize {
       self.window_context.back_buffer = self.window_context.surface.back_buffer().unwrap();
@@ -210,7 +242,7 @@ impl Nes  {
     }
 
     let mut builder = self.window_context.surface.pipeline_builder();
-    let texture = &self.ppu.texture;
+    let texture = &self.texture;
     let program = &self.window_context.program;
     let copy_program = &self.window_context.copy_program;
     let triangle = &self.window_context.texture_vertices;
@@ -249,6 +281,7 @@ impl Nes  {
   fn reset(&mut self) {
     self.cpu.reset();
     self.ppu.reset();
+    self.off_screen_pixels.replace(vec![[0u8; 3]; 256 * 240]);
     self.system_cycles = 0;
   }
 }
