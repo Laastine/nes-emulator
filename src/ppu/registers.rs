@@ -55,7 +55,7 @@ impl PpuMaskFlags {
   }
 
   pub fn is_rendering_background(self, x: usize) -> bool {
-    self.show_background() && (self.show_sprites_in_left_margin() || x > 7)
+    self.show_background() && (self.show_background_in_left_margin() || x > 7)
   }
 
   pub fn is_rendering_sprites(self, x: usize) -> bool {
