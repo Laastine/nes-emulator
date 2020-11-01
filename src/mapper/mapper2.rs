@@ -46,7 +46,7 @@ impl Mapper for Mapper2 {
       0x8000..=0xBFFF => self.get_rom().prg_rom.read(Page::FromNth(self.prg_bank_select, SixteenKb), address - 0x8000),
       0xC000..=0xFFFF => self.get_rom().prg_rom.read(Page::Last(SixteenKb), address - 0xC000),
       _ => panic!("Invalid mapped_read_cpu_u8 address 0x{:04X}", address),
-    }.into()
+    }
   }
 
   fn mapped_write_cpu_u8(&mut self, address: u16, data: u8) {
