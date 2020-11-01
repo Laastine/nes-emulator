@@ -334,10 +334,10 @@ fn mirror_name_table(mirror_mode: Mirroring, addr: u16) -> (usize, usize) {
 }
 
 fn palette_table(addr: u16) -> usize {
-  let address = addr & 0x001F;
+  let address = (addr as usize) & 0x001F;
   match address {
-    0x0010 | 0x0014 | 0x0018 | 0x001C => usize::try_from(address).unwrap() - 0x10,
-    _ => address.into()
+    0x0010 | 0x0014 | 0x0018 | 0x001C => address - 0x10,
+    _ => address
   }
 }
 
