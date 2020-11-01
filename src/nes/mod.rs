@@ -56,7 +56,7 @@ impl Nes  {
 
     let cpu = Cpu::new(bus);
 
-    let off_screen: OffScreenBuffer = [[0u8; 3]; 256 * 240];
+    let off_screen: OffScreenBuffer = [[0u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
     let off_screen_pixels = Rc::new(RefCell::new(off_screen));
 
 
