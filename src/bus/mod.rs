@@ -54,7 +54,7 @@ impl Bus {
 
   pub fn write_u8(&mut self, address: u16, data: u8) {
     if (0x0000..=0x1FFF).contains(&address) {
-      self.ram[usize::try_from(address).unwrap()] = data;
+      self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
     } else if (0x2000..=0x3FFF).contains(&address) {
       self.get_mut_registers().bus_write_ppu_reg(address, data)
     } else if address == 0x4014 {
@@ -72,7 +72,7 @@ impl Bus {
 
   pub fn read_u8(&mut self, address: u16) -> u16 {
     if (0x0000..=0x1FFF).contains(&address) {
-      u16::try_from(self.ram[usize::try_from(address).unwrap()]).unwrap()
+      u16::try_from(self.ram[usize::try_from(address & 0x07FF).unwrap()]).unwrap()
     } else if (0x2000..=0x3FFF).contains(&address) {
       self.get_mut_registers().bus_read_ppu_reg(address).into()
     } else if (0x4016..=0x4017).contains(&address) {

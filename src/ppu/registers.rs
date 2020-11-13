@@ -179,7 +179,8 @@ impl Registers {
     self.cartridge.borrow()
   }
 
-  pub fn ppu_read_reg(&self, addr: u16) -> u8 {
+  pub fn ppu_read_reg(&self, address: u16) -> u8 {
+    let addr = address & 0x3FFF;
     if (0x0000..=0x1FFF).contains(&addr) {
       // dbg!(addr);
       self.get_cartridge().mapper.mapped_read_ppu_u8(addr & 0x3FFF)
@@ -193,7 +194,8 @@ impl Registers {
     }
   }
 
-  pub fn ppu_write_reg(&mut self, addr: u16, data: u8) {
+  pub fn ppu_write_reg(&mut self, address: u16, data: u8) {
+    let addr = address & 0x3FFF;
     if (0x0000..=0x1FFF).contains(&addr) {
       self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr & 0x3FFF, data)
     } else if (0x2000..=0x3EFF).contains(&addr) {
