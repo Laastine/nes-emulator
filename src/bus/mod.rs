@@ -65,7 +65,7 @@ impl Bus {
       let idx = usize::try_from(address & 1).unwrap();
       let new_controller_state = self.get_controller()[idx];
       self.controller_state[idx] = new_controller_state;
-    } else if (0x4018..=0xFFFF).contains(&address) {
+    } else if (0x6000..=0xFFFF).contains(&address) {
       self.get_mut_cartridge().mapper.mapped_write_cpu_u8(address, data);
     }
   }
@@ -80,7 +80,7 @@ impl Bus {
       let state = self.controller_state[idx] & 0x80;
       self.controller_state[idx] <<= 1;
       if state > 0x00 { 1 } else { 0 }
-    } else if (0x4018..=0xFFFF).contains(&address) {
+    } else if (0x6000..=0xFFFF).contains(&address) {
       u16::try_from(self.get_cartridge().mapper.mapped_read_cpu_u8(address)).unwrap()
     } else {
       address >> 8
