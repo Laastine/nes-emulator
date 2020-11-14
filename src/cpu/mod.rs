@@ -213,7 +213,9 @@ impl Cpu {
       self.stack_pointer_decrement();
 
       self.addr_abs = 0xFFFE;
-      self.pc = (self.bus_mut_read_u8(self.addr_abs) << 8) | self.bus_mut_read_u8(self.addr_abs + 1);
+      let lo_byte = self.bus_mut_read_u8(self.addr_abs);
+      let hi_byte = self.bus_mut_read_u8(self.addr_abs + 1);
+      self.pc = (hi_byte << 8) | lo_byte;
 
       self.cycles = 7;
     }
@@ -274,22 +276,25 @@ impl Cpu {
 
   /// Zero Page
   pub fn zp0(&mut self) -> u8 {
-    self.addr_abs = self.bus_mut_read_u8(self.pc) & 0xFF;
+    self.addr_abs = self.bus_mut_read_u8(self.pc);
     self.pc_increment();
+    self.addr_abs &= 0x00FF;
     0
   }
 
   /// Zero Page with X offset
   pub fn zpx(&mut self) -> u8 {
-    self.addr_abs = self.bus_mut_read_u8(self.pc).wrapping_add(u16::try_from(self.x).unwrap()) & 0xFF;
+    self.addr_abs = self.bus_mut_read_u8(self.pc).wrapping_add(u16::try_from(self.x).unwrap());
     self.pc_increment();
+    self.addr_abs &= 0x00FF;
     0
   }
 
   /// Zero Page with Y offset
   pub fn zpy(&mut self) -> u8 {
-    self.addr_abs = self.bus_mut_read_u8(self.pc).wrapping_add(u16::try_from(self.y).unwrap()) & 0xFF;
+    self.addr_abs = self.bus_mut_read_u8(self.pc).wrapping_add(u16::try_from(self.y).unwrap());
     self.pc_increment();
+    self.addr_abs &= 0x00FF;
     0
   }
 
