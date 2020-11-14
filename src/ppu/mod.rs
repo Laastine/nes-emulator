@@ -154,7 +154,8 @@ impl Ppu {
 
         if coarse_y == 29 {
           self.get_mut_registers().vram_addr.set_coarse_y(0);
-          self.get_mut_registers().vram_addr.0 ^= 0x0800;
+          let nametable_y = self.get_mut_registers().vram_addr.nametable_y();
+          self.get_mut_registers().vram_addr.set_nametable_y(!nametable_y);
         } else if coarse_y == 31 {
           self.get_mut_registers().vram_addr.set_coarse_y(0);
         } else {
@@ -196,16 +197,6 @@ impl Ppu {
       }
       240 => {
         if self.cycles == 0 {
-          // for (x, y, pixel) in self.image_buffer.enumerate_pixels_mut() {
-          //   *pixel = Rgb(self.off_screen_pixels[y as usize * 256 + x as usize]);
-          // }
-          // self
-          //   .texture
-          //   .upload_raw(GenMipmaps::No, &self.image_buffer)
-          //   .expect("Texture update error");
-
-          // let off_screen_pixels = self.get_mut_off_screen_pixels();
-          // update_image(&mut self.image_buffer, &self.texture, off_screen_pixels);
           self.is_frame_ready = true;
           state = PpuState::Render
         }
@@ -423,26 +414,33 @@ impl Ppu {
       let x = self.cycles - 2;
       let y = self.scan_line;
 
-      if x < 256 && y < 240 {
-        let bg_pixel = self.render_background_pixel(x);
-        let (sprite_pixel, sprite_behind, possible_zero_hit) = self.render_sprite_pixel(x);
-
-        if possible_zero_hit && bg_pixel != 0 {
-          self.get_mut_registers().status_flags.set_sprite_zero_hit(true);
-        }
-
-        let colors = if !sprite_behind {
-          [sprite_pixel, bg_pixel]
-        } else {
-          [bg_pixel, sprite_pixel]
-        };
-        let color = if colors[0] > 0 { colors[0] } else { colors[1] };
+      if let Some(color) = self.get_screen_pixel(x, y) {
         let pixel = self.get_pixel_color(color).to_value();
-
         self.get_mut_off_screen_pixels()[(239 - y) * 256 + x] = pixel;
       }
       self.update_shifters();
     }
+  }
+
+  fn get_screen_pixel(&mut self, x: usize, y: usize) -> Option<u8> {
+    if x < 256 && y < 240 {
+      let bg_pixel = self.render_background_pixel(x);
+      let (sprite_pixel, sprite_behind, possible_zero_hit) = self.render_sprite_pixel(x);
+
+      if possible_zero_hit && bg_pixel != 0 {
+        self.get_mut_registers().status_flags.set_sprite_zero_hit(true);
+      }
+
+      let colors = if !sprite_behind {
+        [sprite_pixel, bg_pixel]
+      } else {
+        [bg_pixel, sprite_pixel]
+      };
+      let color = if colors[0] > 0 { colors[0] } else { colors[1] };
+
+      return Some(color)
+    }
+    None
   }
 
   fn fetch_next_bg_tile_attribute(&mut self) -> u16 {
