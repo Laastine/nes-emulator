@@ -149,10 +149,9 @@ impl Cpu {
     file
       .write_all(
         format!(
-          "opcode:{} -> clock:{} sreg:{} {},{} PC:{} XXX A:{} X:{} Y:{} {}{}{}{}{}{}{}{} STKP:{}\n",
+          "opcode:{} -> clock:{} {},{} PC:{} XXX A:{} X:{} Y:{} {}{}{}{}{}{}{}{} STKP:{}\n",
           self.opcode,
           self.clock_count,
-          self.status_register,
           self.addr_abs,
           self.addr_rel,
           hex(log_pc, 4),
@@ -475,7 +474,8 @@ impl Cpu {
     self.fetch();
     let val = u16::try_from(self.fetched).unwrap() << 1;
     self.set_flag(&FLAGS6502::C, (val & 0xFF00) > 0);
-    self.set_flags_zero_and_negative(val & 0xFF);
+    self.set_flag(&FLAGS6502::Z, val.trailing_zeros() > 7);
+    self.set_flag(&FLAGS6502::N, (val & 0x80) > 0);
 
     self.return_or_write_memory(val);
     0
