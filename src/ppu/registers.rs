@@ -182,7 +182,6 @@ impl Registers {
   pub fn ppu_read_reg(&self, address: u16) -> u8 {
     let addr = address & 0x3FFF;
     if (0x0000..=0x1FFF).contains(&addr) {
-      // dbg!(addr);
       self.get_cartridge().mapper.mapped_read_ppu_u8(addr & 0x3FFF)
     } else if (0x2000..=0x3EFF).contains(&addr) {
       let (fst_idx, snd_idx) = mirror_name_table(self.get_cartridge().get_mirror_mode(), addr);

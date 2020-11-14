@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::cartridge::rom_reading::{Rom, RomHeader, Mirroring};
 use crate::cartridge::rom_with_pager::RomData;
-use crate::mapper::{Mapper, mapper0::Mapper0, mapper2::Mapper2, mapper3::Mapper3, mapper4::Mapper4};
+use crate::mapper::{Mapper, mapper0::Mapper0, mapper1::Mapper1, mapper2::Mapper2, mapper3::Mapper3, mapper4::Mapper4};
 
 pub mod rom_reading;
 pub mod rom_with_pager;
@@ -26,6 +26,7 @@ impl Cartridge {
 
     let mapper: Box<dyn Mapper> = match rom_header.mapper {
       0 => Box::new(Mapper0::new(rom_ref)),
+      1 => Box::new(Mapper1::new(rom_ref)),
       2 => Box::new(Mapper2::new(rom_ref)),
       3 => Box::new(Mapper3::new(rom_ref)),
       4 => Box::new(Mapper4::new(rom_ref)),

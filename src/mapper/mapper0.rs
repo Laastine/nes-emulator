@@ -45,7 +45,7 @@ impl Mapper for Mapper0 {
       0x6000..=0x7FFF => self.get_rom().prg_ram.read(Page::First(EightKb), address - 0x6000),
       0x8000..=0xBFFF => self.get_rom().prg_rom.read(Page::First(SixteenKb), address - 0x8000),
       0xC000..=0xFFFF => self.get_rom().prg_rom.read(Page::Last(SixteenKb), address - 0xC000),
-      _ => panic!("Invalid mapped_read_cpu_u8 {}", address)
+      _ => panic!("Invalid mapped_read_cpu_u8 0x{:04X}", address)
     }
   }
 
