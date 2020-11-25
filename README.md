@@ -26,7 +26,7 @@ Learning project to build Nintendo Entertainment System emulator.
 - [x] PPU (Pixel Processing Unit)<br>
   - [x] PPU background rendering
   - [x] PPU sprites
-- [ ] More ROM mappers
+- [x] More ROM mappers
 - [ ] APU (Audio Processing Unit)
 - [ ] Cross-platform (Mac OS, Linux, Windows)
 
