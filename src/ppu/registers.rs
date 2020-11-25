@@ -55,7 +55,7 @@ impl PpuMaskFlags {
   }
 
   pub fn is_rendering_background(self, x: usize) -> bool {
-    self.show_background() && (self.show_sprites_in_left_margin() || x > 7)
+    self.show_background() && (self.show_background_in_left_margin() || x > 7)
   }
 
   pub fn is_rendering_sprites(self, x: usize) -> bool {
@@ -96,7 +96,6 @@ pub struct Registers {
   pub vram_addr: AddressRegister,
   pub tram_addr: AddressRegister,
   pub palette_table: [u8; 0x20],
-  table_pattern: [[u8; 0x1000]; 2],
   name_table: [[u8; 0x0400]; 2],
   address_latch: bool,
   pub ppu_data_buffer: u8,
@@ -108,10 +107,6 @@ pub struct Registers {
   sprite_count: u8,
   sprite_shifter_pattern_lo: u8,
   sprite_shifter_pattern_hi: u8,
-
-  // Sprite collision flags
-  sprite_zero_hit_possible: bool,
-  sprite_zero_being_rendered: bool,
 
   pub vblank_suppress: bool,
   pub force_nmi: bool,
@@ -127,7 +122,6 @@ impl Registers {
       vram_addr: AddressRegister(0x00),
       tram_addr: AddressRegister(0x00),
       palette_table: [0; 0x20],
-      table_pattern: [[0; 0x1000]; 2],
       name_table: [[0xFF; 0x0400]; 2],
       address_latch: false,
       ppu_data_buffer: 0x00,
@@ -139,8 +133,6 @@ impl Registers {
       sprite_count: 0,
       sprite_shifter_pattern_lo: 0,
       sprite_shifter_pattern_hi: 0,
-      sprite_zero_hit_possible: false,
-      sprite_zero_being_rendered: false,
       vblank_suppress: false,
       force_nmi: false,
       read_buffer: 0,
@@ -158,7 +150,6 @@ impl Registers {
     self.oam_ram = [0; 0x0100];
     self.palette_table = [0; 0x20];
     self.name_table = [[0u8; 0x0400]; 2];
-    self.table_pattern = [[0; 0x1000]; 2];
   }
 
   fn write_oam_address(&mut self, address: u8) {
@@ -180,7 +171,7 @@ impl Registers {
     }
   }
 
-  fn get_mut_cartridge(&mut self) -> RefMut<Box<Cartridge>> {
+  pub fn get_mut_cartridge(&mut self) -> RefMut<Box<Cartridge>> {
     self.cartridge.borrow_mut()
   }
 
@@ -189,105 +180,32 @@ impl Registers {
   }
 
   pub fn ppu_read_reg(&self, address: u16) -> u8 {
-    let mut addr = address & 0x3FFF;
-
-    let (is_address_in_range, mapped_addr) = self.get_cartridge().mapper.mapped_read_ppu_u8(addr);
-    if is_address_in_range {
-      if self.get_cartridge().rom.chr_rom.is_empty() {
-        self.get_cartridge().rom.chr_ram[mapped_addr]
-      } else {
-        self.get_cartridge().rom.chr_rom[mapped_addr]
-      }
-    } else if (0x0000..=0x1FFF).contains(&addr) {
-      let first_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
-      let second_idx = usize::try_from(addr & 0x0FFF).unwrap();
-      self.table_pattern[first_idx][second_idx]
+    let addr = address & 0x3FFF;
+    if (0x0000..=0x1FFF).contains(&addr) {
+      self.get_cartridge().mapper.mapped_read_ppu_u8(addr & 0x3FFF)
     } else if (0x2000..=0x3EFF).contains(&addr) {
-      addr &= 0x0FFF;
-      let idx = usize::try_from(addr & 0x03FF).unwrap();
-      let mirror_mode = self.get_cartridge().get_mirror_mode();
-      match mirror_mode {
-        Mirroring::Vertical => {
-          match addr {
-            0x0000..=0x03FF => self.name_table[0][idx],
-            0x0400..=0x07FF => self.name_table[1][idx],
-            0x0800..=0x0BFF => self.name_table[0][idx],
-            0x0C00..=0x0FFF => self.name_table[1][idx],
-            _ => panic!("Unknown vertical mode table address"),
-          }
-        }
-        Mirroring::Horizontal => {
-          match addr {
-            0x0000..=0x03FF => self.name_table[0][idx],
-            0x0400..=0x07FF => self.name_table[0][idx],
-            0x0800..=0x0BFF => self.name_table[1][idx],
-            0x0C00..=0x0FFF => self.name_table[1][idx],
-            _ => panic!("Unknown horizontal mode table address"),
-          }
-        }
-      }
+      let (fst_idx, snd_idx) = mirror_name_table(self.get_cartridge().get_mirror_mode(), addr);
+      self.name_table[fst_idx][snd_idx]
     } else if (0x3F00..=0x3FFF).contains(&addr) {
-      let addr = addr % 0x20;
-      let idx = match addr {
-        0x0010 | 0x0014 | 0x0018 | 0x001C => addr - 0x10,
-        _ => addr
-      };
-      self.palette_table[usize::try_from(idx).unwrap()]
+      self.palette_table[palette_table(addr)]
     } else {
       0
     }
   }
 
   pub fn ppu_write_reg(&mut self, address: u16, data: u8) {
-    let mut addr = address & 0x3FFF;
-
-    let (is_address_in_range, mapped_addr) = self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr);
-    if is_address_in_range {
-      if self.get_cartridge().rom.chr_rom.is_empty() {
-        self.get_mut_cartridge().rom.chr_ram[mapped_addr] = data;
-      } else {
-        self.get_mut_cartridge().rom.chr_rom[mapped_addr] = data;
-      }
-    } else if (0x0000..=0x1FFF).contains(&addr) {
-      let fst_idx = usize::try_from((addr & 0x1000) >> 12).unwrap();
-      let snd_idx = usize::try_from(addr & 0x0FFF).unwrap();
-      self.table_pattern[fst_idx][snd_idx] = data;
+    let addr = address & 0x3FFF;
+    if (0x0000..=0x1FFF).contains(&addr) {
+      self.get_mut_cartridge().mapper.mapped_write_ppu_u8(addr & 0x3FFF, data)
     } else if (0x2000..=0x3EFF).contains(&addr) {
-      addr &= 0x0FFF;
-      let snd_idx = usize::try_from(addr & 0x03FF).unwrap();
-      let mirror_mode = self.get_cartridge().get_mirror_mode();
-      let fst_idx = match mirror_mode {
-        Mirroring::Vertical => {
-          match addr {
-            0x0000..=0x03FF => 0,
-            0x0400..=0x07FF => 1,
-            0x0800..=0x0BFF => 0,
-            0x0C00..=0x0FFF => 1,
-            _ => panic!("Unknown vertical mode table address"),
-          }
-        }
-        Mirroring::Horizontal => {
-          match addr {
-            0x0000..=0x03FF => 0,
-            0x0400..=0x07FF => 0,
-            0x0800..=0x0BFF => 1,
-            0x0C00..=0x0FFF => 1,
-            _ => panic!("Unknown horizontal mode table address"),
-          }
-        }
-      };
+      let (fst_idx, snd_idx) = mirror_name_table(self.get_cartridge().get_mirror_mode(), addr);
       self.name_table[fst_idx][snd_idx] = data;
     } else if (0x3F00..=0x3FFF).contains(&addr) {
-      addr &= 0x001F;
-      let idx: usize = match addr {
-        0x0010 | 0x0014 | 0x0018 | 0x001C => usize::try_from(addr).unwrap() - 0x10,
-        _ => addr.into()
-      };
-      self.palette_table[idx] = data;
+      self.palette_table[palette_table(addr)] = data;
     }
   }
 
-  pub fn cpu_write_reg(&mut self, address: u16, data: u8) {
+  pub fn bus_write_ppu_reg(&mut self, address: u16, data: u8) {
     self.ppu_data_buffer = data;
     match address % 8 {
       0x00 => self.write_control(data),
@@ -344,7 +262,7 @@ impl Registers {
     self.vram_addr = AddressRegister(addr.wrapping_add(increment_val));
   }
 
-  pub fn cpu_read_reg(&mut self, address: u16) -> u8 {
+  pub fn bus_read_ppu_reg(&mut self, address: u16) -> u8 {
     let res = match address % 8 {
       0x00 => self.ppu_data_buffer,
       0x01 => self.ppu_data_buffer,
@@ -391,6 +309,39 @@ impl Registers {
   }
 }
 
+fn mirror_name_table(mirror_mode: Mirroring, addr: u16) -> (usize, usize) {
+  let addr_range = addr & 0x0FFF;
+  let idx = usize::try_from(addr_range & 0x03FF).unwrap();
+  match mirror_mode {
+    Mirroring::Vertical => {
+      match addr_range {
+        0x0000..=0x03FF => (0, idx),
+        0x0400..=0x07FF => (1, idx),
+        0x0800..=0x0BFF => (0, idx),
+        0x0C00..=0x0FFF => (1, idx),
+        _ => panic!("Unknown vertical mode table address")
+      }
+    }
+    Mirroring::Horizontal => {
+      match addr_range {
+        0x0000..=0x03FF => (0, idx),
+        0x0400..=0x07FF => (0, idx),
+        0x0800..=0x0BFF => (1, idx),
+        0x0C00..=0x0FFF => (1, idx),
+        _ => panic!("Unknown horizontal mode table address")
+      }
+    }
+  }
+}
+
+fn palette_table(addr: u16) -> usize {
+  let address = (addr as usize) & 0x001F;
+  match address {
+    0x0010 | 0x0014 | 0x0018 | 0x001C => address - 0x10,
+    _ => address
+  }
+}
+
 #[cfg(test)]
 mod test {
   use std::cell::RefCell;
@@ -424,5 +375,112 @@ mod test {
 
     assert_eq!(registers.status_flags.sprite_overflow(), false);
     assert_eq!(registers.status_flags.0, 0b00_00_00_00);
+  }
+
+  #[test]
+  fn control_reg_write() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.bus_write_ppu_reg(0x2000, 0xAF);
+    assert_eq!(registers.ctrl_flags.0, 0xAF)
+  }
+
+  #[test]
+  fn mask_reg_write() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.bus_write_ppu_reg(0x2001, 0xBF);
+    assert_eq!(registers.mask_flags.0, 0xBF)
+  }
+
+  #[test]
+  fn oam_data_reg_write() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.bus_write_ppu_reg(0x2003, 0xF0);
+    registers.bus_write_ppu_reg(0x2004, 0x04);
+    assert_eq!(registers.oam_ram[0xF0], 0x04);
+    assert_eq!(registers.oam_address, 0xF1);
+  }
+
+  #[test]
+  fn scroll_reg_write() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.bus_write_ppu_reg(0x2005, 0xEE);
+    assert_eq!(registers.fine_x, 6);
+    assert_eq!(registers.tram_addr.coarse_x(), 0x1D);
+    assert_eq!(registers.address_latch, true);
+
+
+    registers.bus_write_ppu_reg(0x2005, 0xFA);
+    assert_eq!(registers.fine_x, 6);
+    assert_eq!(registers.tram_addr.coarse_y(), 0x1F);
+    assert_eq!(registers.address_latch, false);
+  }
+
+  #[test]
+  fn address_reg_write() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.bus_write_ppu_reg(0x2006, 0x1A);
+    assert_eq!(registers.tram_addr.0, 0x1A00);
+    assert_eq!(registers.address_latch, true);
+
+
+    registers.bus_write_ppu_reg(0x2006, 0xB2);
+    assert_eq!(registers.tram_addr.0, 0x1AB2);
+    assert_eq!(registers.address_latch, false);
+  }
+
+  #[test]
+  fn data_write() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.vram_addr.0 = 0x2000;
+    registers.bus_write_ppu_reg(0x2007, 0xF0);
+    assert_eq!(registers.ppu_read_reg(0x2000), 0xF0);
+    assert_eq!(registers.vram_addr.0, 0x2001);
+
+    registers.ctrl_flags.0 = 0x04;
+    registers.bus_write_ppu_reg(0x2007, 0x0F);
+    assert_eq!(registers.ppu_read_reg(0x2001), 0x0F);
+    assert_eq!(registers.vram_addr.0, 0x2021);
+  }
+
+  #[test]
+  fn read_ghost_bits_reg_write() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.bus_write_ppu_reg(0x2002, 0xFA);
+    registers.status_flags.0 = 0;
+    assert_eq!(registers.bus_read_ppu_reg(0x2002), 0x1A);
+    assert_eq!(registers.bus_read_ppu_reg(0x2000), 0x1A);
+    assert_eq!(registers.bus_read_ppu_reg(0x2001), 0x1A);
+    assert_eq!(registers.bus_read_ppu_reg(0x2003), 0x1A);
+    assert_eq!(registers.bus_read_ppu_reg(0x2005), 0x1A);
+    assert_eq!(registers.bus_read_ppu_reg(0x2006), 0x1A);
+  }
+
+  #[test]
+  fn delayed_read_data() {
+    let cart = Cartridge::mock_cartridge();
+    let mut registers = Registers::new(Rc::new(RefCell::new(Box::new(cart))));
+
+    registers.ppu_write_reg(0x2001, 0x07);
+    registers.ppu_write_reg(0x2002, 0x0B);
+    registers.ppu_write_reg(0x2003, 0x0E);
+    registers.vram_addr.0 = 0x2001;
+    registers.bus_read_ppu_reg(0x2007);
+    assert_eq!(registers.bus_read_ppu_reg(0x2007), 0x07);
+    assert_eq!(registers.bus_read_ppu_reg(0x2007), 0x0B);
+    assert_eq!(registers.bus_read_ppu_reg(0x2007), 0x0E);
   }
 }
