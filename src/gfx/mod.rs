@@ -1,14 +1,18 @@
+use glutin::dpi::PhysicalSize;
+use luminance::context::GraphicsContext;
 use luminance::framebuffer::Framebuffer;
-use luminance::pipeline::BoundTexture;
 use luminance::pixel::{NormUnsigned, RGBA32F};
-use luminance::shader::program::{BuiltProgram, Program, Uniform};
+use luminance::shader::{BuiltProgram, Program, Uniform};
 use luminance::tess::{Mode, Tess, TessBuilder};
-use luminance::texture::{Dim2, Flat, Sampler};
+use luminance::texture::{Dim2, Sampler};
 use luminance_derive::UniformInterface;
+use luminance_gl::GL33;
 use luminance_glutin::GlutinSurface;
 
 use crate::gfx::gxf_util::{Semantics, VertexColor, VertexData, VertexPosition};
 use crate::nes::constants::{SCREEN_HEIGHT, SCREEN_RES_X, SCREEN_RES_Y, SCREEN_WIDTH};
+use luminance::pipeline::TextureBinding;
+use glutin::event_loop::EventLoop;
 
 mod gxf_util;
 
@@ -41,46 +45,53 @@ const INDICES: [u32; 6] = [0, 1, 2, 2, 3, 0];
 #[derive(UniformInterface)]
 pub struct ShaderInterface {
   #[uniform(unbound, name = "source_texture")]
-  pub(crate) texture: Uniform<&'static BoundTexture<'static, Flat, Dim2, NormUnsigned>>,
+  pub(crate) texture: Uniform<TextureBinding<Dim2, NormUnsigned>>,
 }
 
 pub struct WindowContext {
-  pub copy_program: Program<(), (), ShaderInterface>,
-  pub program: Program<Semantics, (), ()>,
-  pub back_buffer: Framebuffer<Flat, Dim2, (), ()>,
-  pub front_buffer: Framebuffer<Flat, Dim2, RGBA32F, ()>,
+  pub copy_program: Program<GL33, (), (), ShaderInterface>,
+  pub program: Program<GL33, Semantics, (), ()>,
+  pub back_buffer: Framebuffer<GL33, Dim2, (), ()>,
+  pub front_buffer: Framebuffer<GL33, Dim2, RGBA32F, ()>,
   pub surface: GlutinSurface,
   pub resize: bool,
-  pub background: Tess,
-  pub texture_vertices: Tess,
+  pub background: Tess<GL33, ()>,
+  pub texture_vertices: Tess<GL33, VertexData, u32>,
+  pub event_loop: EventLoop<()>
 }
 
 impl WindowContext {
   pub fn new() -> WindowContext {
-    let mut surface = GlutinSurface::from_builders(
-      |window_builder| {
-        window_builder.with_title("NES-emulator")
-          .with_dimensions((SCREEN_WIDTH, SCREEN_HEIGHT).into())
+    let (mut surface, event_loop) = GlutinSurface::new_gl33_from_builders(
+      |_, window_builder| {
+        window_builder
+          .with_title("NES-emulator")
+          .with_inner_size(PhysicalSize::new(SCREEN_WIDTH, SCREEN_HEIGHT))
       },
-      |conxtext_builder| conxtext_builder.with_double_buffer(Some(true)))
+      |_, context_builder| context_builder.with_double_buffer(Some(true)))
       .expect("Glutin surface create");
 
-    let program = Program::<Semantics, (), ()>::from_strings(None, SHADER_VERT, None, SHADER_FRAG)
+    let program = surface
+      .new_shader_program::<Semantics, (), ()>()
+      .from_strings(SHADER_VERT, None, None, SHADER_FRAG)
       .expect("Program create error")
       .ignore_warnings();
 
     let BuiltProgram {
       program: copy_program,
       warnings,
-    } = Program::<(), (), ShaderInterface>::from_strings(None, COPY_VS, None, COPY_FS)
-      .expect("Copy program create");
+    } = surface
+      .new_shader_program::<(), (), ShaderInterface>()
+      .from_strings(COPY_VS, None, None, COPY_FS)
+      .expect("copy program creation");
 
     for warning in &warnings {
-      eprintln!("Copy shader warning: {:?}", warning);
+      eprintln!("copy shader warning: {:?}", warning);
     }
 
-    let texture_vertices = TessBuilder::new(&mut surface)
-      .add_vertices(VERTICES)
+    let texture_vertices = surface
+      .new_tess()
+      .set_vertices(&VERTICES[..])
       .set_indices(INDICES)
       .set_mode(Mode::Triangle)
       .build()
@@ -93,14 +104,14 @@ impl WindowContext {
       .unwrap();
 
     let back_buffer = surface.back_buffer().unwrap();
-    let front_buffer =
-      Framebuffer::<Flat, Dim2, RGBA32F, ()>::new(&mut surface, [SCREEN_RES_X, SCREEN_RES_Y], 0, Sampler::default())
-        .expect("Frame buffer create error");
+    let front_buffer = surface.new_framebuffer::<Dim2, RGBA32F, ()>([SCREEN_RES_X as u32, SCREEN_RES_Y as u32], 0, Sampler::default())
+      .expect("Frame buffer create error");
 
     let resize = false;
 
     WindowContext {
       copy_program,
+      event_loop,
       program,
       surface,
       back_buffer,

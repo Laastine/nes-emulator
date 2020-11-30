@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::fs;
@@ -5,22 +6,25 @@ use std::rc::Rc;
 use std::time;
 use std::time::Duration;
 
-use glutin::{ElementState::{Pressed, Released}, KeyboardInput, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Up, X, Z}, WindowEvent};
-use luminance::context::GraphicsContext as _;
+use glutin::event::{KeyboardInput, WindowEvent};
+use glutin::event::{ElementState::{Pressed, Released}, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Up, X, Z}};
+use image::{ImageBuffer, Rgb};
+use luminance::context::GraphicsContext;
 use luminance::framebuffer::Framebuffer;
 use luminance::pipeline::PipelineState;
+use luminance::pixel::NormRGB8UI;
 use luminance::render_state::RenderState;
-use luminance::texture::{Sampler, Dim2, Flat, Texture, GenMipmaps};
+use luminance::texture::{Dim2, GenMipmaps, Sampler, Texture};
+use luminance_gl::GL33;
 
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
 use crate::nes::constants::{KeyboardCommand, KeyCode, SCREEN_RES_X, SCREEN_RES_Y};
-use crate::ppu::{Ppu, registers::Registers, PpuState};
-use std::borrow::Borrow;
-use image::{ImageBuffer, Rgb};
-use luminance::pixel::NormRGB8UI;
+use crate::ppu::{Ppu, PpuState, registers::Registers};
+use glutin::event_loop::ControlFlow;
+use glutin::platform::desktop::EventLoopExtDesktop;
 
 pub mod constants;
 
@@ -33,7 +37,7 @@ pub struct Nes {
   window_context: WindowContext,
   controller: Rc<RefCell<[u8; 2]>>,
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
-  pub texture: Texture<Flat, Dim2, NormRGB8UI>,
+  pub texture: Texture<GL33, Dim2, NormRGB8UI>,
   off_screen_pixels: Rc<RefCell<OffScreenBuffer>>,
 }
 
@@ -64,7 +68,7 @@ impl Nes  {
     let system_cycles = 0;
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
 
-    let texture: Texture<Flat, Dim2, NormRGB8UI> =
+    let texture =
       Texture::new(&mut window_context.surface, [SCREEN_RES_X, SCREEN_RES_Y], 0, Sampler::default())
         .expect("Texture create error");
 
@@ -117,8 +121,14 @@ impl Nes  {
 
       // 16ms per frame ~ 60FPS
       if delta > 0.0166 {
-        self.window_context.surface.event_loop.poll_events(|event| {
-          if let glutin::Event::WindowEvent { event, .. } = event {
+        self.window_context.event_loop.run_return(|event, _, control_flow| {
+          *control_flow = ControlFlow::Wait;
+
+          if let glutin::event::Event::MainEventsCleared = &event {
+            *control_flow = ControlFlow::Exit;
+          }
+
+          if let glutin::event::Event::WindowEvent { event, .. } = event {
             match event {
               WindowEvent::CloseRequested | WindowEvent::Destroyed => { keyboard_state = Some(KeyboardCommand::Exit) }
               WindowEvent::KeyboardInput { input, .. } => {
@@ -250,41 +260,50 @@ impl Nes  {
       self.window_context.resize = false;
     }
 
-    let mut builder = self.window_context.surface.pipeline_builder();
-    let texture = &self.texture;
-    let program = &self.window_context.program;
-    let copy_program = &self.window_context.copy_program;
-    let triangle = &self.window_context.texture_vertices;
+    let mut builder = self.window_context.surface.new_pipeline_gate();
+    let texture = &mut self.texture;
+    let program = &mut self.window_context.program;
+    let copy_program = &mut self.window_context.copy_program;
+    let texture_vertices = &self.window_context.texture_vertices;
     let background = &self.window_context.background;
 
-    builder.pipeline(
+    let mut render = builder.pipeline(
       &self.window_context.front_buffer,
       &PipelineState::default(),
       |_, mut shd_gate| {
-        shd_gate.shade(program, |_, mut rdr_gate| {
+        shd_gate.shade(program, |_, _, mut rdr_gate| {
           rdr_gate.render(&RenderState::default(), |mut tess_gate| {
-            tess_gate.render(triangle)
-          });
-        });
+            tess_gate.render(texture_vertices)
+          })
+        })
       },
-    );
+    ).assume();
 
-    builder.pipeline(
+    if render.is_err() {
+      panic!("render error");
+    }
+
+    render = builder.pipeline(
       &self.window_context.back_buffer,
       &PipelineState::default(),
       |pipeline, mut shd_gate| {
-        let bound_texture = pipeline.bind_texture(texture);
+        let bound_texture = pipeline.bind_texture(texture)?;
 
-        shd_gate.shade(copy_program, |iface, mut rdr_gate| {
-          iface.texture.update(&bound_texture);
+        shd_gate.shade(copy_program, |mut iface, uni, mut rdr_gate| {
+          iface.set(&uni.texture, bound_texture.binding());
+          // iface.texture.update(&bound_texture);
           rdr_gate.render(&RenderState::default(), |mut tess_gate| {
             tess_gate.render(background)
-          });
-        });
+          })
+        })
       },
-    );
+    ).assume();
 
-    self.window_context.surface.swap_buffers();
+    if render.is_ok() {
+      self.window_context.surface.swap_buffers();
+    } else {
+      panic!("boom");
+    }
   }
 
   fn reset(&mut self) {
