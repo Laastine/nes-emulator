@@ -2,9 +2,11 @@
 
 [![Build Status](https://travis-ci.org/Laastine/nes-emulator.svg?branch=master)](https://travis-ci.org/Laastine/nes-emulator)
 
-<img src="assets/zelda.png">
-<img src="assets/smb3.png">
-<img src="assets/metroid.png">
+<p float="left">
+<img src="assets/zelda.png" width="30%">
+<img src="assets/smb3.png" width="30%">
+<img src="assets/metroid.png" width="30%">
+</p>
 
 Learning project to build Nintendo Entertainment System emulator.
 
