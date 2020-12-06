@@ -17,6 +17,7 @@ use luminance::render_state::RenderState;
 use luminance::texture::{Dim2, GenMipmaps, Sampler, Texture};
 use luminance_gl::GL33;
 
+use crate::apu::Apu;
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
@@ -31,6 +32,7 @@ pub mod constants;
 pub type OffScreenBuffer = [[u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
 
 pub struct Nes {
+  apu: Apu,
   cpu: Cpu,
   ppu: Ppu,
   system_cycles: u32,
@@ -56,13 +58,15 @@ impl Nes  {
 
     let controller = Rc::new(RefCell::new(c));
 
+
+    let apu = Apu::new();
+
     let bus = Bus::new(cart, registers.clone(), controller.clone());
 
     let cpu = Cpu::new(bus);
 
     let off_screen: OffScreenBuffer = [[0u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
     let off_screen_pixels = Rc::new(RefCell::new(off_screen));
-
 
     let ppu = Ppu::new(registers, off_screen_pixels.clone());
     let system_cycles = 0;
@@ -73,6 +77,7 @@ impl Nes  {
         .expect("Texture create error");
 
     Nes {
+      apu,
       cpu,
       ppu,
       system_cycles,
