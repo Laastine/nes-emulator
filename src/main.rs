@@ -9,6 +9,7 @@ use getopts::Options;
 
 use crate::nes::Nes;
 
+mod apu;
 mod bus;
 mod cartridge;
 mod cpu;
