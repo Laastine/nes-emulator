@@ -1,13 +1,16 @@
+use std::{fs};
 use std::borrow::Borrow;
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
-use std::fs;
+
 use std::rc::Rc;
+
 use std::time;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use glutin::event::{KeyboardInput, WindowEvent};
 use glutin::event::{ElementState::{Pressed, Released}, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Up, X, Z}};
+use glutin::event_loop::ControlFlow;
 use image::{ImageBuffer, Rgb};
 use luminance::context::{GraphicsContext};
 use luminance::framebuffer::Framebuffer;
@@ -15,14 +18,17 @@ use luminance::pipeline::PipelineState;
 use luminance::render_state::RenderState;
 use luminance::texture::{GenMipmaps, Sampler};
 
+
+
+// use crate::apu::audio_stream::AudioStream;
 use crate::apu::Apu;
+use crate::apu::audio_stream::AudioStream;
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
-use crate::nes::constants::{KeyboardCommand, KeyCode, SCREEN_RES_X, SCREEN_RES_Y, AUDIO_BUFFER_LIMIT};
+use crate::nes::constants::{KeyboardCommand, KeyCode, SCREEN_RES_X, SCREEN_RES_Y};
 use crate::ppu::{Ppu, PpuState, registers::Registers};
-use glutin::event_loop::ControlFlow;
 use glutin::platform::run_return::EventLoopExtRunReturn;
 
 pub mod constants;
@@ -30,6 +36,8 @@ pub mod constants;
 pub type OffScreenBuffer = [[u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
 
 pub struct Nes {
+  start_time: Instant,
+  audio_stream: AudioStream,
   apu: Rc<RefCell<Apu>>,
   cpu: Cpu,
   ppu: Ppu,
@@ -41,7 +49,7 @@ pub struct Nes {
   off_screen_pixels: Rc<RefCell<OffScreenBuffer>>,
 }
 
-impl Nes  {
+impl Nes {
   pub fn new(rom_file: &str) -> Self {
     let rom_bytes = fs::read(rom_file).expect("Rom file read error");
 
@@ -54,6 +62,10 @@ impl Nes  {
     let registers = Rc::new(RefCell::new(Registers::new(cart.clone())));
 
     let controller = Rc::new(RefCell::new(c));
+
+    let audio_stream = AudioStream::new();
+
+    let start_time = Instant::now();
 
     let apu = Rc::new(RefCell::new(Apu::new()));
 
@@ -69,6 +81,8 @@ impl Nes  {
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
 
     Nes {
+      audio_stream,
+      start_time,
       apu,
       cpu,
       ppu,
@@ -119,7 +133,6 @@ impl Nes  {
     'app: loop {
       let elapsed = last_time.elapsed();
       let delta = elapsed.as_secs_f32();
-
       // 16ms per frame ~ 60FPS
       if delta > 0.0166 {
         self.window_context.event_loop.run_return(|event, _, control_flow| {
@@ -203,25 +216,32 @@ impl Nes  {
 
         if keyboard_state == Some(KeyboardCommand::Reset) {
           self.cpu.reset();
+          self.ppu.reset();
+          self.get_apu().reset();
         }
         self.clock();
       } else {
-        std::thread::sleep(Duration::from_millis(1));
+        std::thread::sleep(Duration::from_micros(100));
       }
     } // app loop
   }
 
   fn clock(&mut self) {
+    let curr_system_cycles = self.system_cycles;
+
     let state = self.ppu.clock();
 
     if state == PpuState::Render {
       self.update_image_buffer();
     }
 
-    if (self.system_cycles % 3) == 0 {
+    if (curr_system_cycles % 3) == 0 {
       if !self.cpu.bus.dma_transfer {
-        self.cpu.clock();
+        self.get_apu().step(curr_system_cycles);
+        self.cpu.clock(curr_system_cycles);
+
       } else if self.cpu.bus.dma_transfer {
+        self.flush_audio_samples();
         self.system_cycles = self.system_cycles.wrapping_add(self.cpu.bus.oam_dma_access(self.system_cycles));
       }
     }
@@ -236,18 +256,24 @@ impl Nes  {
       self.cpu.irq();
     }
 
-    // AUDIO
-    if AUDIO_BUFFER_LIMIT < self.get_apu().sink.len() {
-      self.get_apu().sink.play()
-    }
-
     self.system_cycles = self.system_cycles.wrapping_add(1);
   }
+
+  fn flush_audio_samples(&mut self) {
+      let b = self.get_apu().buf.to_vec();
+
+      let since = self.start_time.elapsed();
+      println!("{} - {}", self.get_apu().buf.len(), since.as_millis());
+      self.start_time = Instant::now();
+      self.audio_stream.send_audio_buffer(b);
+      self.get_apu().buf.clear();
+  }
+
 
   fn update_image_buffer(&mut self) {
     let pixel_buffer = *self.get_off_screen_pixels();
     for (x, y, pixel) in self.image_buffer.enumerate_pixels_mut() {
-      let p  = pixel_buffer[y as usize * 256 + x as usize];
+      let p = pixel_buffer[y as usize * 256 + x as usize];
       *pixel = Rgb(p);
     }
 

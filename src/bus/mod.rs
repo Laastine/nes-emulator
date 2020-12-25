@@ -18,6 +18,7 @@ pub struct Bus {
   registers: Rc<RefCell<Registers>>,
   pub dma_transfer: bool,
   dma_page: u8,
+  pub stall_cycles: u32,
 }
 
 impl Bus {
@@ -36,11 +37,16 @@ impl Bus {
       registers,
       dma_transfer,
       dma_page,
+      stall_cycles: 0
     }
   }
 
   fn get_controller(&mut self) -> Ref<[u8; 2]> {
     self.controller.borrow()
+  }
+
+  pub fn get_mut_apu(&mut self) -> RefMut<Apu> {
+    self.apu.borrow_mut()
   }
 
   pub fn get_mut_cartridge(&mut self) -> RefMut<Box<Cartridge>> {
@@ -55,7 +61,7 @@ impl Bus {
     self.registers.borrow_mut()
   }
 
-  pub fn write_u8(&mut self, address: u16, data: u8) {
+  pub fn write_u8(&mut self, address: u16, data: u8, cycles: u32) {
     if (0x0000..=0x1FFF).contains(&address) {
       self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
     } else if (0x2000..=0x3FFF).contains(&address) {
@@ -64,6 +70,8 @@ impl Bus {
       self.dma_page = data;
       self.get_mut_registers().oam_address = 0x00;
       self.dma_transfer = true;
+    } else if (0x4000..=0x4013).contains(&address) || 0x4015 == address {
+      self.get_mut_apu().apu_write_reg(address, data, cycles);
     } else if (0x4016..=0x4017).contains(&address) {
       let idx = usize::try_from(address & 1).unwrap();
       let new_controller_state = self.get_controller()[idx];
@@ -78,6 +86,8 @@ impl Bus {
       u16::try_from(self.ram[usize::try_from(address & 0x07FF).unwrap()]).unwrap()
     } else if (0x2000..=0x3FFF).contains(&address) {
       self.get_mut_registers().bus_read_ppu_reg(address).into()
+    } else if address == 0x4015 {
+      u16::try_from(self.get_mut_apu().apu_read_reg()).unwrap()
     } else if (0x4016..=0x4017).contains(&address) {
       let idx = usize::try_from(address & 0x0001).unwrap();
       let state = self.controller_state[idx] & 0x80;
