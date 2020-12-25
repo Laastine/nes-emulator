@@ -4,8 +4,6 @@ pub const SCREEN_RES_Y: u32 = 240;
 pub const SCREEN_WIDTH: u32 = 768;
 pub const SCREEN_HEIGHT: u32 = 720;
 
-pub const AUDIO_BUFFER_LIMIT: usize = 0xFFFF;
-
 #[derive(Copy, Clone, Debug)]
 pub struct Color([u8; 3]);
 
