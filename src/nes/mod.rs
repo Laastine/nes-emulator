@@ -20,7 +20,7 @@ use crate::bus::Bus;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
-use crate::nes::constants::{KeyboardCommand, KeyCode, SCREEN_RES_X, SCREEN_RES_Y};
+use crate::nes::constants::{KeyboardCommand, KeyCode, SCREEN_RES_X, SCREEN_RES_Y, AUDIO_BUFFER_LIMIT};
 use crate::ppu::{Ppu, PpuState, registers::Registers};
 use glutin::event_loop::ControlFlow;
 use glutin::platform::run_return::EventLoopExtRunReturn;
@@ -30,7 +30,7 @@ pub mod constants;
 pub type OffScreenBuffer = [[u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
 
 pub struct Nes {
-  apu: Apu,
+  apu: Rc<RefCell<Apu>>,
   cpu: Cpu,
   ppu: Ppu,
   system_cycles: u32,
@@ -51,15 +51,13 @@ impl Nes  {
 
     let window_context = WindowContext::new();
 
-    let reg = Registers::new(cart.clone());
-    let registers = Rc::new(RefCell::new(reg));
+    let registers = Rc::new(RefCell::new(Registers::new(cart.clone())));
 
     let controller = Rc::new(RefCell::new(c));
 
+    let apu = Rc::new(RefCell::new(Apu::new()));
 
-    let apu = Apu::new();
-
-    let bus = Bus::new(cart, registers.clone(), controller.clone());
+    let bus = Bus::new(cart, registers.clone(), controller.clone(), apu.clone());
 
     let cpu = Cpu::new(bus);
 
@@ -89,6 +87,11 @@ impl Nes  {
   #[inline]
   fn get_controller(&mut self) -> RefMut<[u8; 2]> {
     self.controller.borrow_mut()
+  }
+
+  #[inline]
+  fn get_apu(&mut self) -> RefMut<Apu> {
+    self.apu.borrow_mut()
   }
 
   #[inline]
@@ -231,6 +234,11 @@ impl Nes  {
     if self.cpu.bus.borrow().get_cartridge().irq_flag() {
       self.cpu.bus.get_mut_cartridge().clear_irq_flag();
       self.cpu.irq();
+    }
+
+    // AUDIO
+    if AUDIO_BUFFER_LIMIT < self.get_apu().sink.len() {
+      self.get_apu().sink.play()
     }
 
     self.system_cycles = self.system_cycles.wrapping_add(1);

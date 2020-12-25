@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
 use crate::ppu::registers::Registers;
+use crate::apu::Apu;
 
 pub const MEM_SIZE: usize = 0x0800;
 
@@ -11,6 +12,7 @@ pub const MEM_SIZE: usize = 0x0800;
 pub struct Bus {
   pub cartridge: Rc<RefCell<Box<Cartridge>>>,
   pub ram: [u8; MEM_SIZE],
+  apu: Rc<RefCell<Apu>>,
   controller: Rc<RefCell<[u8; 2]>>,
   controller_state: [u8; 2],
   registers: Rc<RefCell<Registers>>,
@@ -19,7 +21,7 @@ pub struct Bus {
 }
 
 impl Bus {
-  pub fn new(cartridge: Rc<RefCell<Box<Cartridge>>>, registers: Rc<RefCell<Registers>>, controller: Rc<RefCell<[u8; 2]>>) -> Bus {
+  pub fn new(cartridge: Rc<RefCell<Box<Cartridge>>>, registers: Rc<RefCell<Registers>>, controller: Rc<RefCell<[u8; 2]>>, apu: Rc<RefCell<Apu>>) -> Bus {
     let ram = [0u8; MEM_SIZE];
     let controller_state = [0u8; 2];
     let dma_transfer = false;
@@ -28,6 +30,7 @@ impl Bus {
     Bus {
       cartridge,
       ram,
+      apu,
       controller,
       controller_state,
       registers,

@@ -1,5 +1,7 @@
 use rodio::Sink;
 
+mod pulse;
+
 pub struct Apu {
   pub sink: Sink
 }
@@ -12,4 +14,8 @@ impl Apu {
       sink
     }
   }
+}
+
+pub trait Mixer {
+  fn signal(&self) -> u8;
 }
