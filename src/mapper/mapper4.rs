@@ -8,7 +8,7 @@ use crate::mapper::pager::Page;
 use crate::mapper::pager::PageSize::{EightKb, OneKb};
 
 #[derive(Clone)]
-pub struct Mapper4 {
+pub(crate) struct Mapper4 {
   prg_select: bool,
   chr_select: bool,
   registers: [usize; 8],

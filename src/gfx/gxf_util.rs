@@ -27,7 +27,7 @@ pub struct VertexData {
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Vertex)]
 #[vertex(sem = "Semantics", instanced = "true")]
-pub struct Instance {
+pub(crate) struct Instance {
   pub pos: VertexInstancePosition,
   pub w: VertexWeight,
 }

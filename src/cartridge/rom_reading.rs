@@ -21,7 +21,7 @@ const CHR_ROM_PAGE_SIZE: usize = 0x2000;
 const CHR_RAM_PAGE_SIZE: usize = 0x2000;
 
 #[derive(Clone, Debug)]
-pub struct Rom {
+pub(crate) struct Rom {
   pub rom_header: RomHeader,
   pub prg_rom: Vec<u8>,
   pub prg_ram: Vec<u8>,

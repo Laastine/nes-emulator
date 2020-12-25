@@ -9,7 +9,7 @@ use crate::cartridge::{PRG_ROM_BANK_SIZE, CHR_ROM_BANK_SIZE};
 use crate::cartridge::rom_reading::{Mirroring};
 
 #[derive(Clone)]
-pub struct Mapper0 {
+pub(crate) struct Mapper0 {
   prg_bank: usize,
   chr_bank: usize,
   rom: Rc<RefCell<RomData>>,

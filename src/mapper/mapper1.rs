@@ -95,7 +95,7 @@ impl ShiftReg {
 }
 
 #[derive(Clone)]
-pub struct Mapper1 {
+pub(crate) struct Mapper1 {
   rom: Rc<RefCell<RomData>>,
   shift_reg: ShiftReg,
   control_reg: CtrlReg,

@@ -9,7 +9,7 @@ use crate::mapper::pager::Page;
 use crate::mapper::pager::PageSize::{EightKb, SixteenKb};
 
 #[derive(Clone)]
-pub struct Mapper3 {
+pub(crate) struct Mapper3 {
   chr_bank_select: usize,
   rom: Rc<RefCell<RomData>>,
   mirroring: Mirroring,

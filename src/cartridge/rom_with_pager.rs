@@ -1,7 +1,7 @@
 use crate::mapper::pager::Pager;
 use crate::cartridge::rom_reading::{Rom, RomHeader};
 
-pub struct RomData {
+pub(crate) struct RomData {
   pub rom_header: RomHeader,
   pub prg_rom: Pager,
   pub prg_ram: Pager,
