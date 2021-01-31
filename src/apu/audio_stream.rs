@@ -1,10 +1,9 @@
-use std::thread;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
-use std::time::Duration;
+use std::thread;
 
-use rodio::{OutputStreamHandle, Sink};
 use rodio::buffer::SamplesBuffer;
+use rodio::Sink;
 
 pub struct AudioStream {
   tx: Sender<Vec<f32>>,
@@ -12,16 +11,14 @@ pub struct AudioStream {
 
 impl AudioStream {
   pub fn new() -> AudioStream {
-
     let (tx, rx): (Sender<Vec<f32>>, Receiver<Vec<f32>>) = mpsc::channel();
 
     thread::spawn(move || {
       let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
-      while let val = rx.try_recv() {
-        if val.is_ok() {
+      loop {
+        if let Ok(val) = rx.try_recv() {
           let new_sink = Sink::try_new(&stream_handle).unwrap();
-          new_sink.append(SamplesBuffer::new(2, 44100, val.unwrap()));
-          thread::sleep(Duration::from_millis(16));
+          new_sink.append(SamplesBuffer::new(2, 44100, val));
           new_sink.detach();
         }
       }

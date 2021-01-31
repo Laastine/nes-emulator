@@ -1,9 +1,9 @@
-use crate::apu::sequencer::Sequencer;
-use crate::apu::sweep::{Sweep, Mode};
-use crate::apu::envelope::Envelope;
-use crate::apu::length_counter::LengthCounter;
 use std::convert::TryFrom;
 
+use crate::apu::envelope::Envelope;
+use crate::apu::length_counter::LengthCounter;
+use crate::apu::sequencer::Sequencer;
+use crate::apu::sweep::{Mode, Sweep};
 
 const SEQUENCE_LOOKUP_TABLE: [[u8; 8]; 4] = [
   [0, 1, 0, 0, 0, 0, 0, 0],
@@ -27,7 +27,7 @@ impl Pulse {
       sweep: Sweep::new(channel),
       sequencer: Sequencer::new(SEQUENCE_LOOKUP_TABLE[0].len()),
       length_counter: LengthCounter::new(),
-      cycle: 0
+      cycle: 0,
     }
   }
 
@@ -37,19 +37,19 @@ impl Pulse {
         self.cycle = usize::try_from(data).unwrap() >> 6;
         self.envelope.write_reg(data);
         self.length_counter.set_halted((data & 0x20) > 0)
-      },
+      }
       0x01 => {
         self.sweep.write_reg(data);
-      },
+      }
       0x02 => {
         self.sequencer.set_period_lo(data);
-      },
+      }
       0x03 => {
         self.length_counter.write_register(data);
         self.sequencer.set_period_hi(data & 0x07);
         self.envelope.start();
         self.sequencer.current_step = 0;
-      },
+      }
       _ => panic!("Invalid pulse_write_reg_u8 address 0x{:04X}", address),
     }
   }
@@ -86,6 +86,4 @@ impl Pulse {
   pub fn update_length_counter(&mut self) {
     self.length_counter.update_pending();
   }
-
-
 }

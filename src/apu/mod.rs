@@ -1,8 +1,8 @@
 use std::convert::TryFrom;
 
 use crate::apu::{pulse::Pulse, sweep::Mode};
-use crate::apu::signal_filter::SignalFilter;
 use crate::apu::frame_counter::{FrameCounter, FrameResult};
+use crate::apu::signal_filter::SignalFilter;
 
 pub mod audio_stream;
 mod envelope;
@@ -18,14 +18,13 @@ pub struct Apu {
   filters: [SignalFilter; 3],
   pub pulse_0: Pulse,
   pub pulse_1: Pulse,
-  frame_counter: FrameCounter
+  frame_counter: FrameCounter,
 }
 
 const AUDIO_BUFFER_LIMIT: usize = 1470;
 
 impl Apu {
   pub fn new() -> Apu {
-
     Apu {
       buf: Vec::new(),
       frame_counter: FrameCounter::new(),
@@ -35,7 +34,7 @@ impl Apu {
         SignalFilter::hi_pass(44100.0, 90.0),
         SignalFilter::hi_pass(44100.0, 440.0),
         SignalFilter::lo_pass(44100.0, 14_000.0),
-      ]
+      ],
     }
   }
 
@@ -82,13 +81,13 @@ impl Apu {
 
   pub fn apu_write_reg(&mut self, address: u16, data: u8, cycle: u32) {
     match address {
-      0x4000..=0x4003 => self.pulse_0.pulse_write_reg_u8(address , data),
-      0x4004..=0x4007 => self.pulse_1.pulse_write_reg_u8(address , data),
+      0x4000..=0x4003 => self.pulse_0.pulse_write_reg_u8(address, data),
+      0x4004..=0x4007 => self.pulse_1.pulse_write_reg_u8(address, data),
       0x4008..=0x4013 => (),
       0x4015 => {
         self.pulse_0.set_enabled(data & 0x01 > 0);
         self.pulse_1.set_enabled(data & 0x02 > 0);
-      },
+      }
       0x4017 => {
         let res = self.frame_counter.write_register(data, cycle);
         self.handle_frame_result(res);
@@ -102,13 +101,13 @@ impl Apu {
       FrameResult::Quarter => {
         self.pulse_0.step_quarter_frame();
         self.pulse_1.step_quarter_frame();
-      },
+      }
       FrameResult::Half => {
         self.pulse_0.step_quarter_frame();
         self.pulse_0.step_half_frame();
         self.pulse_1.step_quarter_frame();
         self.pulse_1.step_half_frame();
-      },
+      }
       FrameResult::None => (),
     }
   }
@@ -118,13 +117,13 @@ impl Apu {
   }
 
   fn sample(&mut self) -> f32 {
-    let p0 = f64::try_from(self.pulse_0.sample()).unwrap();
-    let p1 = f64::try_from(self.pulse_1.sample()).unwrap();
+    let pulse_0 = f64::try_from(self.pulse_0.sample()).unwrap();
+    let pulse_1 = f64::try_from(self.pulse_1.sample()).unwrap();
 
-    let mut output = (95.88 / ((8218.0 / (p0 + p1)) + 100.0)) * 65535.0;
+    let mut output = 95.88 / ((8218.0 / (pulse_0 + pulse_1)) + 100.0) * 65535.0;
 
     for i in 0..3 {
-      output = self.filters[i].step(output );
+      output = self.filters[i].step(output);
     }
 
     output as f32

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use std::time;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use glutin::event::{KeyboardInput, WindowEvent};
 use glutin::event::{ElementState::{Pressed, Released}, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Up, X, Z}};
@@ -18,9 +18,6 @@ use luminance::pipeline::PipelineState;
 use luminance::render_state::RenderState;
 use luminance::texture::{GenMipmaps, Sampler};
 
-
-
-// use crate::apu::audio_stream::AudioStream;
 use crate::apu::Apu;
 use crate::apu::audio_stream::AudioStream;
 use crate::bus::Bus;
@@ -36,7 +33,6 @@ pub mod constants;
 pub type OffScreenBuffer = [[u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
 
 pub struct Nes {
-  start_time: Instant,
   audio_stream: AudioStream,
   apu: Rc<RefCell<Apu>>,
   cpu: Cpu,
@@ -65,8 +61,6 @@ impl Nes {
 
     let audio_stream = AudioStream::new();
 
-    let start_time = Instant::now();
-
     let apu = Rc::new(RefCell::new(Apu::new()));
 
     let bus = Bus::new(cart, registers.clone(), controller.clone(), apu.clone());
@@ -82,7 +76,6 @@ impl Nes {
 
     Nes {
       audio_stream,
-      start_time,
       apu,
       cpu,
       ppu,
@@ -261,10 +254,6 @@ impl Nes {
 
   fn flush_audio_samples(&mut self) {
       let b = self.get_apu().buf.to_vec();
-
-      let since = self.start_time.elapsed();
-      println!("{} - {}", self.get_apu().buf.len(), since.as_millis());
-      self.start_time = Instant::now();
       self.audio_stream.send_audio_buffer(b);
       self.get_apu().buf.clear();
   }
