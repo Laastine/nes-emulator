@@ -1,5 +1,4 @@
 use crate::apu::sequencer::Sequencer;
-use std::convert::TryFrom;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum Mode {

@@ -13,7 +13,7 @@ impl Sequencer {
       frame_counter: 0,
       period: 0,
       steps,
-      current_step: 0
+      current_step: 0,
     }
   }
 
