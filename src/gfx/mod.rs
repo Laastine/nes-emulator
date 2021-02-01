@@ -8,7 +8,7 @@ use luminance_derive::UniformInterface;
 use luminance_gl::GL33;
 use luminance_glutin::GlutinSurface;
 
-use crate::gfx::gxf_util::{Semantics, VertexColor, VertexData, VertexPosition};
+use crate::gfx::gfx_util::{Semantics, VertexColor, VertexData, VertexPosition};
 use crate::nes::constants::{SCREEN_HEIGHT, SCREEN_RES_X, SCREEN_RES_Y, SCREEN_WIDTH};
 use luminance::pipeline::TextureBinding;
 use glutin::event_loop::EventLoop;
@@ -16,7 +16,7 @@ use glutin::dpi::PhysicalSize;
 use glutin::GlProfile;
 
 
-mod gxf_util;
+mod gfx_util;
 
 const SHADER_VERT: &str = include_str!("emulator.v.glsl");
 const SHADER_FRAG: &str = include_str!("emulator.f.glsl");
