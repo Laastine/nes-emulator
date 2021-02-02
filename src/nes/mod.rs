@@ -94,10 +94,6 @@ impl Nes {
     }
   }
 
-  pub fn init(&mut self) {
-    self.reset();
-  }
-
   #[inline]
   fn get_controller(&mut self) -> RefMut<[u8; 2]> {
     self.controller.borrow_mut()
@@ -334,7 +330,7 @@ impl Nes {
     }
   }
 
-  fn reset(&mut self) {
+  pub fn reset(&mut self) {
     self.cpu.reset();
     self.ppu.reset();
     self.off_screen_pixels.replace([[0u8; 3]; 256 * 240]);
