@@ -308,7 +308,6 @@ impl Nes {
 
         shd_gate.shade(copy_program, |mut iface, uni, mut rdr_gate| {
           iface.set(&uni.texture, bound_texture.binding());
-          // iface.texture.update(&bound_texture);
           rdr_gate.render(&RenderState::default(), |mut tess_gate| {
             tess_gate.render(background)
           })
