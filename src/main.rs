@@ -56,6 +56,6 @@ fn main() {
 
   let mut nes = Nes::new(&rom_file);
 
-  nes.init();
+  nes.reset();
   nes.render_loop();
 }
