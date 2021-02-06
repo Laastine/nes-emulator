@@ -1,6 +1,6 @@
 # NES-emulator
 
-![nes-emulator](https://github.com/Laastine/nes-emulator/workflows/Rust/badge.svg)
+![CI](https://github.com/Laastine/nes-emulator/workflows/nes-emulator/badge.svg?branch=master&event=push)
 
 <p float="left">
 <img src="assets/zelda.png" width="30%">
