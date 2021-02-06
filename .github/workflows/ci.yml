@@ -1,4 +1,4 @@
-name: Rust
+name: nes-emulator
 
 on: [ push, pull_request ]
 
@@ -34,22 +34,13 @@ jobs:
           - build: Linux
             os: ubuntu-latest
           - build: macOS
-            os: macOS-10.15
+            os: macOS-latest
           - build: Win64
             os: windows-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-
-      - name: Cache
-        uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-${{ matrix.build }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install rust
         uses: actions-rs/toolchain@v1
