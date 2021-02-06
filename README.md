@@ -1,6 +1,6 @@
 # NES-emulator
 
-[![Build Status](https://travis-ci.org/Laastine/nes-emulator.svg?branch=master)](https://travis-ci.org/Laastine/nes-emulator)
+![nes-emulator](https://github.com/Laastine/nes-emulator/workflows/Rust/badge.svg)
 
 <p float="left">
 <img src="assets/zelda.png" width="30%">
