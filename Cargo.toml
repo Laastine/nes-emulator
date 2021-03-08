@@ -8,11 +8,11 @@ edition = "2018"
 bitfield = "0.13.2"
 getopts = "0.2.21"
 glutin = "0.25.1"
-image = "0.23.12"
-luminance = "0.43.1"
+image = "0.23.14"
+luminance = "0.43.2"
 luminance-gl = "0.16.1"
 luminance-derive = "0.6.3"
-luminance-glutin = "0.11.2"
+luminance-glutin = "0.11.3"
 
 [profile.release]
 debug = true

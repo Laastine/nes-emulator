@@ -557,9 +557,9 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
 name = "image"
-version = "0.23.12"
+version = "0.23.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ce04077ead78e39ae8610ad26216aed811996b043d47beed5090db674f9e9b5"
+checksum = "24ffcb7e7244a9bf19d35bf2883b9c080c4ced3c07a9895572178cdb8f13f6a1"
 dependencies = [
  "bytemuck",
  "byteorder",
@@ -600,11 +600,10 @@ checksum = "8eaf4bc02d17cbdd7ff4c7438cafcdf7fb9a4613313ad11b4f8fefe7d3fa0130"
 
 [[package]]
 name = "jpeg-decoder"
-version = "0.1.18"
+version = "0.1.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0256f0aec7352539102a9efbcb75543227b7ab1117e0f95450023af730128451"
+checksum = "229d53d58899083193af11e15917b5640cd40b29ff475a1fe4ef725deb02d0f2"
 dependencies = [
- "byteorder",
  "rayon",
 ]
 
@@ -682,9 +681,9 @@ dependencies = [
 
 [[package]]
 name = "luminance"
-version = "0.43.1"
+version = "0.43.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af90d32ad2eea97a3e55d111f19348bda92855b6220dc77ef5b7dbbabaefa3af"
+checksum = "5fe4219f6b16354a910a2163a52c8c3586c728a9d61816165d59bab076880a23"
 dependencies = [
  "luminance-derive",
 ]
@@ -712,9 +711,9 @@ dependencies = [
 
 [[package]]
 name = "luminance-glutin"
-version = "0.11.2"
+version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5d78fccbb94711a217aa5b600d69203c7d785658ee6380d8abc28ceea9a4fd4"
+checksum = "7f6b97b521b510afca414baf215fdee376a096388048907ebed54f251bc190d1"
 dependencies = [
  "gl",
  "glutin",
