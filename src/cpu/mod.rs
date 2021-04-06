@@ -1,7 +1,7 @@
 use std::convert::{TryFrom, TryInto};
 
 use crate::bus::Bus;
-use crate::cpu::instruction_table::{ADDRMODE6502, FLAGS6502, LookUpTable, OPCODES6502};
+use crate::cpu::instruction_table::{AddrMode6502, Flag6502, LookUpTable, OpCode6502};
 
 pub mod instruction_table;
 
@@ -44,7 +44,7 @@ impl Cpu {
     }
   }
 
-  fn set_flag(&mut self, flag: &FLAGS6502, val: bool) {
+  fn set_flag(&mut self, flag: &Flag6502, val: bool) {
     let f = flag.value();
     if val {
       self.status_register |= f;
@@ -53,11 +53,11 @@ impl Cpu {
     }
   }
 
-  fn get_flag(&self, flag: &FLAGS6502) -> bool {
+  fn get_flag(&self, flag: &Flag6502) -> bool {
     (self.status_register & flag.value()) > 0
   }
 
-  fn get_flag_val(&self, flag: &FLAGS6502) -> u16 {
+  fn get_flag_val(&self, flag: &Flag6502) -> u16 {
     if (self.status_register & flag.value()) > 0 { 1 } else { 0 }
   }
 
@@ -90,8 +90,8 @@ impl Cpu {
   }
 
   fn set_flags_zero_and_negative(&mut self, val: u16) {
-    self.set_flag(&FLAGS6502::Z, val == 0x00);
-    self.set_flag(&FLAGS6502::N, (val & 0x80) > 0);
+    self.set_flag(&Flag6502::Z, val == 0x00);
+    self.set_flag(&Flag6502::N, (val & 0x80) > 0);
   }
 
   fn branching(&mut self, condition: bool) -> u8 {
@@ -107,7 +107,7 @@ impl Cpu {
   }
 
   fn return_or_write_memory(&mut self, val: u16) {
-    if self.addr_mode() == ADDRMODE6502::IMP {
+    if self.addr_mode() == AddrMode6502::Imp {
       self.acc = u8::try_from(val & 0xFF).unwrap();
     } else {
       self.bus_write_u8(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
@@ -118,7 +118,7 @@ impl Cpu {
     if self.cycles == 0 {
       self.opcode = u8::try_from(self.bus_mut_read_u8(self.pc)).unwrap();
 
-      self.set_flag(&FLAGS6502::U, true);
+      self.set_flag(&Flag6502::U, true);
       self.pc_increment();
 
       let opcode_idx = usize::try_from(self.opcode).unwrap();
@@ -129,7 +129,7 @@ impl Cpu {
 
       self.cycles += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
 
-      self.set_flag(&FLAGS6502::U, true);
+      self.set_flag(&Flag6502::U, true);
     }
 
     self.clock_count += 1;
@@ -158,14 +158,14 @@ impl Cpu {
           hex(u8::try_into(self.acc).unwrap(), 2),
           hex(u8::try_into(self.x).unwrap(), 2),
           hex(u8::try_into(self.y).unwrap(), 2),
-          if self.get_flag(&FLAGS6502::N) { "N" } else { "." },
-          if self.get_flag(&FLAGS6502::V) { "V" } else { "." },
-          if self.get_flag(&FLAGS6502::U) { "U" } else { "." },
-          if self.get_flag(&FLAGS6502::B) { "B" } else { "." },
-          if self.get_flag(&FLAGS6502::D) { "D" } else { "." },
-          if self.get_flag(&FLAGS6502::I) { "I" } else { "." },
-          if self.get_flag(&FLAGS6502::Z) { "Z" } else { "." },
-          if self.get_flag(&FLAGS6502::C) { "C" } else { "." },
+          if self.get_flag(&Flag6502::N) { "N" } else { "." },
+          if self.get_flag(&Flag6502::V) { "V" } else { "." },
+          if self.get_flag(&Flag6502::U) { "U" } else { "." },
+          if self.get_flag(&Flag6502::B) { "B" } else { "." },
+          if self.get_flag(&Flag6502::D) { "D" } else { "." },
+          if self.get_flag(&Flag6502::I) { "I" } else { "." },
+          if self.get_flag(&Flag6502::Z) { "Z" } else { "." },
+          if self.get_flag(&Flag6502::C) { "C" } else { "." },
           hex(usize::try_from(self.stack_pointer).unwrap(), 2),
         )
           .as_bytes(),
@@ -174,7 +174,7 @@ impl Cpu {
   }
 
   pub fn fetch(&mut self) {
-    if self.addr_mode() != ADDRMODE6502::IMP {
+    if self.addr_mode() != AddrMode6502::Imp {
       self.fetched = u8::try_from(self.bus_mut_read_u8(self.addr_abs)).unwrap();
     }
   }
@@ -190,7 +190,7 @@ impl Cpu {
     self.x = 0;
     self.y = 0;
     self.stack_pointer = 0xFD;
-    self.status_register = FLAGS6502::U.value();
+    self.status_register = Flag6502::U.value();
 
     self.addr_abs = 0x0000;
     self.addr_rel = 0x0000;
@@ -200,15 +200,15 @@ impl Cpu {
   }
 
   pub fn irq(&mut self) {
-    if self.get_flag(&FLAGS6502::I) {
+    if self.get_flag(&Flag6502::I) {
       self.bus_write_u8(self.get_stack_address(), u8::try_from((self.pc >> 8) & 0x00FF).unwrap());
       self.stack_pointer_decrement();
       self.bus_write_u8(self.get_stack_address(), u8::try_from(self.pc & 0x00FF).unwrap());
       self.stack_pointer_decrement();
 
-      self.set_flag(&FLAGS6502::B, false);
-      self.set_flag(&FLAGS6502::U, true);
-      self.set_flag(&FLAGS6502::I, true);
+      self.set_flag(&Flag6502::B, false);
+      self.set_flag(&Flag6502::U, true);
+      self.set_flag(&Flag6502::I, true);
       self.bus_write_u8(self.get_stack_address(), self.status_register);
       self.stack_pointer_decrement();
 
@@ -228,9 +228,9 @@ impl Cpu {
     self.bus_write_u8(self.get_stack_address(), u8::try_from(self.pc & 0xFF).unwrap());
     self.stack_pointer_decrement();
 
-    self.set_flag(&FLAGS6502::B, false);
-    self.set_flag(&FLAGS6502::U, true);
-    self.set_flag(&FLAGS6502::I, true);
+    self.set_flag(&Flag6502::B, false);
+    self.set_flag(&Flag6502::U, true);
+    self.set_flag(&Flag6502::I, true);
 
     self.bus_write_u8(self.get_stack_address(), self.status_register);
     self.stack_pointer_decrement();
@@ -244,20 +244,20 @@ impl Cpu {
   }
 
   /// ADDRESS MODES
-  pub fn addr_mode_value(&mut self, addr_mode: ADDRMODE6502) -> u8 {
+  pub fn addr_mode_value(&mut self, addr_mode: AddrMode6502) -> u8 {
     match addr_mode {
-      ADDRMODE6502::IMP => self.imp(),
-      ADDRMODE6502::IMM => self.imm(),
-      ADDRMODE6502::ZP0 => self.zp0(),
-      ADDRMODE6502::ZPX => self.zpx(),
-      ADDRMODE6502::ZPY => self.zpy(),
-      ADDRMODE6502::REL => self.rel(),
-      ADDRMODE6502::ABS => self.abs(),
-      ADDRMODE6502::ABX => self.abx(),
-      ADDRMODE6502::ABY => self.aby(),
-      ADDRMODE6502::IND => self.ind(),
-      ADDRMODE6502::IZX => self.izx(),
-      ADDRMODE6502::IZY => self.izy(),
+      AddrMode6502::Imp => self.imp(),
+      AddrMode6502::Imm => self.imm(),
+      AddrMode6502::Zpo => self.zp0(),
+      AddrMode6502::Zpx => self.zpx(),
+      AddrMode6502::Zpy => self.zpy(),
+      AddrMode6502::Rel => self.rel(),
+      AddrMode6502::Abs => self.abs(),
+      AddrMode6502::Abx => self.abx(),
+      AddrMode6502::Aby => self.aby(),
+      AddrMode6502::Ind => self.ind(),
+      AddrMode6502::Izx => self.izx(),
+      AddrMode6502::Izy => self.izy(),
     }
   }
 
@@ -391,65 +391,65 @@ impl Cpu {
   }
 
   ///OPCODES
-  pub fn op_code_value(&mut self, op_code: OPCODES6502) -> u8 {
+  pub fn op_code_value(&mut self, op_code: OpCode6502) -> u8 {
     match op_code {
-      OPCODES6502::ADC => self.adc(),
-      OPCODES6502::AND => self.and(),
-      OPCODES6502::ASL => self.asl(),
-      OPCODES6502::BCC => self.bcc(),
-      OPCODES6502::BCS => self.bcs(),
-      OPCODES6502::BEQ => self.beq(),
-      OPCODES6502::BIT => self.bit(),
-      OPCODES6502::BMI => self.bmi(),
-      OPCODES6502::BNE => self.bne(),
-      OPCODES6502::BPL => self.bpl(),
-      OPCODES6502::BRK => self.brk(),
-      OPCODES6502::BVC => self.bvc(),
-      OPCODES6502::BVS => self.bvs(),
-      OPCODES6502::CLC => self.clc(),
-      OPCODES6502::CLD => self.cld(),
-      OPCODES6502::CLI => self.cli(),
-      OPCODES6502::CLV => self.clv(),
-      OPCODES6502::CMP => self.cmp(),
-      OPCODES6502::CPX => self.cpx(),
-      OPCODES6502::CPY => self.cpy(),
-      OPCODES6502::DEC => self.dec(),
-      OPCODES6502::DEX => self.dex(),
-      OPCODES6502::DEY => self.dey(),
-      OPCODES6502::EOR => self.eor(),
-      OPCODES6502::INC => self.inc(),
-      OPCODES6502::INX => self.inx(),
-      OPCODES6502::INY => self.iny(),
-      OPCODES6502::JMP => self.jmp(),
-      OPCODES6502::JSR => self.jsr(),
-      OPCODES6502::LDA => self.lda(),
-      OPCODES6502::LDX => self.ldx(),
-      OPCODES6502::LDY => self.ldy(),
-      OPCODES6502::LSR => self.lsr(),
-      OPCODES6502::NOP => self.nop(),
-      OPCODES6502::ORA => self.ora(),
-      OPCODES6502::PHA => self.pha(),
-      OPCODES6502::PHP => self.php(),
-      OPCODES6502::PLA => self.pla(),
-      OPCODES6502::PLP => self.plp(),
-      OPCODES6502::ROL => self.rol(),
-      OPCODES6502::ROR => self.ror(),
-      OPCODES6502::RTI => self.rti(),
-      OPCODES6502::RTS => self.rts(),
-      OPCODES6502::SBC => self.sbc(),
-      OPCODES6502::SEC => self.sec(),
-      OPCODES6502::SED => self.sed(),
-      OPCODES6502::SEI => self.sei(),
-      OPCODES6502::STA => self.sta(),
-      OPCODES6502::STX => self.stx(),
-      OPCODES6502::STY => self.sty(),
-      OPCODES6502::TAX => self.tax(),
-      OPCODES6502::TAY => self.tay(),
-      OPCODES6502::TSX => self.tsx(),
-      OPCODES6502::TXA => self.txa(),
-      OPCODES6502::TXS => self.txs(),
-      OPCODES6502::TYA => self.tya(),
-      OPCODES6502::XXX => 0,
+      OpCode6502::Add => self.adc(),
+      OpCode6502::And => self.and(),
+      OpCode6502::Asl => self.asl(),
+      OpCode6502::Bcc => self.bcc(),
+      OpCode6502::Bcs => self.bcs(),
+      OpCode6502::Beq => self.beq(),
+      OpCode6502::Bit => self.bit(),
+      OpCode6502::Bmi => self.bmi(),
+      OpCode6502::Bne => self.bne(),
+      OpCode6502::Bpl => self.bpl(),
+      OpCode6502::Brk => self.brk(),
+      OpCode6502::Bvc => self.bvc(),
+      OpCode6502::Bvs => self.bvs(),
+      OpCode6502::Clc => self.clc(),
+      OpCode6502::Cld => self.cld(),
+      OpCode6502::Cli => self.cli(),
+      OpCode6502::Clv => self.clv(),
+      OpCode6502::Cmp => self.cmp(),
+      OpCode6502::Cpx => self.cpx(),
+      OpCode6502::Cpy => self.cpy(),
+      OpCode6502::Dec => self.dec(),
+      OpCode6502::Dex => self.dex(),
+      OpCode6502::Dey => self.dey(),
+      OpCode6502::Eor => self.eor(),
+      OpCode6502::Inc => self.inc(),
+      OpCode6502::Inx => self.inx(),
+      OpCode6502::Iny => self.iny(),
+      OpCode6502::Jmp => self.jmp(),
+      OpCode6502::Jsr => self.jsr(),
+      OpCode6502::Lda => self.lda(),
+      OpCode6502::Ldx => self.ldx(),
+      OpCode6502::Ldy => self.ldy(),
+      OpCode6502::Lsr => self.lsr(),
+      OpCode6502::Nop => self.nop(),
+      OpCode6502::Ora => self.ora(),
+      OpCode6502::Pha => self.pha(),
+      OpCode6502::Php => self.php(),
+      OpCode6502::Pla => self.pla(),
+      OpCode6502::Plp => self.plp(),
+      OpCode6502::Rol => self.rol(),
+      OpCode6502::Ror => self.ror(),
+      OpCode6502::Rti => self.rti(),
+      OpCode6502::Rts => self.rts(),
+      OpCode6502::Sbc => self.sbc(),
+      OpCode6502::Sec => self.sec(),
+      OpCode6502::Sed => self.sed(),
+      OpCode6502::Sei => self.sei(),
+      OpCode6502::Sta => self.sta(),
+      OpCode6502::Stx => self.stx(),
+      OpCode6502::Sty => self.sty(),
+      OpCode6502::Tax => self.tax(),
+      OpCode6502::Tay => self.tay(),
+      OpCode6502::Tsx => self.tsx(),
+      OpCode6502::Txa => self.txa(),
+      OpCode6502::Txs => self.txs(),
+      OpCode6502::Tya => self.tya(),
+      OpCode6502::Xxx => 0,
     }
   }
 
@@ -458,11 +458,11 @@ impl Cpu {
     self.fetch();
     let val = u16::try_from(self.acc).unwrap()
       .wrapping_add(u16::try_from(self.fetched).unwrap())
-      .wrapping_add(self.get_flag_val(&FLAGS6502::C));
+      .wrapping_add(self.get_flag_val(&Flag6502::C));
 
-    self.set_flag(&FLAGS6502::C, (val) > 255);
+    self.set_flag(&Flag6502::C, (val) > 255);
     self.set_flag(
-      &FLAGS6502::V,
+      &Flag6502::V,
       ((!(u16::try_from(self.acc).unwrap()
         ^ u16::try_from(self.fetched).unwrap())
         & (u16::try_from(self.acc).unwrap() ^ val))
@@ -478,9 +478,9 @@ impl Cpu {
   pub fn asl(&mut self) -> u8 {
     self.fetch();
     let val = u16::try_from(self.fetched).unwrap() << 1;
-    self.set_flag(&FLAGS6502::C, (val & 0xFF00) > 0);
-    self.set_flag(&FLAGS6502::Z, val.trailing_zeros() > 7);
-    self.set_flag(&FLAGS6502::N, (val & 0x80) > 0);
+    self.set_flag(&Flag6502::C, (val & 0xFF00) > 0);
+    self.set_flag(&Flag6502::Z, val.trailing_zeros() > 7);
+    self.set_flag(&Flag6502::N, (val & 0x80) > 0);
 
     self.return_or_write_memory(val);
     0
@@ -496,59 +496,59 @@ impl Cpu {
 
   /// branch on carry clear
   pub fn bcc(&mut self) -> u8 {
-    self.branching(!self.get_flag(&FLAGS6502::C))
+    self.branching(!self.get_flag(&Flag6502::C))
   }
 
   /// branch on carry clear
   pub fn bcs(&mut self) -> u8 {
-    self.branching(self.get_flag(&FLAGS6502::C))
+    self.branching(self.get_flag(&Flag6502::C))
   }
 
   /// branch on equal
   pub fn beq(&mut self) -> u8 {
-    self.branching(self.get_flag(&FLAGS6502::Z))
+    self.branching(self.get_flag(&Flag6502::Z))
   }
 
   /// Bit test
   pub fn bit(&mut self) -> u8 {
     self.fetch();
     let val = u16::try_from(self.acc).unwrap() & u16::try_from(self.fetched).unwrap();
-    self.set_flag(&FLAGS6502::Z, val.trailing_zeros() > 7);
-    self.set_flag(&FLAGS6502::N, (self.fetched & 0x80) > 0);
-    self.set_flag(&FLAGS6502::V, (self.fetched & 0x40) > 0);
+    self.set_flag(&Flag6502::Z, val.trailing_zeros() > 7);
+    self.set_flag(&Flag6502::N, (self.fetched & 0x80) > 0);
+    self.set_flag(&Flag6502::V, (self.fetched & 0x40) > 0);
     0
   }
 
   /// Branch on minus (negative set)
   pub fn bmi(&mut self) -> u8 {
-    self.branching(self.get_flag(&FLAGS6502::N))
+    self.branching(self.get_flag(&Flag6502::N))
   }
 
   /// Branch on not equal (zero clear)
   pub fn bne(&mut self) -> u8 {
-    self.branching(!self.get_flag(&FLAGS6502::Z))
+    self.branching(!self.get_flag(&Flag6502::Z))
   }
 
   /// Branch on plus (negative clear)
   pub fn bpl(&mut self) -> u8 {
-    self.branching(!self.get_flag(&FLAGS6502::N))
+    self.branching(!self.get_flag(&Flag6502::N))
   }
 
   /// Break / interrupt
   pub fn brk(&mut self) -> u8 {
     self.pc_increment();
 
-    self.set_flag(&FLAGS6502::I, true);
+    self.set_flag(&Flag6502::I, true);
     self.bus_write_u8(self.get_stack_address(), u8::try_from((self.pc >> 8) & 0xFF).unwrap());
     self.stack_pointer_decrement();
 
     self.bus_write_u8(self.get_stack_address(), u8::try_from(self.pc & 0xFF).unwrap());
     self.stack_pointer_decrement();
 
-    self.set_flag(&FLAGS6502::B, true);
+    self.set_flag(&Flag6502::B, true);
     self.bus_write_u8(self.get_stack_address(), self.status_register);
     self.stack_pointer_decrement();
-    self.set_flag(&FLAGS6502::B, false);
+    self.set_flag(&Flag6502::B, false);
 
     self.pc = self.bus_mut_read_u8(0xFFFE) | (self.bus_mut_read_u8(0xFFFF) << 8);
     0
@@ -556,35 +556,35 @@ impl Cpu {
 
   /// Branch on overflow clear
   pub fn bvc(&mut self) -> u8 {
-    self.branching(!self.get_flag(&FLAGS6502::V))
+    self.branching(!self.get_flag(&Flag6502::V))
   }
 
   /// Branch on overflow clear
   pub fn bvs(&mut self) -> u8 {
-    self.branching(self.get_flag(&FLAGS6502::V))
+    self.branching(self.get_flag(&Flag6502::V))
   }
 
   /// Clear carry
   pub fn clc(&mut self) -> u8 {
-    self.set_flag(&FLAGS6502::C, false);
+    self.set_flag(&Flag6502::C, false);
     0
   }
 
   /// Clear decimal
   pub fn cld(&mut self) -> u8 {
-    self.set_flag(&FLAGS6502::D, false);
+    self.set_flag(&Flag6502::D, false);
     0
   }
 
   /// Clear interrupt disable
   pub fn cli(&mut self) -> u8 {
-    self.set_flag(&FLAGS6502::I, false);
+    self.set_flag(&Flag6502::I, false);
     0
   }
 
   /// Clear overflow
   pub fn clv(&mut self) -> u8 {
-    self.set_flag(&FLAGS6502::V, false);
+    self.set_flag(&Flag6502::V, false);
     0
   }
 
@@ -592,7 +592,7 @@ impl Cpu {
   pub fn cmp(&mut self) -> u8 {
     self.fetch();
     let val = u16::try_from(self.acc.wrapping_sub(self.fetched)).unwrap();
-    self.set_flag(&FLAGS6502::C, self.acc >= self.fetched);
+    self.set_flag(&Flag6502::C, self.acc >= self.fetched);
     self.set_flags_zero_and_negative(val);
     1
   }
@@ -601,7 +601,7 @@ impl Cpu {
   pub fn cpx(&mut self) -> u8 {
     self.fetch();
     let val = u16::try_from(self.x.wrapping_sub(self.fetched)).unwrap();
-    self.set_flag(&FLAGS6502::C, self.x >= self.fetched);
+    self.set_flag(&Flag6502::C, self.x >= self.fetched);
     self.set_flags_zero_and_negative(val);
     0
   }
@@ -610,7 +610,7 @@ impl Cpu {
   pub fn cpy(&mut self) -> u8 {
     self.fetch();
     let val = u16::try_from(self.y.wrapping_sub(self.fetched)).unwrap();
-    self.set_flag(&FLAGS6502::C, self.y >= self.fetched);
+    self.set_flag(&Flag6502::C, self.y >= self.fetched);
     self.set_flags_zero_and_negative(val);
     0
   }
@@ -717,7 +717,7 @@ impl Cpu {
   /// Logical shift right
   pub fn lsr(&mut self) -> u8 {
     self.fetch();
-    self.set_flag(&FLAGS6502::C, (self.fetched & 1) > 0);
+    self.set_flag(&Flag6502::C, (self.fetched & 1) > 0);
     let val = u16::try_from(self.fetched >> 1).unwrap();
     self.set_flags_zero_and_negative(val);
 
@@ -752,9 +752,9 @@ impl Cpu {
   pub fn php(&mut self) -> u8 {
     self.bus_write_u8(
       self.get_stack_address(),
-      self.status_register | FLAGS6502::B.value() | FLAGS6502::U.value());
-    self.set_flag(&FLAGS6502::B, false);
-    self.set_flag(&FLAGS6502::U, false);
+      self.status_register | Flag6502::B.value() | Flag6502::U.value());
+    self.set_flag(&Flag6502::B, false);
+    self.set_flag(&Flag6502::U, false);
     self.stack_pointer_decrement();
     0
   }
@@ -773,15 +773,15 @@ impl Cpu {
   pub fn plp(&mut self) -> u8 {
     self.stack_pointer_increment();
     self.status_register = u8::try_from(self.bus_mut_read_u8(self.get_stack_address())).unwrap();
-    self.set_flag(&FLAGS6502::U, true);
+    self.set_flag(&Flag6502::U, true);
     0
   }
 
   /// Rotate left
   pub fn rol(&mut self) -> u8 {
     self.fetch();
-    let val = (u16::try_from(self.fetched).unwrap() << 1) | self.get_flag_val(&FLAGS6502::C);
-    self.set_flag(&FLAGS6502::C, (val & 0xFF00) > 0);
+    let val = (u16::try_from(self.fetched).unwrap() << 1) | self.get_flag_val(&Flag6502::C);
+    self.set_flag(&Flag6502::C, (val & 0xFF00) > 0);
     self.set_flags_zero_and_negative(val);
 
     self.return_or_write_memory(val);
@@ -791,15 +791,15 @@ impl Cpu {
   /// Rotate right
   pub fn ror(&mut self) -> u8 {
     self.fetch();
-    let val = (self.get_flag_val(&FLAGS6502::C) << 7) | (u16::try_from(self.fetched).unwrap() >> 1);
-    self.set_flag(&FLAGS6502::C, (self.fetched & 0x01) > 0);
+    let val = (self.get_flag_val(&Flag6502::C) << 7) | (u16::try_from(self.fetched).unwrap() >> 1);
+    self.set_flag(&Flag6502::C, (self.fetched & 0x01) > 0);
     self.set_flags_zero_and_negative(val);
 
     self.return_or_write_memory(val);
     0
   }
 
-  fn addr_mode(&mut self) -> ADDRMODE6502 {
+  fn addr_mode(&mut self) -> AddrMode6502 {
     let idx = usize::try_from(self.opcode).unwrap();
     *self.lookup.get_addr_mode(idx)
   }
@@ -809,8 +809,8 @@ impl Cpu {
     self.stack_pointer_increment();
     self.status_register = u8::try_from(self
       .bus_mut_read_u8(self.get_stack_address())).unwrap();
-    self.status_register &= !FLAGS6502::B.value();
-    self.status_register &= !FLAGS6502::U.value();
+    self.status_register &= !Flag6502::B.value();
+    self.status_register &= !Flag6502::U.value();
 
     self.stack_pointer_increment();
     self.pc = self.bus_mut_read_u8(self.get_stack_address());
@@ -838,10 +838,10 @@ impl Cpu {
 
     let val = u16::try_from(self.acc).unwrap()
       .wrapping_add(value)
-      .wrapping_add(self.get_flag_val(&FLAGS6502::C));
+      .wrapping_add(self.get_flag_val(&Flag6502::C));
 
-    self.set_flag(&FLAGS6502::C, (val & 0xFF00) > 0);
-    self.set_flag(&FLAGS6502::V, ((val ^ u16::try_from(self.acc).unwrap()) & (val ^ value) & 0x80) > 0);
+    self.set_flag(&Flag6502::C, (val & 0xFF00) > 0);
+    self.set_flag(&Flag6502::V, ((val ^ u16::try_from(self.acc).unwrap()) & (val ^ value) & 0x80) > 0);
     self.set_flags_zero_and_negative(val & 0xFF);
     self.acc = u8::try_from(val & 0xFF).unwrap();
     1
@@ -849,19 +849,19 @@ impl Cpu {
 
   /// Set carry
   pub fn sec(&mut self) -> u8 {
-    self.set_flag(&FLAGS6502::C, true);
+    self.set_flag(&Flag6502::C, true);
     0
   }
 
   /// Set decimal
   pub fn sed(&mut self) -> u8 {
-    self.set_flag(&FLAGS6502::D, true);
+    self.set_flag(&Flag6502::D, true);
     0
   }
 
   /// Set interrupt disable
   pub fn sei(&mut self) -> u8 {
-    self.set_flag(&FLAGS6502::I, true);
+    self.set_flag(&Flag6502::I, true);
     0
   }
 
