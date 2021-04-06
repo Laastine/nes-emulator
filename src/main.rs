@@ -34,7 +34,7 @@ fn main() {
   opts.optflag("v", "version", "print version number");
   let matches = match opts.parse(&args[1..]) {
     Ok(m) => m,
-    Err(e) => panic!(e.to_string()),
+    Err(e) => panic!("{}", e.to_string()),
   };
 
   if matches.opt_present("h") {
