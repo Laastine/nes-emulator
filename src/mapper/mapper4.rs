@@ -5,7 +5,7 @@ use crate::cartridge::rom_reading::Mirroring;
 use crate::cartridge::rom_with_pager::RomData;
 use crate::mapper::Mapper;
 use crate::mapper::pager::Page;
-use crate::mapper::pager::PageSize::{EightKb, OneKb};
+use crate::mapper::pager::PageSize::{Eight, One};
 
 #[derive(Clone)]
 pub(crate) struct Mapper4 {
@@ -49,20 +49,20 @@ impl Mapper4 {
 impl Mapper for Mapper4 {
   fn mapped_read_cpu_u8(&self, address: u16) -> u8 {
     match (address, self.prg_select) {
-      (0x6000..=0x7FFF, _) => self.get_rom().prg_ram.read(Page::First(EightKb), address - 0x6000),
-      (0x8000..=0x9FFF, false) => self.get_rom().prg_rom.read(Page::FromNth(self.registers[6], EightKb), address - 0x8000),
-      (0x8000..=0x9FFF, true) => self.get_rom().prg_rom.read(Page::FromEnd(1, EightKb), address - 0x8000),
-      (0xA000..=0xBFFF, _) => self.get_rom().prg_rom.read(Page::FromNth(self.registers[7], EightKb), address - 0xA000),
-      (0xC000..=0xDFFF, false) => self.get_rom().prg_rom.read(Page::FromEnd(1, EightKb), address - 0xC000),
-      (0xC000..=0xDFFF, true) => self.get_rom().prg_rom.read(Page::FromNth(self.registers[6], EightKb), address - 0xC000),
-      (0xE000..=0xFFFF, _) => self.get_rom().prg_rom.read(Page::FromEnd(0, EightKb), address - 0xE000),
+      (0x6000..=0x7FFF, _) => self.get_rom().prg_ram.read(Page::First(Eight), address - 0x6000),
+      (0x8000..=0x9FFF, false) => self.get_rom().prg_rom.read(Page::FromNth(self.registers[6], Eight), address - 0x8000),
+      (0x8000..=0x9FFF, true) => self.get_rom().prg_rom.read(Page::FromEnd(1, Eight), address - 0x8000),
+      (0xA000..=0xBFFF, _) => self.get_rom().prg_rom.read(Page::FromNth(self.registers[7], Eight), address - 0xA000),
+      (0xC000..=0xDFFF, false) => self.get_rom().prg_rom.read(Page::FromEnd(1, Eight), address - 0xC000),
+      (0xC000..=0xDFFF, true) => self.get_rom().prg_rom.read(Page::FromNth(self.registers[6], Eight), address - 0xC000),
+      (0xE000..=0xFFFF, _) => self.get_rom().prg_rom.read(Page::FromEnd(0, Eight), address - 0xE000),
       _ => panic!("Invalid mapped_read_cpu_u8 address 0x{:04X}", address),
     }
   }
 
   fn mapped_write_cpu_u8(&mut self, address: u16, data: u8) {
     match (address, address % 2) {
-      (0x6000..=0x7FFF, _) => self.get_mut_rom().prg_ram.write(Page::First(EightKb), address - 0x6000, data),
+      (0x6000..=0x7FFF, _) => self.get_mut_rom().prg_ram.write(Page::First(Eight), address - 0x6000, data),
       (0x8000..=0x9FFF, 0) => {
         self.index = data as usize & 0x07;
         self.prg_select = data & 0x40 > 0;
@@ -106,7 +106,7 @@ impl Mapper for Mapper4 {
       (0x1C00..=0x1FFF, true) => self.registers[1] | 1,
       _ => panic!("Invalid mapped_read_ppu_u8 address 0x{:04X}", address),
     };
-    self.get_rom().chr_rom.read(Page::FromNth(bank, OneKb), address & 0x03FF)
+    self.get_rom().chr_rom.read(Page::FromNth(bank, One), address & 0x03FF)
   }
 
   fn mapped_write_ppu_u8(&mut self, _address: u16, _data: u8) {}

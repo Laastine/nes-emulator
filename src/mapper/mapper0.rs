@@ -4,7 +4,7 @@ use std::rc::Rc;
 use crate::cartridge::rom_with_pager::RomData;
 use crate::mapper::Mapper;
 use crate::mapper::pager::Page;
-use crate::mapper::pager::PageSize::{EightKb, SixteenKb};
+use crate::mapper::pager::PageSize::{Eight, Sixteen};
 use crate::cartridge::{PRG_ROM_BANK_SIZE, CHR_ROM_BANK_SIZE};
 use crate::cartridge::rom_reading::{Mirroring};
 
@@ -42,31 +42,31 @@ impl Mapper0 {
 impl Mapper for Mapper0 {
   fn mapped_read_cpu_u8(&self, address: u16) -> u8 {
     match address {
-      0x6000..=0x7FFF => self.get_rom().prg_ram.read(Page::First(EightKb), address - 0x6000),
-      0x8000..=0xBFFF => self.get_rom().prg_rom.read(Page::First(SixteenKb), address - 0x8000),
-      0xC000..=0xFFFF => self.get_rom().prg_rom.read(Page::Last(SixteenKb), address - 0xC000),
+      0x6000..=0x7FFF => self.get_rom().prg_ram.read(Page::First(Eight), address - 0x6000),
+      0x8000..=0xBFFF => self.get_rom().prg_rom.read(Page::First(Sixteen), address - 0x8000),
+      0xC000..=0xFFFF => self.get_rom().prg_rom.read(Page::Last(Sixteen), address - 0xC000),
       _ => panic!("Invalid mapped_read_cpu_u8 0x{:04X}", address)
     }
   }
 
   fn mapped_write_cpu_u8(&mut self, address: u16, data: u8) {
     match address {
-      0x6000..=0x7FFF => self.get_mut_rom().prg_ram.write(Page::First(EightKb), address - 0x6000, data),
+      0x6000..=0x7FFF => self.get_mut_rom().prg_ram.write(Page::First(Eight), address - 0x6000, data),
       _ => panic!("Invalid mapped_write_cpu_u8 0x{:04X}", address)
     }
   }
 
   fn mapped_read_ppu_u8(&self, address: u16) -> u8 {
     if self.chr_bank == 0 {
-      self.get_rom().chr_ram.read(Page::First(EightKb), address)
+      self.get_rom().chr_ram.read(Page::First(Eight), address)
     } else {
-      self.get_rom().chr_rom.read(Page::First(EightKb), address)
+      self.get_rom().chr_rom.read(Page::First(Eight), address)
     }
   }
 
   fn mapped_write_ppu_u8(&mut self, address: u16, data: u8) {
     if self.chr_bank == 0 {
-      self.get_mut_rom().chr_ram.write(Page::First(EightKb), address, data);
+      self.get_mut_rom().chr_ram.write(Page::First(Eight), address, data);
     }
   }
 

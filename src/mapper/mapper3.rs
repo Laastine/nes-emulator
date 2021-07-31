@@ -6,7 +6,7 @@ use crate::cartridge::rom_reading::Mirroring;
 use crate::cartridge::rom_with_pager::RomData;
 use crate::mapper::Mapper;
 use crate::mapper::pager::Page;
-use crate::mapper::pager::PageSize::{EightKb, SixteenKb};
+use crate::mapper::pager::PageSize::{Eight, Sixteen};
 
 #[derive(Clone)]
 pub(crate) struct Mapper3 {
@@ -34,8 +34,8 @@ impl Mapper3 {
 impl Mapper for Mapper3 {
   fn mapped_read_cpu_u8(&self, address: u16) -> u8 {
     match address {
-      0x8000..=0xBFFF => self.get_rom().prg_rom.read(Page::First(SixteenKb), address - 0x8000),
-      0xC000..=0xFFFF => self.get_rom().prg_rom.read(Page::Last(SixteenKb), address - 0xC000),
+      0x8000..=0xBFFF => self.get_rom().prg_rom.read(Page::First(Sixteen), address - 0x8000),
+      0xC000..=0xFFFF => self.get_rom().prg_rom.read(Page::Last(Sixteen), address - 0xC000),
       _ => panic!("Invalid mapped_read_cpu_u8 address 0x{:04X}", address),
     }
   }
@@ -47,7 +47,7 @@ impl Mapper for Mapper3 {
   }
 
   fn mapped_read_ppu_u8(&self, address: u16) -> u8 {
-    self.get_rom().chr_rom.read(Page::FromNth(self.chr_bank_select, EightKb), address)
+    self.get_rom().chr_rom.read(Page::FromNth(self.chr_bank_select, Eight), address)
   }
 
   fn mapped_write_ppu_u8(&mut self, _address: u16, _data: u8) {}

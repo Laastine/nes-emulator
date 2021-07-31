@@ -139,24 +139,24 @@ impl Mapper1 {
   fn read_paged_prg_ram(&self, offset: u16) -> u8 {
     self.get_rom()
       .prg_ram
-      .read(Page::First(PageSize::EightKb), offset)
+      .read(Page::First(PageSize::Eight), offset)
   }
 
   fn write_paged_prg_ram(&mut self, offset: u16, value: u8) {
     self.get_mut_rom()
       .prg_ram
-      .write(Page::First(PageSize::EightKb), offset, value);
+      .write(Page::First(PageSize::Eight), offset, value);
   }
 
   fn get_page(&self, address_range: AddressRange) -> Page {
     match self.control_reg.chr_mode() {
       ChrMode::Consecutive => match address_range {
-        AddressRange::Lo => Page::FromNth(self.chr_0, PageSize::FourKb),
-        AddressRange::Hi => Page::FromNth(self.chr_0 + 1, PageSize::FourKb),
+        AddressRange::Lo => Page::FromNth(self.chr_0, PageSize::Four),
+        AddressRange::Hi => Page::FromNth(self.chr_0 + 1, PageSize::Four),
       },
       ChrMode::NonConsecutive => match address_range {
-        AddressRange::Lo => Page::FromNth(self.chr_0, PageSize::FourKb),
-        AddressRange::Hi => Page::FromNth(self.chr_1, PageSize::FourKb),
+        AddressRange::Lo => Page::FromNth(self.chr_0, PageSize::Four),
+        AddressRange::Hi => Page::FromNth(self.chr_1, PageSize::Four),
       },
     }
   }
@@ -168,16 +168,16 @@ impl Mapper1 {
   fn read_paged_prg_rom(&self, address_range: AddressRange, offset: u16) -> u8 {
     let page = match self.control_reg.prg_mode() {
       PrgMode::FixFirst => match address_range {
-        AddressRange::Lo => Page::First(PageSize::SixteenKb),
-        AddressRange::Hi => Page::FromNth(self.prg_0, PageSize::SixteenKb),
+        AddressRange::Lo => Page::First(PageSize::Sixteen),
+        AddressRange::Hi => Page::FromNth(self.prg_0, PageSize::Sixteen),
       },
       PrgMode::FixLast => match address_range {
-        AddressRange::Lo => Page::FromNth(self.prg_0, PageSize::SixteenKb),
-        AddressRange::Hi => Page::Last(PageSize::SixteenKb),
+        AddressRange::Lo => Page::FromNth(self.prg_0, PageSize::Sixteen),
+        AddressRange::Hi => Page::Last(PageSize::Sixteen),
       },
       PrgMode::Consecutive => match address_range {
-        AddressRange::Lo => Page::FromNth(self.prg_0 & !1, PageSize::SixteenKb),
-        AddressRange::Hi => Page::FromNth(self.prg_0 | 1, PageSize::SixteenKb),
+        AddressRange::Lo => Page::FromNth(self.prg_0 & !1, PageSize::Sixteen),
+        AddressRange::Hi => Page::FromNth(self.prg_0 | 1, PageSize::Sixteen),
       },
     };
     self.get_rom().prg_rom.read(page, offset)

@@ -1,18 +1,18 @@
 #[derive(Copy, Clone)]
 pub enum PageSize {
-  OneKb = 0x0400,
-  FourKb = 0x1000,
-  EightKb = 0x2000,
-  SixteenKb = 0x4000,
+  One = 0x0400,
+  Four = 0x1000,
+  Eight = 0x2000,
+  Sixteen = 0x4000,
 }
 
 impl PageSize {
   pub fn value(&self) -> usize {
     match *self {
-      PageSize::OneKb => 0x0400,
-      PageSize::FourKb => 0x1000,
-      PageSize::EightKb => 0x2000,
-      PageSize::SixteenKb => 0x4000,
+      PageSize::One => 0x0400,
+      PageSize::Four => 0x1000,
+      PageSize::Eight => 0x2000,
+      PageSize::Sixteen => 0x4000,
     }
   }
 }

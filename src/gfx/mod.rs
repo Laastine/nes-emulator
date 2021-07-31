@@ -125,14 +125,14 @@ impl WindowContext {
 
     WindowContext {
       copy_program,
-      event_loop,
       program,
-      surface,
       back_buffer,
       front_buffer,
+      surface,
       resize,
       background,
       texture_vertices,
+      event_loop,
       texture,
     }
   }
