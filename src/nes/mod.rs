@@ -24,7 +24,7 @@ use crate::bus::Bus;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
-use crate::nes::constants::{KeyboardCommand, KeyCode, SCREEN_RES_X, SCREEN_RES_Y};
+use crate::nes::constants::{KeyboardCommand, KeyCode, SCREEN_RES_X, SCREEN_RES_Y, REFRESH_RATE};
 use crate::ppu::{Ppu, PpuState, registers::Registers};
 use glutin::platform::run_return::EventLoopExtRunReturn;
 
@@ -41,7 +41,6 @@ pub struct Nes {
   window_context: WindowContext,
   controller: Rc<RefCell<[u8; 2]>>,
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
-  // pub texture: Texture<GL33, Dim2, NormRGB8UI>,
   off_screen_pixels: Rc<RefCell<OffScreenBuffer>>,
 }
 
@@ -209,7 +208,7 @@ impl Nes {
           self.get_apu().reset();
         }
         self.clock();
-      } else {
+      } else if delta < REFRESH_RATE {
         std::thread::sleep(Duration::from_micros(100));
       }
     } // app loop
