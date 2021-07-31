@@ -9,13 +9,11 @@ use std::time::Duration;
 use glutin::event::{KeyboardInput, WindowEvent};
 use glutin::event::{ElementState::{Pressed, Released}, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Up, X, Z}};
 use image::{ImageBuffer, Rgb};
-use luminance::context::GraphicsContext;
+use luminance::context::{GraphicsContext};
 use luminance::framebuffer::Framebuffer;
 use luminance::pipeline::PipelineState;
-use luminance::pixel::NormRGB8UI;
 use luminance::render_state::RenderState;
-use luminance::texture::{Dim2, GenMipmaps, Sampler, Texture};
-use luminance_gl::GL33;
+use luminance::texture::{GenMipmaps, Sampler};
 
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
@@ -24,7 +22,7 @@ use crate::gfx::WindowContext;
 use crate::nes::constants::{KeyboardCommand, KeyCode, SCREEN_RES_X, SCREEN_RES_Y};
 use crate::ppu::{Ppu, PpuState, registers::Registers};
 use glutin::event_loop::ControlFlow;
-use glutin::platform::desktop::EventLoopExtDesktop;
+use glutin::platform::run_return::EventLoopExtRunReturn;
 
 pub mod constants;
 
@@ -37,7 +35,7 @@ pub struct Nes {
   window_context: WindowContext,
   controller: Rc<RefCell<[u8; 2]>>,
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
-  pub texture: Texture<GL33, Dim2, NormRGB8UI>,
+  // pub texture: Texture<GL33, Dim2, NormRGB8UI>,
   off_screen_pixels: Rc<RefCell<OffScreenBuffer>>,
 }
 
@@ -49,7 +47,7 @@ impl Nes  {
     let cart = Rc::new(RefCell::new(cartridge));
     let c = [0u8; 2];
 
-    let mut window_context = WindowContext::new();
+    let window_context = WindowContext::new();
 
     let reg = Registers::new(cart.clone());
     let registers = Rc::new(RefCell::new(reg));
@@ -68,10 +66,6 @@ impl Nes  {
     let system_cycles = 0;
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
 
-    let texture =
-      Texture::new(&mut window_context.surface, [SCREEN_RES_X, SCREEN_RES_Y], 0, Sampler::default())
-        .expect("Texture create error");
-
     Nes {
       cpu,
       ppu,
@@ -79,7 +73,6 @@ impl Nes  {
       window_context,
       controller,
       image_buffer,
-      texture,
       off_screen_pixels,
     }
   }
@@ -245,7 +238,7 @@ impl Nes  {
       *pixel = Rgb(p);
     }
 
-    self.texture
+    self.window_context.texture
       .upload_raw(GenMipmaps::No, &self.image_buffer)
       .expect("Texture update error");
   }
@@ -261,7 +254,7 @@ impl Nes  {
     }
 
     let mut builder = self.window_context.surface.new_pipeline_gate();
-    let texture = &mut self.texture;
+    let texture = &mut self.window_context.texture;
     let program = &mut self.window_context.program;
     let copy_program = &mut self.window_context.copy_program;
     let texture_vertices = &self.window_context.texture_vertices;

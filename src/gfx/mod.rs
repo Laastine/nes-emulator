@@ -1,10 +1,9 @@
-use glutin::dpi::PhysicalSize;
 use luminance::context::GraphicsContext;
 use luminance::framebuffer::Framebuffer;
-use luminance::pixel::{NormUnsigned, RGBA32F};
+use luminance::pixel::{NormUnsigned, RGBA32F, NormRGB8UI};
 use luminance::shader::{BuiltProgram, Program, Uniform};
 use luminance::tess::{Mode, Tess, TessBuilder};
-use luminance::texture::{Dim2, Sampler};
+use luminance::texture::{Dim2, Sampler, Texture};
 use luminance_derive::UniformInterface;
 use luminance_gl::GL33;
 use luminance_glutin::GlutinSurface;
@@ -13,6 +12,9 @@ use crate::gfx::gxf_util::{Semantics, VertexColor, VertexData, VertexPosition};
 use crate::nes::constants::{SCREEN_HEIGHT, SCREEN_RES_X, SCREEN_RES_Y, SCREEN_WIDTH};
 use luminance::pipeline::TextureBinding;
 use glutin::event_loop::EventLoop;
+use glutin::dpi::PhysicalSize;
+use glutin::GlProfile;
+
 
 mod gxf_util;
 
@@ -57,7 +59,8 @@ pub struct WindowContext {
   pub resize: bool,
   pub background: Tess<GL33, ()>,
   pub texture_vertices: Tess<GL33, VertexData, u32>,
-  pub event_loop: EventLoop<()>
+  pub event_loop: EventLoop<()>,
+  pub texture: Texture<GL33, Dim2, NormRGB8UI>,
 }
 
 impl WindowContext {
@@ -68,7 +71,10 @@ impl WindowContext {
           .with_title("NES-emulator")
           .with_inner_size(PhysicalSize::new(SCREEN_WIDTH, SCREEN_HEIGHT))
       },
-      |_, context_builder| context_builder.with_double_buffer(Some(true)))
+      |_, context_builder| context_builder
+        .with_double_buffer(Some(false))
+        .with_gl_profile(GlProfile::Compatibility)
+    )
       .expect("Glutin surface create");
 
     let program = surface
@@ -98,14 +104,22 @@ impl WindowContext {
       .unwrap();
 
     let background = TessBuilder::new(&mut surface)
-      .set_vertex_nb(4)
+      .set_render_vertex_nb(4)
       .set_mode(Mode::TriangleFan)
       .build()
       .unwrap();
 
     let back_buffer = surface.back_buffer().unwrap();
     let front_buffer = surface.new_framebuffer::<Dim2, RGBA32F, ()>([SCREEN_RES_X as u32, SCREEN_RES_Y as u32], 0, Sampler::default())
-      .expect("Frame buffer create error");
+      .unwrap();
+
+    let texture =
+      surface.new_texture_no_texels(
+        [SCREEN_RES_X, SCREEN_RES_Y],
+        0,
+        Sampler::default(),
+      )
+        .unwrap();
 
     let resize = false;
 
@@ -119,6 +133,7 @@ impl WindowContext {
       resize,
       background,
       texture_vertices,
+      texture,
     }
   }
 }

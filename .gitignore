@@ -6,3 +6,4 @@ log.txt
 *.txt
 roms
 ppu_tests/
+nes-test*
