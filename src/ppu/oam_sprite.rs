@@ -16,10 +16,10 @@ pub struct SpriteTileIndex(u8);
 
 #[derive(Debug, Copy, Clone)]
 pub struct Sprite {
-  pub x: u8,
   pub y: u8,
   pub index: SpriteTileIndex,
   pub attributes: SpriteAttributes,
+  pub x: u8,
   pub data_lo: u8,
   pub data_hi: u8,
   pub oam_index: usize,

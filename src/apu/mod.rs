@@ -16,7 +16,7 @@ mod sweep;
 mod triangle;
 
 pub struct Apu {
-  pub buf: Vec<f32>,
+  pub buf: Vec<i16>,
   filters: [SignalFilter; 3],
   pub pulse_0: Pulse,
   pub pulse_1: Pulse,
@@ -44,17 +44,18 @@ impl Apu {
 
   pub fn reset(&mut self) {
     self.apu_write_reg(0x4017, 0, 0);
-    for idx in 0..0x0B {
+    for idx in 0..=0x0A {
       self.step(idx);
     }
   }
 
   pub fn step(&mut self, cycle: u32) {
+    self.triangle.step_sequencer();
     if cycle % 2 == 1 {
       self.pulse_0.step_sequencer();
       self.pulse_1.step_sequencer();
     }
-    self.triangle.step_sequencer();
+
     let frame_res = self.frame_counter.step();
     self.handle_frame_result(frame_res);
 
@@ -130,7 +131,7 @@ impl Apu {
     self.frame_counter.public_irq_flag
   }
 
-  fn sample(&mut self) -> f32 {
+  fn sample(&mut self) -> i16 {
     let pulse_0 = f64::try_from(self.pulse_0.sample()).unwrap();
     let pulse_1 = f64::try_from(self.pulse_1.sample()).unwrap();
     let triangle = f64::try_from(self.triangle.sample()).unwrap();
@@ -144,6 +145,6 @@ impl Apu {
       output = self.filters[i].step(output);
     }
 
-    output as f32
+    output as i16
   }
 }
