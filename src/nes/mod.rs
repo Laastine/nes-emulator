@@ -1,18 +1,15 @@
-use std::{fs};
+use std::{fs, thread};
 use std::borrow::Borrow;
 use std::cell::{RefCell, RefMut};
-use std::collections::HashMap;
-
 use std::rc::Rc;
-
-use std::time;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use glutin::event::{KeyboardInput, WindowEvent};
 use glutin::event::{ElementState::{Pressed, Released}, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Up, X, Z}};
 use glutin::event_loop::ControlFlow;
+use glutin::platform::run_return::EventLoopExtRunReturn;
 use image::{ImageBuffer, Rgb};
-use luminance::context::{GraphicsContext};
+use luminance::context::GraphicsContext;
 use luminance::framebuffer::Framebuffer;
 use luminance::pipeline::PipelineState;
 use luminance::render_state::RenderState;
@@ -24,13 +21,14 @@ use crate::bus::Bus;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
-use crate::nes::constants::{KeyboardCommand, KeyCode, SCREEN_RES_X, SCREEN_RES_Y, REFRESH_RATE};
+use crate::nes::constants::{KeyboardCommand, REFRESH_RATE, SCREEN_RES_X, SCREEN_RES_Y};
 use crate::ppu::{Ppu, PpuState, registers::Registers};
-use glutin::platform::run_return::EventLoopExtRunReturn;
 
 pub mod constants;
 
 pub type OffScreenBuffer = [[u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
+
+const FRAME_DURATION: Duration = Duration::from_millis((REFRESH_RATE * 1000.0) as u64);
 
 pub struct Nes {
   audio_stream: AudioStream,
@@ -39,7 +37,7 @@ pub struct Nes {
   ppu: Ppu,
   system_cycles: u32,
   window_context: WindowContext,
-  controller: Rc<RefCell<[u8; 2]>>,
+  controller: Rc<RefCell<[bool; 8]>>,
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
   off_screen_pixels: Rc<RefCell<OffScreenBuffer>>,
 }
@@ -50,7 +48,7 @@ impl Nes {
 
     let cartridge = Cartridge::new(rom_bytes);
     let cart = Rc::new(RefCell::new(cartridge));
-    let c = [0u8; 2];
+    let c = [false; 8];
 
     let window_context = WindowContext::new();
 
@@ -87,8 +85,10 @@ impl Nes {
   }
 
   #[inline]
-  fn get_controller(&mut self) -> RefMut<[u8; 2]> {
-    self.controller.borrow_mut()
+  fn update_controller(&mut self, states: [bool; 8]) {
+    for (idx, c) in self.controller.borrow_mut().iter_mut().enumerate() {
+      *c = states[idx]
+    }
   }
 
   #[inline]
@@ -102,27 +102,18 @@ impl Nes {
   }
 
   pub fn render_loop(&mut self) {
-    fn get_controller_state(key_map: &HashMap<KeyCode, u8>) -> u8 {
-      key_map.get(&KeyCode::ButtonB).unwrap_or(&0u8)
-        | key_map.get(&KeyCode::ButtonA).unwrap_or(&0u8)
-        | key_map.get(&KeyCode::Select).unwrap_or(&0u8)
-        | key_map.get(&KeyCode::Start).unwrap_or(&0u8)
-        | key_map.get(&KeyCode::Up).unwrap_or(&0u8)
-        | key_map.get(&KeyCode::Down).unwrap_or(&0u8)
-        | key_map.get(&KeyCode::Left).unwrap_or(&0u8)
-        | key_map.get(&KeyCode::Right).unwrap_or(&0u8)
-    }
-
-    let mut last_time = time::Instant::now();
+    let mut last_time = Instant::now();
 
     let mut keyboard_state = None;
-    let mut key_map: HashMap<KeyCode, u8> = HashMap::new();
+    // 0x80 | 0x40 | 0x20 | 0x10 | 0x08 | 0x04 | 0x02 | 0x01 == 0xFF
+    let mut key_map: [bool; 8] = [false, false, false, false, false, false, false, false];
+
+    let mut poll_input = false;
 
     'app: loop {
-      let elapsed = last_time.elapsed();
-      let delta = elapsed.as_secs_f32();
-      // 16ms per frame ~ 60FPS
-      if delta > 0.0166 {
+      self.clock();
+      if poll_input {
+        poll_input = false;
         self.window_context.event_loop.run_return(|event, _, control_flow| {
           *control_flow = ControlFlow::Wait;
 
@@ -138,37 +129,45 @@ impl Nes {
                   KeyboardInput { state: Released, virtual_keycode: Some(Escape), .. } => {
                     keyboard_state = Some(KeyboardCommand::Exit);
                   }
-                  KeyboardInput { state, virtual_keycode: Some(Z), .. } => {
-                    *key_map.entry(KeyCode::ButtonB)
-                      .or_insert_with(|| KeyCode::ButtonB.value()) = if state == Pressed { KeyCode::ButtonB.value() } else { 0 };
-                  }
                   KeyboardInput { state, virtual_keycode: Some(X), .. } => {
-                    *key_map.entry(KeyCode::ButtonA)
-                      .or_insert_with(|| KeyCode::ButtonA.value()) = if state == Pressed { KeyCode::ButtonA.value() } else { 0 };
+                    if let Some(val) = key_map.get_mut(0) {
+                      *val = state == Pressed
+                    }
+                  }
+                  KeyboardInput { state, virtual_keycode: Some(Z), .. } => {
+                    if let Some(val) = key_map.get_mut(1) {
+                      *val = state == Pressed
+                    }
                   }
                   KeyboardInput { state, virtual_keycode: Some(A), .. } => {
-                    *key_map.entry(KeyCode::Select)
-                      .or_insert_with(|| KeyCode::Select.value()) = if state == Pressed { KeyCode::Select.value() } else { 0 };
+                    if let Some(val) = key_map.get_mut(2) {
+                      *val = state == Pressed
+                    }
                   }
                   KeyboardInput { state, virtual_keycode: Some(S), .. } => {
-                    *key_map.entry(KeyCode::Start)
-                      .or_insert_with(|| KeyCode::Start.value()) = if state == Pressed { KeyCode::Start.value() } else { 0 };
+                    if let Some(val) = key_map.get_mut(3) {
+                      *val = state == Pressed
+                    }
                   }
                   KeyboardInput { state, virtual_keycode: Some(Up), .. } => {
-                    *key_map.entry(KeyCode::Up)
-                      .or_insert_with(|| KeyCode::Up.value()) = if state == Pressed { KeyCode::Up.value() } else { 0 };
+                    if let Some(val) = key_map.get_mut(4) {
+                      *val = state == Pressed
+                    }
                   }
                   KeyboardInput { state, virtual_keycode: Some(Down), .. } => {
-                    *key_map.entry(KeyCode::Down)
-                      .or_insert_with(|| KeyCode::Down.value()) = if state == Pressed { KeyCode::Down.value() } else { 0 };
+                    if let Some(val) = key_map.get_mut(5) {
+                      *val = state == Pressed
+                    }
                   }
                   KeyboardInput { state, virtual_keycode: Some(Left), .. } => {
-                    *key_map.entry(KeyCode::Left)
-                      .or_insert_with(|| KeyCode::Left.value()) = if state == Pressed { KeyCode::Left.value() } else { 0 };
+                    if let Some(val) = key_map.get_mut(6) {
+                      *val = state == Pressed
+                    }
                   }
                   KeyboardInput { state, virtual_keycode: Some(Right), .. } => {
-                    *key_map.entry(KeyCode::Right)
-                      .or_insert_with(|| KeyCode::Right.value()) = if state == Pressed { KeyCode::Right.value() } else { 0 };
+                    if let Some(val) = key_map.get_mut(7) {
+                      *val = state == Pressed
+                    }
                   }
                   KeyboardInput { state: Pressed, virtual_keycode: Some(R), .. } => {
                     keyboard_state = Some(KeyboardCommand::Reset)
@@ -186,30 +185,29 @@ impl Nes {
 
         match keyboard_state {
           Some(KeyboardCommand::Exit) => break 'app,
-          Some(KeyboardCommand::Reset) => self.cpu.reset(),
+          Some(KeyboardCommand::Reset) => {
+            self.cpu.reset();
+            self.ppu.reset();
+            self.get_apu().reset();
+          },
           Some(KeyboardCommand::Resize) => self.window_context.resize = true,
           _ => {}
         }
+        self.update_controller(key_map);
+      }
 
-        last_time = time::Instant::now();
-        if self.ppu.is_frame_ready {
-          if keyboard_state == Some(KeyboardCommand::Resize) {
-            self.window_context.resize = true;
-          }
-          self.render_screen();
-          self.ppu.is_frame_ready = false;
+      if self.ppu.is_frame_ready {
+        if keyboard_state == Some(KeyboardCommand::Resize) {
+          self.window_context.resize = true;
         }
-      } else if delta >= 0.001 {
-        self.get_controller()[0] = get_controller_state(&key_map);
+        self.render_screen();
+        self.ppu.is_frame_ready = false;
 
-        if keyboard_state == Some(KeyboardCommand::Reset) {
-          self.cpu.reset();
-          self.ppu.reset();
-          self.get_apu().reset();
+        if let Some(delay) = FRAME_DURATION.checked_sub(last_time.elapsed()) {
+          thread::sleep(delay);
         }
-        self.clock();
-      } else if delta < REFRESH_RATE {
-        std::thread::sleep(Duration::from_micros(100));
+        poll_input = true;
+        last_time = Instant::now();
       }
     } // app loop
   }
