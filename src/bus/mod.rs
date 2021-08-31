@@ -79,8 +79,9 @@ impl Bus {
       if self.strobe & 1 == 1 {
         self.idx = 0;
       }
-
-    } else if (0x6000..=0xFFFF).contains(&address) {
+    } else if 0x4017 == address {
+      self.get_mut_apu().apu_write_reg(address, data, cycles);
+    } else if (0x4018..=0xFFFF).contains(&address) {
       self.get_mut_cartridge().mapper.mapped_write_cpu_u8(address, data);
     }
   }
@@ -101,7 +102,9 @@ impl Bus {
         self.idx = 0;
       }
       state
-    } else if (0x6000..=0xFFFF).contains(&address) {
+    } else if 0x4017 == address {
+      0
+    } else if (0x4018..=0xFFFF).contains(&address) {
       u16::try_from(self.get_cartridge().mapper.mapped_read_cpu_u8(address)).unwrap()
     } else {
       address >> 8
