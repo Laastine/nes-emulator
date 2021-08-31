@@ -4,6 +4,9 @@ pub const SCREEN_RES_Y: u32 = 240;
 pub const SCREEN_WIDTH: u32 = 768;
 pub const SCREEN_HEIGHT: u32 = 720;
 
+// 16ms per frame ~ 60FPS
+pub const REFRESH_RATE: f32 = 1.0 / 60.0;
+
 #[derive(Copy, Clone, Debug)]
 pub struct Color([u8; 3]);
 
@@ -82,33 +85,6 @@ pub const COLORS: [Color; 64] = [
   Color([0, 0, 0]),
   Color([0, 0, 0]),
 ];
-
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub enum KeyCode {
-  ButtonA,
-  ButtonB,
-  Select,
-  Start,
-  Up,
-  Down,
-  Left,
-  Right,
-}
-
-impl KeyCode {
-  pub fn value(&self) -> u8 {
-    match *self {
-      KeyCode::ButtonA => 0x80,
-      KeyCode::ButtonB => 0x40,
-      KeyCode::Select => 0x20,
-      KeyCode::Start => 0x10,
-      KeyCode::Up => 0x08,
-      KeyCode::Down => 0x04,
-      KeyCode::Left => 0x02,
-      KeyCode::Right => 0x01,
-    }
-  }
-}
 
 #[derive(Debug, PartialEq)]
 pub enum KeyboardCommand {

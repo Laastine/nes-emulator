@@ -17,9 +17,10 @@ pub struct Cpu {
   addr_abs: u16,
   addr_rel: u16,
   pub opcode: u8,
-  pub cycles: u8,
+  pub cycle: u8,
   pub clock_count: u32,
   lookup: LookUpTable,
+  system_cycle: u32,
 }
 
 impl Cpu {
@@ -38,9 +39,10 @@ impl Cpu {
       opcode: 0x0u8,
       stack_pointer: 0x0u8,
       status_register: 0u8,
-      cycles: 0u8,
+      cycle: 0u8,
       clock_count: 0,
       lookup,
+      system_cycle: 0,
     }
   }
 
@@ -66,7 +68,7 @@ impl Cpu {
   }
 
   fn bus_write_u8(&mut self, address: u16, data: u8) {
-    self.bus.write_u8(address, data);
+    self.bus.write_u8(address, data, self.system_cycle);
   }
 
   fn get_stack_address(&self) -> u16 {
@@ -78,7 +80,7 @@ impl Cpu {
   }
 
   fn cycles_increment(&mut self) {
-    self.cycles = self.cycles.wrapping_add(1);
+    self.cycle = self.cycle.wrapping_add(1);
   }
 
   fn stack_pointer_increment(&mut self) {
@@ -114,26 +116,24 @@ impl Cpu {
     }
   }
 
-  pub fn clock(&mut self) {
-    if self.cycles == 0 {
-      self.opcode = u8::try_from(self.bus_mut_read_u8(self.pc)).unwrap();
+  pub fn clock(&mut self, system_cycle: u32) {
+    self.system_cycle = system_cycle;
+    self.opcode = u8::try_from(self.bus_mut_read_u8(self.pc)).unwrap();
 
-      self.set_flag(&Flag6502::U, true);
-      self.pc_increment();
+    self.set_flag(&Flag6502::U, true);
+    self.pc_increment();
 
-      let opcode_idx = usize::try_from(self.opcode).unwrap();
-      self.cycles = self.lookup.get_cycles(opcode_idx);
+    let opcode_idx = usize::try_from(self.opcode).unwrap();
+    self.cycle = self.lookup.get_cycles(opcode_idx);
 
-      let addr_mode = *self.lookup.get_addr_mode(opcode_idx);
-      let operate = *self.lookup.get_operate(opcode_idx);
+    let addr_mode = *self.lookup.get_addr_mode(opcode_idx);
+    let operate = *self.lookup.get_operate(opcode_idx);
 
-      self.cycles += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
+    self.cycle += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
 
-      self.set_flag(&Flag6502::U, true);
-    }
+    self.set_flag(&Flag6502::U, true);
 
     self.clock_count += 1;
-    self.cycles -= 1;
   }
 
   #[allow(dead_code)]
@@ -196,11 +196,11 @@ impl Cpu {
     self.addr_rel = 0x0000;
     self.fetched = 0x00;
 
-    self.cycles = 8;
+    self.cycle = 8;
   }
 
   pub fn irq(&mut self) {
-    if self.get_flag(&Flag6502::I) {
+    if self.get_flag(&Flag6502::I) || self.bus.get_mut_apu().get_irq_flag() {
       self.bus_write_u8(self.get_stack_address(), u8::try_from((self.pc >> 8) & 0x00FF).unwrap());
       self.stack_pointer_decrement();
       self.bus_write_u8(self.get_stack_address(), u8::try_from(self.pc & 0x00FF).unwrap());
@@ -217,7 +217,7 @@ impl Cpu {
       let hi_byte = self.bus_mut_read_u8(self.addr_abs + 1);
       self.pc = (hi_byte << 8) | lo_byte;
 
-      self.cycles = 7;
+      self.cycle = 7;
     }
   }
 
@@ -240,7 +240,7 @@ impl Cpu {
     let hi_byte = self.bus_mut_read_u8(self.addr_abs.wrapping_add(1));
     self.pc = (hi_byte << 8) | lo_byte;
 
-    self.cycles = 8;
+    self.cycle = 8;
   }
 
   /// ADDRESS MODES

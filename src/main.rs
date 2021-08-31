@@ -9,6 +9,7 @@ use getopts::Options;
 
 use crate::nes::Nes;
 
+mod apu;
 mod bus;
 mod cartridge;
 mod cpu;
@@ -55,6 +56,6 @@ fn main() {
 
   let mut nes = Nes::new(&rom_file);
 
-  nes.init();
+  nes.reset();
   nes.render_loop();
 }
