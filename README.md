@@ -34,6 +34,20 @@ Learning project to build Nintendo Entertainment System emulator.
 - [ ] APU (Audio Processing Unit)
 - [ ] Cross-platform (Mac OS, Linux, Windows)
 
+## Usage
+
+`cargo run --release -- --rom rom-file-here`
+
+```
+USAGE:
+nes-emulator [FLAGS]
+
+FLAGS:
+-h, --help                      Prints help information
+-v, --version                   Prints version information
+-r, --rom                       Rom filename to load
+```
+
 ## References
 
 - [Nesdev Wiki](http://wiki.nesdev.com/w/index.php/Nesdev_Wiki)<br>
