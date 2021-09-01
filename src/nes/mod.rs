@@ -110,6 +110,13 @@ impl Nes {
 
     let mut poll_input = false;
 
+    #[inline]
+    fn update_key_map(key_map: &mut [bool; 8], idx: usize, state: bool) {
+      if let Some(val) = key_map.get_mut(idx) {
+        *val = state
+      }
+    }
+
     'app: loop {
       self.clock();
       if poll_input {
@@ -129,46 +136,14 @@ impl Nes {
                   KeyboardInput { state: Released, virtual_keycode: Some(Escape), .. } => {
                     keyboard_state = Some(KeyboardCommand::Exit);
                   }
-                  KeyboardInput { state, virtual_keycode: Some(X), .. } => {
-                    if let Some(val) = key_map.get_mut(0) {
-                      *val = state == Pressed
-                    }
-                  }
-                  KeyboardInput { state, virtual_keycode: Some(Z), .. } => {
-                    if let Some(val) = key_map.get_mut(1) {
-                      *val = state == Pressed
-                    }
-                  }
-                  KeyboardInput { state, virtual_keycode: Some(A), .. } => {
-                    if let Some(val) = key_map.get_mut(2) {
-                      *val = state == Pressed
-                    }
-                  }
-                  KeyboardInput { state, virtual_keycode: Some(S), .. } => {
-                    if let Some(val) = key_map.get_mut(3) {
-                      *val = state == Pressed
-                    }
-                  }
-                  KeyboardInput { state, virtual_keycode: Some(Up), .. } => {
-                    if let Some(val) = key_map.get_mut(4) {
-                      *val = state == Pressed
-                    }
-                  }
-                  KeyboardInput { state, virtual_keycode: Some(Down), .. } => {
-                    if let Some(val) = key_map.get_mut(5) {
-                      *val = state == Pressed
-                    }
-                  }
-                  KeyboardInput { state, virtual_keycode: Some(Left), .. } => {
-                    if let Some(val) = key_map.get_mut(6) {
-                      *val = state == Pressed
-                    }
-                  }
-                  KeyboardInput { state, virtual_keycode: Some(Right), .. } => {
-                    if let Some(val) = key_map.get_mut(7) {
-                      *val = state == Pressed
-                    }
-                  }
+                  KeyboardInput { state, virtual_keycode: Some(X), .. } => update_key_map(&mut key_map, 0, state == Pressed),
+                  KeyboardInput { state, virtual_keycode: Some(Z), .. } => update_key_map(&mut key_map, 1, state == Pressed),
+                  KeyboardInput { state, virtual_keycode: Some(A), .. } => update_key_map(&mut key_map, 2, state == Pressed),
+                  KeyboardInput { state, virtual_keycode: Some(S), .. } => update_key_map(&mut key_map, 3, state == Pressed),
+                  KeyboardInput { state, virtual_keycode: Some(Up), .. } => update_key_map(&mut key_map, 4, state == Pressed),
+                  KeyboardInput { state, virtual_keycode: Some(Down), .. } => update_key_map(&mut key_map, 5, state == Pressed),
+                  KeyboardInput { state, virtual_keycode: Some(Left), .. } => update_key_map(&mut key_map, 6, state == Pressed),
+                  KeyboardInput { state, virtual_keycode: Some(Right), .. } => update_key_map(&mut key_map, 7, state == Pressed),
                   KeyboardInput { state: Pressed, virtual_keycode: Some(R), .. } => {
                     keyboard_state = Some(KeyboardCommand::Reset)
                   }
