@@ -8,7 +8,7 @@
 <img src="assets/metroid.png" width="30%">
 </p>
 
-Learning project to build Nintendo Entertainment System emulator.
+Learning project to build Nintendo Entertainment System emulator. The goal is to build NES emulator using only rust libraries so no SDL-library requirement.
 
 ## Controls
 
@@ -31,12 +31,11 @@ Learning project to build Nintendo Entertainment System emulator.
   - [x] PPU background rendering
   - [x] PPU sprites
 - [x] More ROM mappers
-- [ ] APU (Audio Processing Unit)
-- [ ] Cross-platform (Mac OS, Linux, Windows)
+- [x] Cross-platform (Mac OS (x86), Linux, Windows)
+
+ ✍️ APU (Audio Processing Unit)<br/>
 
 ## Usage
-
-`cargo run --release -- --rom rom-file-here`
 
 ```
 USAGE:
@@ -47,6 +46,10 @@ FLAGS:
 -v, --version                   Prints version information
 -r, --rom                       Rom filename to load
 ```
+
+### Quick testing
+
+`cargo run --release -- --rom rom-file-here`
 
 ## References
 
