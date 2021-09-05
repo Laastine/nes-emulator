@@ -31,7 +31,7 @@ Learning project to build Nintendo Entertainment System emulator. The goal is to
   - [x] PPU background rendering
   - [x] PPU sprites
 - [x] More ROM mappers
-- [x] Cross-platform (Mac OS (x86), Linux, Windows)
+- [x] Cross-platform (<strike>MacOS</strike>, Linux, Windows)
 
  ✍️ APU (Audio Processing Unit)<br/>
 
