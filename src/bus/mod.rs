@@ -81,7 +81,7 @@ impl Bus {
       }
     } else if 0x4017 == address {
       self.get_mut_apu().apu_write_reg(address, data, cycles);
-    } else if (0x4018..=0xFFFF).contains(&address) {
+    } else if (0x6000..=0xFFFF).contains(&address) {
       self.get_mut_cartridge().mapper.mapped_write_cpu_u8(address, data);
     }
   }
@@ -104,11 +104,18 @@ impl Bus {
       state
     } else if 0x4017 == address {
       0
-    } else if (0x4018..=0xFFFF).contains(&address) {
+    } else if (0x6000..=0xFFFF).contains(&address) {
       u16::try_from(self.get_cartridge().mapper.mapped_read_cpu_u8(address)).unwrap()
     } else {
       address >> 8
     }
+  }
+
+  pub fn read_dbg_u8(&mut self, address_start: usize, address_end: usize) -> Vec<u8> {
+    if (0x0000..=0x1FFF).contains(&address_start) && (0x0000..=0x1FFF).contains(&address_end) {
+      return self.ram[address_start .. address_end].to_vec()
+    }
+    vec![]
   }
 
   pub fn oam_dma_access(&mut self, system_cycles: u32) -> u32 {
