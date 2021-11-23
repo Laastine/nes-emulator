@@ -290,7 +290,7 @@ impl Nes {
     if render.is_ok() {
       self.window_context.surface.swap_buffers();
     } else {
-      panic!("boom");
+      panic!("swap buffers error");
     }
   }
 
