@@ -391,6 +391,7 @@ impl LookUpTable {
     LookUpTable { instructions }
   }
 
+  #[allow(dead_code)]
   pub fn get_name(&self, index: usize) -> String {
     format!("{:?}", &self.instructions[index])
   }

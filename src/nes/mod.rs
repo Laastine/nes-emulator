@@ -2,9 +2,8 @@ use std::{fs, thread};
 use std::borrow::Borrow;
 use std::cell::{RefCell, RefMut};
 use std::collections::hash_map::DefaultHasher;
-use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
-use std::io::{Stdout, stdout, Write};
+use std::io::{stdout, Write};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
@@ -24,7 +23,7 @@ use crate::apu::Apu;
 use crate::apu::audio_stream::AudioStream;
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
-use crate::cpu::{Cpu, hex};
+use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
 use crate::nes::constants::{KeyboardCommand, REFRESH_RATE, SCREEN_RES_X, SCREEN_RES_Y};
 use crate::ppu::{Ppu, PpuState, registers::Registers};
@@ -45,7 +44,6 @@ pub struct Nes {
   controller: Rc<RefCell<[bool; 8]>>,
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
   off_screen_pixels: Rc<RefCell<OffScreenBuffer>>,
-  stdout: Stdout,
   memory_hash: u64,
 }
 
@@ -80,7 +78,6 @@ impl Nes {
     let system_cycles = 0;
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
 
-    let stdout = stdout();
     let memory_hash = 0;
 
     Nes {
@@ -93,7 +90,6 @@ impl Nes {
       controller,
       image_buffer,
       off_screen_pixels,
-      stdout,
       memory_hash,
     }
   }
@@ -211,7 +207,6 @@ impl Nes {
   ) {
     let mut stdout = stdout();
     let mut y_ram = y;
-    let mut x_ram = x;
     let mut hasher = DefaultHasher::new();
 
     let memory = self.cpu.bus_mut_read_dbg_u8(0, 256);
@@ -221,7 +216,7 @@ impl Nes {
         stdout.queue(crossterm::style::Print(
           format!("{}0x{:0>4X}", cursor::MoveTo(6, y_ram), addr)
         )).unwrap();
-        x_ram = x;
+        let mut x_ram = x;
         for _ in 0..columns {
           stdout.queue(crossterm::style::Print(
             format!("{} {:0>2X}", cursor::MoveTo(x_ram, y_ram), memory[addr as usize])
@@ -230,7 +225,6 @@ impl Nes {
           x_ram += 3;
         }
         y_ram += 1;
-        x_ram = 6;
       }
       let _ = stdout.flush();
       hasher = DefaultHasher::new();

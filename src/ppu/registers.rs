@@ -104,9 +104,6 @@ pub struct Registers {
 
   pub oam_address: u8,
   pub oam_ram: [u8; 0x100],
-  sprite_count: u8,
-  sprite_shifter_pattern_lo: u8,
-  sprite_shifter_pattern_hi: u8,
 
   pub vblank_suppress: bool,
   pub force_nmi: bool,
@@ -130,9 +127,6 @@ impl Registers {
 
       oam_address: 0,
       oam_ram: [0u8; 0x100],
-      sprite_count: 0,
-      sprite_shifter_pattern_lo: 0,
-      sprite_shifter_pattern_hi: 0,
       vblank_suppress: false,
       force_nmi: false,
       read_buffer: 0,

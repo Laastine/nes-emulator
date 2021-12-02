@@ -929,6 +929,7 @@ impl Cpu {
     0
   }
 
+  #[allow(dead_code)]
   pub fn disassemble(&mut self, start: u16, end: u16) -> HashMap<u16, String> {
     let mut addr = start as u32;
     let mut map: HashMap<u16, String> = HashMap::new();
@@ -1024,6 +1025,7 @@ impl Cpu {
     map
   }
 
+  #[allow(dead_code)]
   fn extract_addr_16(&mut self, mut addr: u32) -> (u16, u16) {
     let lo_byte = self.bus_mut_read_u8(addr.try_into().unwrap());
     addr += 1;
