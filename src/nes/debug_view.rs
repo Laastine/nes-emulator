@@ -12,7 +12,6 @@ impl DebugView {
     crossterm::execute!(stdout(), terminal::Clear(terminal::ClearType::All)).unwrap();
     let (tx, rx): (Sender<Vec<u8>>, Receiver<Vec<u8>>) = channel();
     let mut stdout = stdout();
-
     thread::spawn(move || {
       loop {
         if let Ok(memory) = rx.try_recv() {
@@ -20,12 +19,12 @@ impl DebugView {
           let mut y_ram = 2;
           for _ in 0..rows {
             stdout.queue(crossterm::style::Print(
-              format!("{}0x{:0>4X}", cursor::MoveTo(6, y_ram), addr)
+              format!("{}{}0x{:0>4X}", cursor::MoveTo(6, y_ram), cursor::Hide, addr)
             )).unwrap();
             let mut x_ram = 2;
             for _ in 0..cols {
               stdout.queue(crossterm::style::Print(
-                format!("{} {:0>2X}", cursor::MoveTo(x_ram, y_ram), memory[addr as usize])
+                format!("{}{} {:0>2X}", cursor::MoveTo(x_ram, y_ram), cursor::Hide, memory[addr as usize])
               )).unwrap();
               addr += 1;
               x_ram += 3;
