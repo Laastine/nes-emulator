@@ -45,11 +45,12 @@ pub struct Nes {
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
   off_screen_pixels: Rc<RefCell<OffScreenBuffer>>,
   memory_hash: u64,
-  dbg_view: DebugView,
+  dbg_view: Option<DebugView>,
+  is_dbg: bool,
 }
 
 impl Nes {
-  pub fn new(rom_file: &str) -> Self {
+  pub fn new(rom_file: &str, is_dbg: bool) -> Self {
     let rom_bytes = fs::read(rom_file).expect("Rom file read error");
 
     let cartridge = Cartridge::new(rom_bytes);
@@ -78,7 +79,7 @@ impl Nes {
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
 
     let memory_hash = 0;
-    let dbg_view = DebugView::new(16, 16);
+    let dbg_view = if is_dbg { Some(DebugView::new(16, 16)) } else { None };
 
     Nes {
       audio_stream,
@@ -92,6 +93,7 @@ impl Nes {
       off_screen_pixels,
       memory_hash,
       dbg_view,
+      is_dbg,
     }
   }
 
@@ -206,7 +208,9 @@ impl Nes {
     let memory = self.cpu.bus_mut_read_dbg_u8(addr, 256);
     memory.hash(&mut hasher);
     if self.memory_hash != hasher.finish() {
-      self.dbg_view.send_memory_slice(memory.to_vec());
+      if let Some(dbg) = self.dbg_view.as_mut() {
+        dbg.send_memory_slice(memory.to_vec());
+      }
 
       hasher = DefaultHasher::new();
       memory.hash(&mut hasher);
@@ -227,7 +231,9 @@ impl Nes {
       if !self.cpu.bus.dma_transfer {
         self.get_apu().step(curr_system_cycles);
         self.cpu.clock(curr_system_cycles);
-        self.draw_ram(0x0000);
+        if self.is_dbg {
+          self.draw_ram(0x0000);
+        }
       } else if self.cpu.bus.dma_transfer {
         self.flush_audio_samples();
         self.system_cycles = self.system_cycles.wrapping_add(self.cpu.bus.oam_dma_access(self.system_cycles));

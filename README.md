@@ -45,6 +45,7 @@ FLAGS:
 -h, --help                      Prints help information
 -v, --version                   Prints version information
 -r, --rom                       Rom filename to load
+-d, --debug                     Show memory debug on terminal
 ```
 
 ### Quick testing

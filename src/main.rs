@@ -18,20 +18,13 @@ mod mapper;
 mod nes;
 mod ppu;
 
-fn print_usage() {
-  println!("USAGE:\nnes-emulator [FLAGS]\n\nFLAGS:\n-h, --help\t\t\tPrints help information\n-v, --version\t\t\tPrints version information\n-r, --rom\t\t\tRom filename to load");
-}
-
-fn print_version() {
-  println!("0.1.0");
-}
-
 fn main() {
   let args: Vec<String> = env::args().collect();
 
   let mut opts = Options::new();
   opts.optflag("r", "rom", "ROM file name");
   opts.optflag("h", "help", "print help");
+  opts.optflag("d", "debug", "show memory debug");
   opts.optflag("v", "version", "print version number");
   let matches = match opts.parse(&args[1..]) {
     Ok(m) => m,
@@ -39,12 +32,12 @@ fn main() {
   };
 
   if matches.opt_present("h") {
-    print_usage();
+    println!("USAGE:\nnes-emulator [FLAGS]\n\nFLAGS:\n-h, --help\t\t\tPrints help information\n-v, --version\t\t\tPrints version information\n-r, --rom\t\t\tRom filename to load\n-d, --debug\t\t\tShow memory debug on terminal");
     return;
   }
 
   if matches.opt_present("v") {
-    print_version();
+    println!("0.1.0");
     return;
   }
 
@@ -54,7 +47,8 @@ fn main() {
     panic!("No ROM file parameter given")
   };
 
-  let mut nes = Nes::new(&rom_file);
+  let use_debug_mode = matches.opt_present("d");
+  let mut nes = Nes::new(&rom_file, use_debug_mode);
 
   nes.reset();
   nes.render_loop();
