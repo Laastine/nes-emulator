@@ -3,11 +3,9 @@ use std::borrow::Borrow;
 use std::cell::{RefCell, RefMut};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
-use std::io::{stdout, Write};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-use crossterm::{cursor, QueueableCommand, terminal};
 use glutin::event::{KeyboardInput, WindowEvent};
 use glutin::event::{ElementState::{Pressed, Released}, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Up, X, Z}};
 use glutin::event_loop::ControlFlow;
@@ -26,9 +24,11 @@ use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
 use crate::nes::constants::{KeyboardCommand, REFRESH_RATE, SCREEN_RES_X, SCREEN_RES_Y};
+use crate::nes::debug_view::DebugView;
 use crate::ppu::{Ppu, PpuState, registers::Registers};
 
 pub mod constants;
+mod debug_view;
 
 pub type OffScreenBuffer = [[u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
 
@@ -45,12 +45,11 @@ pub struct Nes {
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
   off_screen_pixels: Rc<RefCell<OffScreenBuffer>>,
   memory_hash: u64,
+  dbg_view: DebugView,
 }
 
 impl Nes {
   pub fn new(rom_file: &str) -> Self {
-    crossterm::execute!(stdout(), terminal::Clear(terminal::ClearType::All)).unwrap();
-
     let rom_bytes = fs::read(rom_file).expect("Rom file read error");
 
     let cartridge = Cartridge::new(rom_bytes);
@@ -79,6 +78,7 @@ impl Nes {
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
 
     let memory_hash = 0;
+    let dbg_view = DebugView::new(16, 16);
 
     Nes {
       audio_stream,
@@ -91,6 +91,7 @@ impl Nes {
       image_buffer,
       off_screen_pixels,
       memory_hash,
+      dbg_view,
     }
   }
 
@@ -199,34 +200,14 @@ impl Nes {
 
   fn draw_ram(
     &mut self,
-    mut addr: u16,
-    x: u16,
-    y: u16,
-    rows: u16,
-    columns: u16,
-  ) {
-    let mut stdout = stdout();
-    let mut y_ram = y;
+    addr: usize) {
     let mut hasher = DefaultHasher::new();
 
-    let memory = self.cpu.bus_mut_read_dbg_u8(0, 256);
+    let memory = self.cpu.bus_mut_read_dbg_u8(addr, 256);
     memory.hash(&mut hasher);
     if self.memory_hash != hasher.finish() {
-      for _ in 0..rows {
-        stdout.queue(crossterm::style::Print(
-          format!("{}0x{:0>4X}", cursor::MoveTo(6, y_ram), addr)
-        )).unwrap();
-        let mut x_ram = x;
-        for _ in 0..columns {
-          stdout.queue(crossterm::style::Print(
-            format!("{} {:0>2X}", cursor::MoveTo(x_ram, y_ram), memory[addr as usize])
-          )).unwrap();
-          addr += 1;
-          x_ram += 3;
-        }
-        y_ram += 1;
-      }
-      let _ = stdout.flush();
+      self.dbg_view.send_memory_slice(memory.to_vec());
+
       hasher = DefaultHasher::new();
       memory.hash(&mut hasher);
       self.memory_hash = hasher.finish();
@@ -246,10 +227,7 @@ impl Nes {
       if !self.cpu.bus.dma_transfer {
         self.get_apu().step(curr_system_cycles);
         self.cpu.clock(curr_system_cycles);
-        self.draw_ram(0x0000, 2, 2, 16, 16);
-        // self.draw_ram(0x8000, 2, 18, 16, 16);
-
-        // let map = self.cpu.disassemble(0x0000, 0x7FFF);
+        self.draw_ram(0x0000);
       } else if self.cpu.bus.dma_transfer {
         self.flush_audio_samples();
         self.system_cycles = self.system_cycles.wrapping_add(self.cpu.bus.oam_dma_access(self.system_cycles));
