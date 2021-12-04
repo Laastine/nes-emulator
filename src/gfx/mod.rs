@@ -1,20 +1,19 @@
+use glutin::dpi::PhysicalSize;
+use glutin::event_loop::EventLoop;
+use glutin::GlProfile;
 use luminance::context::GraphicsContext;
 use luminance::framebuffer::Framebuffer;
-use luminance::pixel::{NormUnsigned, RGBA32F, NormRGB8UI};
+use luminance::pipeline::TextureBinding;
+use luminance::pixel::{NormRGB8UI, NormUnsigned, RGBA32F};
 use luminance::shader::{BuiltProgram, Program, Uniform};
 use luminance::tess::{Mode, Tess, TessBuilder};
-use luminance::texture::{Dim2, Sampler, Texture};
+use luminance::texture::{Dim2, Sampler, TexelUpload, Texture};
 use luminance_derive::UniformInterface;
 use luminance_gl::GL33;
 use luminance_glutin::GlutinSurface;
 
 use crate::gfx::gfx_util::{Semantics, VertexColor, VertexData, VertexPosition};
 use crate::nes::constants::{SCREEN_HEIGHT, SCREEN_RES_X, SCREEN_RES_Y, SCREEN_WIDTH};
-use luminance::pipeline::TextureBinding;
-use glutin::event_loop::EventLoop;
-use glutin::dpi::PhysicalSize;
-use glutin::GlProfile;
-
 
 mod gfx_util;
 
@@ -73,7 +72,7 @@ impl WindowContext {
       },
       |_, context_builder| context_builder
         .with_double_buffer(Some(false))
-        .with_gl_profile(GlProfile::Compatibility)
+        .with_gl_profile(GlProfile::Compatibility),
     )
       .expect("Glutin surface create");
 
@@ -110,16 +109,15 @@ impl WindowContext {
       .unwrap();
 
     let back_buffer = surface.back_buffer().unwrap();
-    let front_buffer = surface.new_framebuffer::<Dim2, RGBA32F, ()>([SCREEN_RES_X as u32, SCREEN_RES_Y as u32], 0, Sampler::default())
-      .unwrap();
+    let front_buffer = surface
+      .new_framebuffer::<Dim2, RGBA32F, ()>([SCREEN_RES_X as u32, SCREEN_RES_Y as u32], 0, Sampler::default())
+      .expect("framebuffer create");
 
-    let texture =
-      surface.new_texture_no_texels(
-        [SCREEN_RES_X, SCREEN_RES_Y],
-        0,
-        Sampler::default(),
-      )
-        .unwrap();
+    let texture = surface.new_texture(
+      [SCREEN_RES_X, SCREEN_RES_Y],
+      Sampler::default(),
+      TexelUpload::reserve(0),
+    ).unwrap();
 
     let resize = false;
 

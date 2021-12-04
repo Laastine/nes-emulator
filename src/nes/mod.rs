@@ -15,7 +15,7 @@ use luminance::context::GraphicsContext;
 use luminance::framebuffer::Framebuffer;
 use luminance::pipeline::PipelineState;
 use luminance::render_state::RenderState;
-use luminance::texture::{GenMipmaps, Sampler};
+use luminance::texture::{Sampler, TexelUpload};
 
 use crate::apu::Apu;
 use crate::apu::audio_stream::AudioStream;
@@ -278,13 +278,12 @@ impl Nes {
     }
 
     self.window_context.texture
-      .upload_raw(GenMipmaps::No, &self.image_buffer)
+      .upload_raw(TexelUpload::base_level(&self.image_buffer, 0))
       .expect("Texture update error");
   }
 
   fn render_screen(&mut self) {
     if self.window_context.resize {
-      self.window_context.back_buffer = self.window_context.surface.back_buffer().unwrap();
       let size = self.window_context.surface.size();
       self.window_context.front_buffer =
         Framebuffer::new(&mut self.window_context.surface, size, 0, Sampler::default())
