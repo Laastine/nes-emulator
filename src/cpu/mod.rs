@@ -139,6 +139,7 @@ impl Cpu {
     self.set_flag(&Flag6502::U, true);
 
     self.clock_count += 1;
+    self.cycle -= 1;
   }
 
   #[allow(dead_code)]

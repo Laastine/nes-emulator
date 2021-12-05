@@ -91,4 +91,6 @@ pub enum KeyboardCommand {
   Reset,
   Exit,
   Resize,
+  Pause,
+  Continue,
 }

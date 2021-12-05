@@ -14,7 +14,7 @@ impl DebugView {
     let mut stdout = stdout();
     thread::spawn(move || {
       loop {
-        if let Ok(memory) = rx.try_recv() {
+        if let Some(memory) = rx.try_iter().last() {
           let mut addr = 0;
           let mut y_ram = 2;
           for _ in 0..rows {

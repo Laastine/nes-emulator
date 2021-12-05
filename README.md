@@ -18,6 +18,7 @@ Learning project to build Nintendo Entertainment System emulator. The goal is to
 `Z` - Button B<br>
 `X` - Button A<br>
 `R` - Reset<br>
+`Space` - Pause/continue emulation<br>
 `Esc` - Quit  
 
 ## TODO

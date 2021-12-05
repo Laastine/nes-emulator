@@ -7,7 +7,7 @@ use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use glutin::event::{KeyboardInput, WindowEvent};
-use glutin::event::{ElementState::{Pressed, Released}, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Up, X, Z}};
+use glutin::event::{ElementState::{Pressed, Released}, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Space, Up, X, Z}};
 use glutin::event_loop::ControlFlow;
 use glutin::platform::run_return::EventLoopExtRunReturn;
 use image::{ImageBuffer, Rgb};
@@ -47,6 +47,7 @@ pub struct Nes {
   memory_hash: u64,
   dbg_view: Option<DebugView>,
   is_dbg: bool,
+  is_paused: bool,
 }
 
 impl Nes {
@@ -78,6 +79,7 @@ impl Nes {
     let system_cycles = 0;
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
 
+    let is_paused = false;
     let memory_hash = 0;
     let dbg_view = if is_dbg { Some(DebugView::new(16, 16)) } else { None };
 
@@ -94,6 +96,7 @@ impl Nes {
       memory_hash,
       dbg_view,
       is_dbg,
+      is_paused,
     }
   }
 
@@ -131,10 +134,11 @@ impl Nes {
     }
 
     'app: loop {
-      self.clock();
       if poll_input {
         poll_input = false;
+        let is_paused = self.is_paused;
         self.window_context.event_loop.run_return(|event, _, control_flow| {
+
           *control_flow = ControlFlow::Wait;
 
           if let glutin::event::Event::MainEventsCleared = &event {
@@ -148,6 +152,13 @@ impl Nes {
                 match input {
                   KeyboardInput { state: Released, virtual_keycode: Some(Escape), .. } => {
                     keyboard_state = Some(KeyboardCommand::Exit);
+                  }
+                  KeyboardInput { state: Released, virtual_keycode: Some(Space), .. } => {
+                    if is_paused {
+                      keyboard_state = Some(KeyboardCommand::Continue);
+                    } else {
+                      keyboard_state = Some(KeyboardCommand::Pause);
+                    }
                   }
                   KeyboardInput { state, virtual_keycode: Some(X), .. } => update_key_map(&mut key_map, 0, state == Pressed),
                   KeyboardInput { state, virtual_keycode: Some(Z), .. } => update_key_map(&mut key_map, 1, state == Pressed),
@@ -170,8 +181,9 @@ impl Nes {
             };
           }
         });
-
         match keyboard_state {
+          Some(KeyboardCommand::Pause) => self.is_paused = true,
+          Some(KeyboardCommand::Continue) => self.is_paused = false,
           Some(KeyboardCommand::Exit) => break 'app,
           Some(KeyboardCommand::Reset) => {
             self.cpu.reset();
@@ -184,7 +196,11 @@ impl Nes {
         self.update_controller(key_map);
       }
 
-      if self.ppu.is_frame_ready {
+      if !self.is_paused {
+        self.clock();
+      }
+
+      if self.ppu.is_frame_ready || self.is_paused  {
         if keyboard_state == Some(KeyboardCommand::Resize) {
           self.window_context.resize = true;
         }
