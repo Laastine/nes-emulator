@@ -1,6 +1,7 @@
 use std::io::{stdout, Write};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::thread;
+
 use crossterm::{cursor, QueueableCommand, terminal};
 
 pub struct DebugView {
@@ -17,12 +18,20 @@ impl DebugView {
         if let Some(memory) = rx.try_iter().last() {
           let mut addr = 0;
           let mut y_ram = 2;
-          for _ in 0..rows {
+          for r in 0..rows {
+            stdout.queue(crossterm::style::Print(
+              format!("{}{}{:0>4X}", cursor::MoveTo(0, y_ram), cursor::Hide, r * 0x10)
+            )).unwrap();
             stdout.queue(crossterm::style::Print(
               format!("{}{}0x{:0>4X}", cursor::MoveTo(6, y_ram), cursor::Hide, addr)
             )).unwrap();
-            let mut x_ram = 2;
-            for _ in 0..cols {
+            let mut x_ram = 4;
+            for c in 0..cols {
+              if r == 0 {
+                stdout.queue(crossterm::style::Print(
+                  format!("{}{}{:0>2X}", cursor::MoveTo(x_ram + 1, y_ram - 2), cursor::Hide, c)
+                )).unwrap();
+              }
               stdout.queue(crossterm::style::Print(
                 format!("{}{} {:0>2X}", cursor::MoveTo(x_ram, y_ram), cursor::Hide, memory[addr as usize])
               )).unwrap();
