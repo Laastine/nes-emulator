@@ -81,7 +81,7 @@ impl Nes {
 
     let is_paused = false;
     let memory_hash = 0;
-    let dbg_view = if is_dbg { Some(DebugView::new(32, 16)) } else { None };
+    let dbg_view = if is_dbg { Some(DebugView::new(64, 16)) } else { None };
 
     Nes {
       audio_stream,
@@ -221,7 +221,7 @@ impl Nes {
     addr: usize) {
     let mut hasher = DefaultHasher::new();
 
-    let memory = self.cpu.bus_mut_read_dbg_u8(addr, 512);
+    let memory = self.cpu.bus_mut_read_dbg_u8(addr, 0x400);
     memory.hash(&mut hasher);
     if self.memory_hash != hasher.finish() {
       if let Some(dbg) = self.dbg_view.as_mut() {
