@@ -391,6 +391,11 @@ impl LookUpTable {
     LookUpTable { instructions }
   }
 
+  #[allow(dead_code)]
+  pub fn get_name(&self, index: usize) -> String {
+    format!("{:?}", &self.instructions[index])
+  }
+
   pub fn get_addr_mode(&self, index: usize) -> &AddrMode6502 {
     &self.instructions[index].addr_mode
   }

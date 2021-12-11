@@ -9,7 +9,6 @@ pub mod rom_reading;
 pub mod rom_with_pager;
 
 pub const CHR_ROM_BANK_SIZE: usize = 0x2000;
-pub const PRG_ROM_BANK_SIZE: usize = 0x4000;
 
 #[derive(Clone)]
 pub struct Cartridge {

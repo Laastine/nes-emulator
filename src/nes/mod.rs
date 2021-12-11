@@ -1,11 +1,13 @@
 use std::{fs, thread};
 use std::borrow::Borrow;
 use std::cell::{RefCell, RefMut};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
 use glutin::event::{KeyboardInput, WindowEvent};
-use glutin::event::{ElementState::{Pressed, Released}, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Up, X, Z}};
+use glutin::event::{ElementState::{Pressed, Released}, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Space, Up, X, Z}};
 use glutin::event_loop::ControlFlow;
 use glutin::platform::run_return::EventLoopExtRunReturn;
 use image::{ImageBuffer, Rgb};
@@ -22,9 +24,11 @@ use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
 use crate::nes::constants::{KeyboardCommand, REFRESH_RATE, SCREEN_RES_X, SCREEN_RES_Y};
+use crate::nes::debug_view::DebugView;
 use crate::ppu::{Ppu, PpuState, registers::Registers};
 
 pub mod constants;
+mod debug_view;
 
 pub type OffScreenBuffer = [[u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
 
@@ -40,10 +44,14 @@ pub struct Nes {
   controller: Rc<RefCell<[bool; 8]>>,
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
   off_screen_pixels: Rc<RefCell<OffScreenBuffer>>,
+  memory_hash: u64,
+  dbg_view: Option<DebugView>,
+  is_dbg: bool,
+  is_paused: bool,
 }
 
 impl Nes {
-  pub fn new(rom_file: &str) -> Self {
+  pub fn new(rom_file: &str, is_dbg: bool) -> Self {
     let rom_bytes = fs::read(rom_file).expect("Rom file read error");
 
     let cartridge = Cartridge::new(rom_bytes);
@@ -71,6 +79,10 @@ impl Nes {
     let system_cycles = 0;
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
 
+    let is_paused = false;
+    let memory_hash = 0;
+    let dbg_view = if is_dbg { Some(DebugView::new(64, 16)) } else { None };
+
     Nes {
       audio_stream,
       apu,
@@ -81,6 +93,10 @@ impl Nes {
       controller,
       image_buffer,
       off_screen_pixels,
+      memory_hash,
+      dbg_view,
+      is_dbg,
+      is_paused,
     }
   }
 
@@ -118,10 +134,11 @@ impl Nes {
     }
 
     'app: loop {
-      self.clock();
       if poll_input {
         poll_input = false;
+        let is_paused = self.is_paused;
         self.window_context.event_loop.run_return(|event, _, control_flow| {
+
           *control_flow = ControlFlow::Wait;
 
           if let glutin::event::Event::MainEventsCleared = &event {
@@ -135,6 +152,13 @@ impl Nes {
                 match input {
                   KeyboardInput { state: Released, virtual_keycode: Some(Escape), .. } => {
                     keyboard_state = Some(KeyboardCommand::Exit);
+                  }
+                  KeyboardInput { state: Released, virtual_keycode: Some(Space), .. } => {
+                    if is_paused {
+                      keyboard_state = Some(KeyboardCommand::Continue);
+                    } else {
+                      keyboard_state = Some(KeyboardCommand::Pause);
+                    }
                   }
                   KeyboardInput { state, virtual_keycode: Some(X), .. } => update_key_map(&mut key_map, 0, state == Pressed),
                   KeyboardInput { state, virtual_keycode: Some(Z), .. } => update_key_map(&mut key_map, 1, state == Pressed),
@@ -157,21 +181,26 @@ impl Nes {
             };
           }
         });
-
         match keyboard_state {
+          Some(KeyboardCommand::Pause) => self.is_paused = true,
+          Some(KeyboardCommand::Continue) => self.is_paused = false,
           Some(KeyboardCommand::Exit) => break 'app,
           Some(KeyboardCommand::Reset) => {
             self.cpu.reset();
             self.ppu.reset();
             self.get_apu().reset();
-          },
+          }
           Some(KeyboardCommand::Resize) => self.window_context.resize = true,
           _ => {}
         }
         self.update_controller(key_map);
       }
 
-      if self.ppu.is_frame_ready {
+      if !self.is_paused {
+        self.clock();
+      }
+
+      if self.ppu.is_frame_ready || self.is_paused  {
         if keyboard_state == Some(KeyboardCommand::Resize) {
           self.window_context.resize = true;
         }
@@ -187,6 +216,24 @@ impl Nes {
     } // app loop
   }
 
+  fn draw_ram(
+    &mut self,
+    addr: usize) {
+    let mut hasher = DefaultHasher::new();
+
+    let memory = self.cpu.bus_mut_read_dbg_u8(addr, 0x400);
+    memory.hash(&mut hasher);
+    if self.memory_hash != hasher.finish() {
+      if let Some(dbg) = self.dbg_view.as_mut() {
+        dbg.send_memory_slice(memory.to_vec());
+      }
+
+      hasher = DefaultHasher::new();
+      memory.hash(&mut hasher);
+      self.memory_hash = hasher.finish();
+    }
+  }
+
   fn clock(&mut self) {
     let curr_system_cycles = self.system_cycles;
 
@@ -200,7 +247,9 @@ impl Nes {
       if !self.cpu.bus.dma_transfer {
         self.get_apu().step(curr_system_cycles);
         self.cpu.clock(curr_system_cycles);
-
+        if self.is_dbg {
+          self.draw_ram(0x0000);
+        }
       } else if self.cpu.bus.dma_transfer {
         self.flush_audio_samples();
         self.system_cycles = self.system_cycles.wrapping_add(self.cpu.bus.oam_dma_access(self.system_cycles));
@@ -221,9 +270,9 @@ impl Nes {
   }
 
   fn flush_audio_samples(&mut self) {
-      let b = self.get_apu().buf.to_vec();
-      self.audio_stream.send_audio_buffer(b);
-      self.get_apu().buf.clear();
+    let b = self.get_apu().buf.to_vec();
+    self.audio_stream.send_audio_buffer(b);
+    self.get_apu().buf.clear();
   }
 
 
