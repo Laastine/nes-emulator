@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 bitfield = "0.13.2"
-crossterm = "0.21.0"
+crossterm = "0.22.1"
 getopts = "0.2.21"
 glutin = "0.27"
 luminance = "0.44.0"
