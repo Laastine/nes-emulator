@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use crate::apu::Apu;
 use crate::cartridge::Cartridge;
+use crate::nes::controller::Controller;
 use crate::ppu::registers::Registers;
 
 pub const MEM_SIZE: usize = 0x0800;
@@ -13,17 +14,15 @@ pub struct Bus {
   pub cartridge: Rc<RefCell<Box<Cartridge>>>,
   pub ram: [u8; MEM_SIZE],
   apu: Rc<RefCell<Apu>>,
-  controller: Rc<RefCell<[bool; 8]>>,
+  controller: Rc<RefCell<Controller>>,
   registers: Rc<RefCell<Registers>>,
   pub dma_transfer: bool,
   dma_page: u8,
   pub stall_cycles: u32,
-  strobe: u8,
-  idx: usize
 }
 
 impl Bus {
-  pub fn new(cartridge: Rc<RefCell<Box<Cartridge>>>, registers: Rc<RefCell<Registers>>, controller: Rc<RefCell<[bool; 8]>>, apu: Rc<RefCell<Apu>>) -> Bus {
+  pub fn new(cartridge: Rc<RefCell<Box<Cartridge>>>, registers: Rc<RefCell<Registers>>, controller: Rc<RefCell<Controller>>, apu: Rc<RefCell<Apu>>) -> Bus {
     let ram = [0u8; MEM_SIZE];
     let dma_transfer = false;
     let dma_page = 0x00;
@@ -37,13 +36,11 @@ impl Bus {
       dma_transfer,
       dma_page,
       stall_cycles: 0,
-      strobe: 0,
-      idx: 0,
     }
   }
 
-  fn get_controller(&mut self) -> Ref<[bool; 8]> {
-    self.controller.borrow()
+  fn get_controller(&mut self) -> RefMut<Controller> {
+    self.controller.borrow_mut()
   }
 
   pub fn get_mut_apu(&mut self) -> RefMut<Apu> {
@@ -74,11 +71,7 @@ impl Bus {
     } else if (0x4000..=0x4013).contains(&address) || 0x4015 == address {
       self.get_mut_apu().apu_write_reg(address, data, cycles);
     } else if 0x4016 == address {
-      self.strobe = data;
-
-      if self.strobe & 1 == 1 {
-        self.idx = 0;
-      }
+      self.get_controller().write(data);
     } else if 0x4017 == address {
       self.get_mut_apu().apu_write_reg(address, data, cycles);
     } else if (0x6000..=0xFFFF).contains(&address) {
@@ -94,14 +87,7 @@ impl Bus {
     } else if address == 0x4015 {
       u16::try_from(self.get_mut_apu().apu_read_reg()).unwrap()
     } else if 0x4016 == address {
-      let idx = self.idx;
-      let state = if self.get_controller()[idx] { 1 } else { 0 };
-
-      self.idx += 1;
-      if self.strobe & 1 == 1 {
-        self.idx = 0;
-      }
-      state
+      self.get_controller().read() as u16
     } else if 0x4017 == address {
       0
     } else if (0x6000..=0xFFFF).contains(&address) {

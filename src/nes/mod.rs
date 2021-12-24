@@ -24,9 +24,11 @@ use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::gfx::WindowContext;
 use crate::nes::constants::{KeyboardCommand, REFRESH_RATE, SCREEN_RES_X, SCREEN_RES_Y};
+use crate::nes::controller::Controller;
 use crate::nes::debug_view::DebugView;
 use crate::ppu::{Ppu, PpuState, registers::Registers};
 
+pub mod controller;
 pub mod constants;
 mod debug_view;
 
@@ -41,7 +43,7 @@ pub struct Nes {
   ppu: Ppu,
   system_cycles: u32,
   window_context: WindowContext,
-  controller: Rc<RefCell<[bool; 8]>>,
+  controller: Rc<RefCell<Controller>>,
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
   off_screen_pixels: Rc<RefCell<OffScreenBuffer>>,
   memory_hash: u64,
@@ -56,13 +58,12 @@ impl Nes {
 
     let cartridge = Cartridge::new(rom_bytes);
     let cart = Rc::new(RefCell::new(cartridge));
-    let c = [false; 8];
 
     let window_context = WindowContext::new();
 
     let registers = Rc::new(RefCell::new(Registers::new(cart.clone())));
 
-    let controller = Rc::new(RefCell::new(c));
+    let controller = Rc::new(RefCell::new(Controller::new()));
 
     let audio_stream = AudioStream::new();
 
@@ -97,13 +98,6 @@ impl Nes {
       dbg_view,
       is_dbg,
       is_paused,
-    }
-  }
-
-  #[inline]
-  fn update_controller(&mut self, states: [bool; 8]) {
-    for (idx, c) in self.controller.borrow_mut().iter_mut().enumerate() {
-      *c = states[idx]
     }
   }
 
@@ -193,7 +187,7 @@ impl Nes {
           Some(KeyboardCommand::Resize) => self.window_context.resize = true,
           _ => {}
         }
-        self.update_controller(key_map);
+        self.controller.borrow_mut().update_buttons(key_map);
       }
 
       if !self.is_paused {
