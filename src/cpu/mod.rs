@@ -1,8 +1,8 @@
+use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 
 use crate::bus::Bus;
 use crate::cpu::instruction_table::{AddrMode6502, Flag6502, LookUpTable, OpCode6502};
-use std::collections::HashMap;
 
 pub mod instruction_table;
 
@@ -68,7 +68,7 @@ impl Cpu {
     self.bus.read_u8(address)
   }
 
-  pub fn bus_mut_read_dbg_u8(&mut self, address_start: usize, address_end :usize) -> Vec<u8> {
+  pub fn bus_mut_read_dbg_u8(&mut self, address_start: usize, address_end: usize) -> Vec<u8> {
     self.bus.read_dbg_u8(address_start, address_end)
   }
 
@@ -122,22 +122,23 @@ impl Cpu {
   }
 
   pub fn clock(&mut self, system_cycle: u32) {
-    self.system_cycle = system_cycle;
-    self.opcode = u8::try_from(self.bus_mut_read_u8(self.pc)).unwrap();
+    if self.cycle == 0 {
+      self.system_cycle = system_cycle;
+      self.opcode = u8::try_from(self.bus_mut_read_u8(self.pc)).unwrap();
 
-    self.set_flag(&Flag6502::U, true);
-    self.pc_increment();
+      self.set_flag(&Flag6502::U, true);
+      self.pc_increment();
 
-    let opcode_idx = usize::try_from(self.opcode).unwrap();
-    self.cycle = self.lookup.get_cycles(opcode_idx);
+      let opcode_idx = usize::try_from(self.opcode).unwrap();
+      self.cycle = self.lookup.get_cycles(opcode_idx);
 
-    let addr_mode = *self.lookup.get_addr_mode(opcode_idx);
-    let operate = *self.lookup.get_operate(opcode_idx);
+      let addr_mode = *self.lookup.get_addr_mode(opcode_idx);
+      let operate = *self.lookup.get_operate(opcode_idx);
 
-    self.cycle += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
+      self.cycle += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
 
-    self.set_flag(&Flag6502::U, true);
-
+      self.set_flag(&Flag6502::U, true);
+    }
     self.clock_count += 1;
     self.cycle -= 1;
   }
