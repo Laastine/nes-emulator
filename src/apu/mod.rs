@@ -1,5 +1,3 @@
-use std::convert::TryFrom;
-
 use crate::apu::{pulse::Pulse, sweep::Mode};
 use crate::apu::frame_counter::{FrameCounter, FrameResult};
 use crate::apu::signal_filter::SignalFilter;
@@ -132,9 +130,9 @@ impl Apu {
   }
 
   fn sample(&mut self) -> i16 {
-    let pulse_0 = f64::try_from(self.pulse_0.sample()).unwrap();
-    let pulse_1 = f64::try_from(self.pulse_1.sample()).unwrap();
-    let triangle = f64::try_from(self.triangle.sample()).unwrap();
+    let pulse_0 = self.pulse_0.sample() as f64;
+    let pulse_1 = self.pulse_1.sample() as f64;
+    let triangle = self.triangle.sample() as f64;
 
     let pulse_output = 95.88 / ((8218.0 / (pulse_0 + pulse_1)) + 100.0);
     let t_output = 159.79 / ((1.0 / (triangle / 8227.0 / 12241.0 / 22638.0)) + 100.0);
