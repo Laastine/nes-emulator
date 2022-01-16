@@ -1,10 +1,13 @@
-use std::{fs, thread};
+use std::{fs, process, thread};
 use std::borrow::Borrow;
 use std::cell::{RefCell, RefMut};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
+
+use gilrs::ev::filter::{Filter, Repeat};
+use gilrs::{Gilrs, GilrsBuilder};
 
 use glutin::event::{KeyboardInput, WindowEvent};
 use glutin::event::{ElementState::{Pressed, Released}, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Space, Up, X, Z}};
@@ -48,6 +51,8 @@ pub struct Nes {
   dbg_view: Option<DebugView>,
   is_dbg: bool,
   is_paused: bool,
+  gilrs: Gilrs,
+  input_filter: Repeat,
 }
 
 impl Nes {
@@ -80,6 +85,21 @@ impl Nes {
     let memory_hash = 0;
     let dbg_view = if is_dbg { Some(DebugView::new(64, 16)) } else { None };
 
+    let mut gilrs = match GilrsBuilder::new().set_update_state(false).build() {
+      Ok(g) => g,
+      Err(gilrs::Error::NotImplemented(g)) => {
+        eprintln!("Current platform is not supported");
+
+        g
+      }
+      Err(e) => {
+        eprintln!("Failed to create gilrs context: {}", e);
+        process::exit(-1);
+      }
+    };
+
+    let input_filter = Repeat::new();
+
     Nes {
       apu,
       cpu,
@@ -93,6 +113,8 @@ impl Nes {
       dbg_view,
       is_dbg,
       is_paused,
+      gilrs,
+      input_filter,
     }
   }
 
@@ -170,6 +192,13 @@ impl Nes {
             };
           }
         });
+
+        while let Some(ev) = self.gilrs.next_event().filter_ev(&self.input_filter, &mut self.gilrs) {
+          self.gilrs.update(&ev);
+          dbg!(ev);
+        }
+
+
         match keyboard_state {
           Some(KeyboardCommand::Pause) => self.is_paused = true,
           Some(KeyboardCommand::Continue) => self.is_paused = false,
