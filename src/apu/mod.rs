@@ -3,6 +3,8 @@ use crate::apu::frame_counter::{FrameCounter, FrameResult};
 use crate::apu::signal_filter::SignalFilter;
 use crate::apu::triangle::Triangle;
 
+use crate::apu::audio_stream::AudioStream;
+
 pub mod audio_stream;
 mod envelope;
 mod signal_filter;
@@ -14,7 +16,8 @@ mod sweep;
 mod triangle;
 
 pub struct Apu {
-  pub buf: Vec<i16>,
+  audio_stream: AudioStream,
+  buf: Vec<i16>,
   filters: [SignalFilter; 3],
   pub pulse_0: Pulse,
   pub pulse_1: Pulse,
@@ -26,7 +29,10 @@ const AUDIO_BUFFER_LIMIT: usize = 1470;
 
 impl Apu {
   pub fn new() -> Apu {
+    let audio_stream = AudioStream::new();
+
     Apu {
+      audio_stream,
       buf: Vec::new(),
       frame_counter: FrameCounter::new(),
       pulse_0: Pulse::new(Mode::OnesComplement),
@@ -66,6 +72,11 @@ impl Apu {
       self.buf.push(sample);
       self.buf.push(sample);
     }
+  }
+
+  pub fn flush_samples(&mut self) {
+    self.audio_stream.send_audio_buffer(self.buf.to_vec());
+    self.buf.clear();
   }
 
   pub fn apu_read_reg(&mut self) -> u8 {

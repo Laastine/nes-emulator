@@ -18,7 +18,6 @@ use luminance::render_state::RenderState;
 use luminance::texture::{Sampler, TexelUpload};
 
 use crate::apu::Apu;
-use crate::apu::audio_stream::AudioStream;
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
@@ -37,7 +36,6 @@ pub type OffScreenBuffer = [[u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
 const FRAME_DURATION: Duration = Duration::from_millis((REFRESH_RATE * 1000.0) as u64);
 
 pub struct Nes {
-  audio_stream: AudioStream,
   apu: Rc<RefCell<Apu>>,
   cpu: Cpu,
   ppu: Ppu,
@@ -65,8 +63,6 @@ impl Nes {
 
     let controller = Rc::new(RefCell::new(Controller::new()));
 
-    let audio_stream = AudioStream::new();
-
     let apu = Rc::new(RefCell::new(Apu::new()));
 
     let bus = Bus::new(cart, registers.clone(), controller.clone(), apu.clone());
@@ -85,7 +81,6 @@ impl Nes {
     let dbg_view = if is_dbg { Some(DebugView::new(64, 16)) } else { None };
 
     Nes {
-      audio_stream,
       apu,
       cpu,
       ppu,
@@ -245,7 +240,7 @@ impl Nes {
           self.draw_ram(0x0000);
         }
       } else if self.cpu.bus.dma_transfer {
-        self.flush_audio_samples();
+        self.get_apu().flush_samples();
         self.system_cycles = self.system_cycles.wrapping_add(self.cpu.bus.oam_dma_access(self.system_cycles));
       }
     }
@@ -262,13 +257,6 @@ impl Nes {
 
     self.system_cycles = self.system_cycles.wrapping_add(1);
   }
-
-  fn flush_audio_samples(&mut self) {
-    let b = self.get_apu().buf.to_vec();
-    self.audio_stream.send_audio_buffer(b);
-    self.get_apu().buf.clear();
-  }
-
 
   fn update_image_buffer(&mut self) {
     let pixel_buffer = *self.get_off_screen_pixels();
