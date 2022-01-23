@@ -1,4 +1,4 @@
-use std::{fs, thread};
+use std::{fs, process, thread};
 use std::borrow::Borrow;
 use std::cell::{RefCell, RefMut};
 use std::collections::hash_map::DefaultHasher;
@@ -6,6 +6,9 @@ use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
+use gilrs::{Event, EventType, Gilrs, GilrsBuilder};
+use gilrs::Button::{DPadDown, DPadLeft, DPadRight, DPadUp, East, Select, South, Start};
+use gilrs::ev::filter::{Filter, Repeat};
 use glutin::event::{KeyboardInput, WindowEvent};
 use glutin::event::{ElementState::{Pressed, Released}, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Space, Up, X, Z}};
 use glutin::event_loop::ControlFlow;
@@ -48,6 +51,8 @@ pub struct Nes {
   dbg_view: Option<DebugView>,
   is_dbg: bool,
   is_paused: bool,
+  gilrs: Gilrs,
+  input_filter: Repeat,
 }
 
 impl Nes {
@@ -80,6 +85,21 @@ impl Nes {
     let memory_hash = 0;
     let dbg_view = if is_dbg { Some(DebugView::new(64, 16)) } else { None };
 
+    let gilrs = match GilrsBuilder::new().set_update_state(false).build() {
+      Ok(g) => g,
+      Err(gilrs::Error::NotImplemented(g)) => {
+        eprintln!("Current platform is not supported");
+
+        g
+      }
+      Err(e) => {
+        eprintln!("Failed to create gilrs context: {}", e);
+        process::exit(-1);
+      }
+    };
+
+    let input_filter = Repeat::new();
+
     Nes {
       apu,
       cpu,
@@ -93,6 +113,8 @@ impl Nes {
       dbg_view,
       is_dbg,
       is_paused,
+      gilrs,
+      input_filter,
     }
   }
 
@@ -127,7 +149,6 @@ impl Nes {
         poll_input = false;
         let is_paused = self.is_paused;
         self.window_context.event_loop.run_return(|event, _, control_flow| {
-
           *control_flow = ControlFlow::Wait;
 
           if let glutin::event::Event::MainEventsCleared = &event {
@@ -170,6 +191,23 @@ impl Nes {
             };
           }
         });
+
+        while let Some(ev) = self.gilrs.next_event().filter_ev(&self.input_filter, &mut self.gilrs) {
+          self.gilrs.update(&ev);
+          match ev {
+            Event { event: EventType::ButtonChanged(East, val, _), .. } => update_key_map(&mut key_map, 0, val > 0.0),
+            Event { event: EventType::ButtonChanged(South, val, _), .. } => update_key_map(&mut key_map, 1, val > 0.0),
+            Event { event: EventType::ButtonChanged(Select, val, _), .. } => update_key_map(&mut key_map, 2, val > 0.0),
+            Event { event: EventType::ButtonChanged(Start, val, _), .. } => update_key_map(&mut key_map, 3, val > 0.0),
+            Event { event: EventType::ButtonChanged(DPadUp, val, _), .. } => update_key_map(&mut key_map, 4, val > 0.0),
+            Event { event: EventType::ButtonChanged(DPadDown, val, _), .. } => update_key_map(&mut key_map, 5, val > 0.0),
+            Event { event: EventType::ButtonChanged(DPadLeft, val, _), .. } => update_key_map(&mut key_map, 6, val > 0.0),
+            Event { event: EventType::ButtonChanged(DPadRight, val, _), .. } => update_key_map(&mut key_map, 7, val > 0.0),
+            _ => {}
+          }
+        }
+
+
         match keyboard_state {
           Some(KeyboardCommand::Pause) => self.is_paused = true,
           Some(KeyboardCommand::Continue) => self.is_paused = false,
@@ -189,7 +227,7 @@ impl Nes {
         self.clock();
       }
 
-      if self.ppu.is_frame_ready || self.is_paused  {
+      if self.ppu.is_frame_ready || self.is_paused {
         if keyboard_state == Some(KeyboardCommand::Resize) {
           self.window_context.resize = true;
         }

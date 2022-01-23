@@ -12,6 +12,7 @@ Learning project to build Nintendo Entertainment System emulator. The goal is to
 
 ## Controls
 
+### Keyboard
 `Arrow keys` - D-pad<br>
 `S` - Start<br>
 `A` - Select<br>
@@ -19,7 +20,9 @@ Learning project to build Nintendo Entertainment System emulator. The goal is to
 `X` - Button A<br>
 `R` - Reset<br>
 `Space` - Pause/continue emulation<br>
-`Esc` - Quit  
+`Esc` - Quit
+
+#### Supports gamepad
 
 ## TODO
 
@@ -27,7 +30,7 @@ Learning project to build Nintendo Entertainment System emulator. The goal is to
 - [x] Display RAM & CPU status in terminal for debugging
 - [x] ROM reader & mapper
 - [x] Graphics window
-- [x] Controls<br>
+- [x] Controls (keyboard & gamepad)<br>
 - [x] PPU (Pixel Processing Unit)<br>
   - [x] PPU background rendering
   - [x] PPU sprites

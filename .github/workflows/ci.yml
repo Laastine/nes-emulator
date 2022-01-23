@@ -15,7 +15,9 @@ jobs:
         uses: actions/checkout@v2
 
       - name: Install dependecies
-        run: sudo apt-get -yq --no-install-suggests --no-install-recommends install libx11-dev libxi-dev libasound2-dev
+        run: |
+          sudo apt clean && sudo apt update
+          sudo apt -y install libx11-dev libxi-dev libasound2-dev libudev-dev
 
       - name: Clippy
         run: cargo clippy -- -D warnings
@@ -53,7 +55,8 @@ jobs:
       - name: Install packages (Linux)
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get -yq --no-install-suggests --no-install-recommends install libx11-dev libxi-dev libasound2-dev
+          sudo apt clean && sudo apt update
+          sudo apt -y install libx11-dev libxi-dev libasound2-dev libudev-dev
 
       - name: Test
         uses: actions-rs/cargo@v1
