@@ -79,21 +79,21 @@ impl Bus {
     }
   }
 
-  pub fn read_u8(&mut self, address: u16) -> u16 {
+  pub fn read_u8(&mut self, address: u16) -> u8 {
     if (0x0000..=0x1FFF).contains(&address) {
-      u16::try_from(self.ram[usize::try_from(address & 0x07FF).unwrap()]).unwrap()
+      self.ram[usize::try_from(address & 0x07FF).unwrap()].try_into().unwrap()
     } else if (0x2000..=0x3FFF).contains(&address) {
       self.get_mut_registers().bus_read_ppu_reg(address).into()
     } else if address == 0x4015 {
-      u16::try_from(self.get_mut_apu().apu_read_reg()).unwrap()
+      self.get_mut_apu().apu_read_reg()
     } else if 0x4016 == address {
-      self.get_controller().read() as u16
+      self.get_controller().read()
     } else if 0x4017 == address {
       0
     } else if (0x6000..=0xFFFF).contains(&address) {
-      u16::try_from(self.get_cartridge().mapper.mapped_read_cpu_u8(address)).unwrap()
+      self.get_cartridge().mapper.mapped_read_cpu_u8(address)
     } else {
-      address >> 8
+      address.try_into().unwrap()
     }
   }
 

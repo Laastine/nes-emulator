@@ -62,7 +62,7 @@ impl Cpu {
   }
 
   pub fn bus_mut_read_u8(&mut self, address: u16) -> u16 {
-    self.bus.read_u8(address)
+    self.bus.read_u8(address) as u16
   }
 
   pub fn bus_mut_read_dbg_u8(&mut self, address_start: usize, address_end: usize) -> Vec<u8> {
