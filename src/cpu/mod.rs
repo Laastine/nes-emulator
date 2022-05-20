@@ -19,7 +19,6 @@ pub struct Cpu {
   addr_rel: u16,
   pub opcode: u8,
   pub cycle: u8,
-  pub clock_count: u32,
   lookup: LookUpTable,
   system_cycle: u32,
 }
@@ -41,7 +40,6 @@ impl Cpu {
       stack_pointer: 0x0u8,
       status_register: 0u8,
       cycle: 0u8,
-      clock_count: 0,
       lookup,
       system_cycle: 0,
     }
@@ -139,7 +137,6 @@ impl Cpu {
 
       self.set_flag(&Flag6502::U, true);
     }
-    self.clock_count += 1;
     self.cycle -= 1;
   }
 
@@ -156,9 +153,8 @@ impl Cpu {
     file
       .write_all(
         format!(
-          "opcode:{} -> clock:{} {},{} PC:{} XXX A:{} X:{} Y:{} {}{}{}{}{}{}{}{} STKP:{}\n",
+          "opcode:{} {},{} PC:{} XXX A:{} X:{} Y:{} {}{}{}{}{}{}{}{} STKP:{}\n",
           self.opcode,
-          self.clock_count,
           self.addr_abs,
           self.addr_rel,
           hex(log_pc, 4),
