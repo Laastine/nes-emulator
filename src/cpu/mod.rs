@@ -4,6 +4,8 @@ use crate::bus::Bus;
 use crate::cpu::instruction_table::{AddrMode6502, Flag6502, hex, LookUpTable, OpCode6502};
 
 pub mod instruction_table;
+#[cfg(test)]
+mod cpu_test;
 
 pub struct Cpu {
   pub bus: Bus,
@@ -381,7 +383,7 @@ impl Cpu {
     (lo_byte, (hi_byte << 8))
   }
 
-  ///OPCODES
+  /// OP CODES
   pub fn op_code_value(&mut self, op_code: OpCode6502) -> u8 {
     match op_code {
       OpCode6502::Add => self.adc(),
