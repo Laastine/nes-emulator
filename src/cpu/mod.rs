@@ -97,7 +97,7 @@ impl Cpu {
   }
 
   fn set_flags_zero_and_negative(&mut self, val: u16) {
-    self.set_flag(&Flag6502::Z, val == 0x00);
+    self.set_flag(&Flag6502::Z, (val & 0xFF) == 0x00);
     self.set_flag(&Flag6502::N, (val & 0x80) > 0);
   }
 
@@ -122,11 +122,11 @@ impl Cpu {
   }
 
   pub fn clock(&mut self, system_cycle: u32) {
-    if self.cycle == 0 {
+    // if self.cycle == 0 {
       self.system_cycle = system_cycle;
       self.opcode = self.bus_mut_read_u8(self.pc);
 
-      // self.set_flag(&Flag6502::U, true);
+      self.set_flag(&Flag6502::U, true);
       self.pc_increment();
 
       let opcode_idx = usize::try_from(self.opcode).unwrap();
@@ -137,8 +137,8 @@ impl Cpu {
 
       self.cycle += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
 
-      // self.set_flag(&Flag6502::U, true);
-    }
+      self.set_flag(&Flag6502::U, false);
+    // }
     // self.cycle -= 1;
   }
 
