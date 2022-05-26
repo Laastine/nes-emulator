@@ -46,8 +46,11 @@ macro_rules! test_op_code {
         let mut cpu = build_cpu_and_memory!(mem);
         let start_pc = cpu.pc;
         let start_cycles = cpu.cycle;
+
+        let start_p = cpu.status_register;
         $(cpu.$sk=$sv;)*
         cpu.clock(0);
+        assert!(0 == cpu.status_register & start_p & !op.mask, "Register mask not respected. P: 0b{:b}", cpu.status_register);
 
         if op.size > 0 {
             assert!(op.size == (cpu.pc - start_pc), "Invalid instruction size. Expected: {} bytes, Got: {}", op.size, cpu.pc - start_pc);
@@ -58,13 +61,13 @@ macro_rules! test_op_code {
         }
 
         $(
-            assert!(cpu.$ek==$ev, "Incorrect Register. Expected cpu.{} to be {}, got {}", stringify!($ek), stringify!($ev), cpu.$ek);
+            assert!(cpu.$ek==$ev, "Incorrect Register. Expected cpu.{} to be {}, got {:#010b}", stringify!($ek), stringify!($ev), cpu.$ek);
         )*
         let mut mem = Vec::new();
         $(mem.push($rb);)*
         mem.insert(0, op.code);
         for (i, &b) in mem.iter().enumerate() {
-            assert!(cpu.bus.ram[i]==b, "Incorrect Memory. Expected ram[{}] to be {}, got {}", i, b, cpu.bus.ram[i]);
+            assert!(cpu.bus.ram[i]==b, "Incorrect Memory. Expected ram[{}] to be {}, got 0x{:04X}", i, b, cpu.bus.ram[i]);
         }
 
         cpu
@@ -74,16 +77,16 @@ macro_rules! test_op_code {
 
 #[test]
 fn test_lda() {
-  test_op_code!("lda", Imm, [0x00]{} => []{ acc: 0x00, stack_pointer: 0b00000010 });
-  test_op_code!("lda", Imm, [0xFF]{} => []{ acc: 0xFF, stack_pointer: 0b10000000 });
-  test_op_code!("lda", Imm, [0x20]{} => []{ acc: 0x20, stack_pointer: 0 });
+  test_op_code!("lda", Imm, [0x00]{} => []{ acc: 0x00, status_register: 0b00000010 });
+  test_op_code!("lda", Imm, [0xFF]{} => []{ acc: 0xFF, status_register: 0b10000000 });
+  test_op_code!("lda", Imm, [0x20]{} => []{ acc: 0x20, status_register: 0 });
   test_op_code!("lda", Zpo,  [0x02, 0x90]{} => []{ acc: 0x90 });
   test_op_code!("lda", Zpx, [0x02, 0, 0x90]{x:1} => []{ acc: 0x90 });
   test_op_code!("lda", Abs,  [0x04, 0, 0, 0x90]{x:1} => []{ acc: 0x90 });
   test_op_code!("lda", Abx, [0x03, 0, 0, 0x90]{x:1} => []{ acc: 0x90 });
   test_op_code!("lda", Aby, [0x03, 0, 0, 0x90]{y:1} => []{ acc: 0x90 });
-  test_op_code!("lda", Izy, [0x02, 0, 0x05, 0, 0x90]{x:1} => []{ acc: 0x90 });
-  test_op_code!("lda", Izx, [0x02, 0x04, 0, 0, 0x90]{y:1} => []{ acc: 0x90 });
+  test_op_code!("lda", Izx, [0x02, 0, 0x05, 0, 0x90]{x:1} => []{ acc: 0x90 });
+  test_op_code!("lda", Izy, [0x02, 0x04, 0, 0, 0x90]{y:1} => []{ acc: 0x90 });
 }
 
 

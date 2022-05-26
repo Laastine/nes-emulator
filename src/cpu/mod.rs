@@ -126,7 +126,7 @@ impl Cpu {
       self.system_cycle = system_cycle;
       self.opcode = self.bus_mut_read_u8(self.pc);
 
-      self.set_flag(&Flag6502::U, true);
+      // self.set_flag(&Flag6502::U, true);
       self.pc_increment();
 
       let opcode_idx = usize::try_from(self.opcode).unwrap();
@@ -137,9 +137,9 @@ impl Cpu {
 
       self.cycle += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
 
-      self.set_flag(&Flag6502::U, true);
+      // self.set_flag(&Flag6502::U, true);
     }
-    self.cycle -= 1;
+    // self.cycle -= 1;
   }
 
   #[allow(dead_code)]
