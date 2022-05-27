@@ -18,7 +18,6 @@ pub struct Bus {
   registers: Rc<RefCell<Registers>>,
   pub dma_transfer: bool,
   dma_page: u8,
-  pub stall_cycles: u32,
 }
 
 impl Bus {
@@ -35,7 +34,6 @@ impl Bus {
       registers,
       dma_transfer,
       dma_page,
-      stall_cycles: 0,
     }
   }
 
