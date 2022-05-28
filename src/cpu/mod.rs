@@ -97,18 +97,18 @@ impl Cpu {
   }
 
   fn set_flags_zero_and_negative(&mut self, val: u16) {
-    self.set_flag(&Flag6502::Z, (val & 0xFF) == 0x00);
-    self.set_flag(&Flag6502::N, (val & 0x80) > 0);
+    self.set_flag(&Flag6502::Z, (val & 0x00FF) == 0x00);
+    self.set_flag(&Flag6502::N, (val & 0x0080) > 0);
   }
 
   fn branching(&mut self, condition: bool) -> u8 {
     if condition {
       self.cycles_increment();
-      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
-      if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
+      let new_pc = self.pc.wrapping_add(self.addr_rel);
+      if (new_pc & 0xFF00) != (self.pc & 0xFF00) {
         self.cycles_increment();
       }
-      self.pc = self.addr_abs;
+      self.pc = new_pc;
     }
     0
   }
@@ -122,11 +122,9 @@ impl Cpu {
   }
 
   pub fn clock(&mut self, system_cycle: u32) {
-    // if self.cycle == 0 {
       self.system_cycle = system_cycle;
       self.opcode = self.bus_mut_read_u8(self.pc);
 
-      self.set_flag(&Flag6502::U, true);
       self.pc_increment();
 
       let opcode_idx = usize::try_from(self.opcode).unwrap();
@@ -136,10 +134,6 @@ impl Cpu {
       let operate = *self.lookup.get_operate(opcode_idx);
 
       self.cycle += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
-
-      self.set_flag(&Flag6502::U, false);
-    // }
-    // self.cycle -= 1;
   }
 
   #[allow(dead_code)]
