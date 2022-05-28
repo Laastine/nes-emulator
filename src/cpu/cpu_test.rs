@@ -89,8 +89,347 @@ fn test_lda() {
   test_op_code!("lda", Izy, [0x02, 0x04, 0, 0, 0x90]{y:1} => []{ acc: 0x90 });
 }
 
+#[test]
+fn test_ldx() {
+  test_op_code!("ldx", Imm, [0x00]{}                 => []{ x: 0x00, status_register: 0b00000010 });
+  test_op_code!("ldx", Imm, [0xFF]{}                 => []{ x: 0xFF, status_register: 0b10000000 });
+  test_op_code!("ldx", Imm, [0x20]{}                 => []{ x: 0x20, status_register: 0 });
+  test_op_code!("ldx", Zpo,  [0x02, 0x90]{}           => []{ x: 0x90 });
+  test_op_code!("ldx", Zpy, [0x02, 0, 0x90]{y:1}     => []{ x: 0x90 });
+  test_op_code!("ldx", Abs,  [0x04, 0, 0, 0x90]{}     => []{ x: 0x90 });
+  test_op_code!("ldx", Aby, [0x03, 0, 0, 0x90]{y:1}  => []{ x: 0x90 });
+}
 
-#[derive(Debug, Copy, Clone)]
+#[test]
+fn test_ldy() {
+  test_op_code!("ldy", Imm, [0x00]{} => []{ y: 0x00, status_register: 0b00000010 });
+  test_op_code!("ldy", Imm, [0xFF]{} => []{ y: 0xFF, status_register: 0b10000000 });
+  test_op_code!("ldy", Imm, [0x20]{} => []{ y: 0x20, status_register: 0 });
+  test_op_code!("ldy", Zpo,  [0x02, 0x90]{} => []{ y: 0x90 });
+  test_op_code!("ldy", Zpx, [0x02, 0, 0x90]{x:1} => []{ y: 0x90 });
+  test_op_code!("ldy", Abs,  [0x04, 0, 0, 0x90]{x:1} => []{ y: 0x90 });
+  test_op_code!("ldy", Abx, [0x03, 0, 0, 0x90]{x:1} => []{ y: 0x90 });
+}
+
+#[test]
+fn test_sta() {
+  test_op_code!("sta", Zpo,  [0x02]{acc: 0x66} => [0x02, 0x66]{});
+  test_op_code!("sta", Zpx, [0x02]{acc: 0x66, x:1} => [0x02, 0, 0x66]{});
+  test_op_code!("sta", Abs,  [0x04, 0]{acc: 0x66} => [0x04, 0, 0, 0x66]{});
+  test_op_code!("sta", Abx, [0x03, 0]{acc: 0x66, x:1} => [0x03, 0, 0, 0x66]{});
+  test_op_code!("sta", Aby, [0x03, 0]{acc: 0x66, y:1} => [0x03, 0, 0, 0x66]{});
+  test_op_code!("sta", Izx, [0x02, 0, 0x05, 0, 0]{acc: 0x66, x:1} => [0x02, 0, 0x05, 0, 0x66]{});
+  test_op_code!("sta", Izy, [0x02, 0x04, 0, 0, 0]{acc: 0x66, y:1} => [0x02, 0x04, 0, 0, 0x66]{});
+}
+
+#[test]
+fn test_stx() {
+  test_op_code!("stx", Zpo,  [0x02]{x: 0x66} => [0x02, 0x66]{});
+  test_op_code!("stx", Zpy, [0x02]{x: 0x66, y:1} => [0x02, 0, 0x66]{});
+  test_op_code!("stx", Abs,  [0x04, 0]{x: 0x66} => [0x04, 0, 0, 0x66]{});
+}
+
+#[test]
+fn test_sty() {
+  test_op_code!("sty", Zpo,  [0x02]{y: 0x66} => [0x02, 0x66]{});
+  test_op_code!("sty", Zpx, [0x02]{y: 0x66, x:1} => [0x02, 0, 0x66]{});
+  test_op_code!("sty", Abs,  [0x04, 0]{y: 0x66} => [0x04, 0, 0, 0x66]{});
+}
+
+#[test]
+fn test_adc() {
+  test_op_code!("adc", Imm, [3]{acc:2, status_register:1} => []{ acc: 6 });
+  test_op_code!("adc", Imm, [255]{acc:1, status_register:0} => []{ acc: 0, status_register: 0b00000011 });
+  test_op_code!("adc", Imm, [127]{acc:1, status_register:0} => []{ acc: 128, status_register: 0b11000000 });
+  test_op_code!("adc", Imm, [200]{acc:100} => []{ acc: 44 });
+  test_op_code!("adc", Zpo,  [0x02, 0x90]{acc: 1} => []{ acc: 0x91 });
+  test_op_code!("adc", Zpx, [0x02, 0, 0x90]{x:1, acc: 1} => []{ acc: 0x91 });
+  test_op_code!("adc", Abs,  [0x04, 0, 0, 0x90]{acc:1} => []{ acc: 0x91 });
+  test_op_code!("adc", Abx, [0x03, 0, 0, 0x90]{x:1, acc: 1} => []{ acc: 0x91 });
+  test_op_code!("adc", Aby, [0x03, 0, 0, 0x90]{y:1, acc: 1} => []{ acc: 0x91 });
+  test_op_code!("adc", Izx, [0x02, 0, 0x05, 0, 0x90]{x:1, acc: 1} => []{ acc: 0x91 });
+  test_op_code!("adc", Izy, [0x02, 0x04, 0, 0, 0x90]{y:1, acc: 1} => []{ acc: 0x91 });
+}
+
+#[test]
+fn test_sbc() {
+  test_op_code!("sbc", Imm, [2]{acc:10, status_register:1} => []{ acc: 8 });
+  test_op_code!("sbc", Imm, [2]{acc:10, status_register:0} => []{ acc: 7 });
+  test_op_code!("sbc", Imm, [176]{acc:80, status_register:1} => []{ acc: 160, status_register: 0b11000000 });
+  test_op_code!("sbc", Zpo,  [0x02, 0x90]{acc: 0xFF, status_register: 1} => []{ acc: 0x6f });
+  test_op_code!("sbc", Zpx, [0x02, 0, 0x90]{x:1, acc: 0xFF, status_register: 1} => []{ acc: 0x6f });
+  test_op_code!("sbc", Abs,  [0x04, 0, 0, 0x90]{acc:0xFF, status_register: 1} => []{ acc: 0x6f });
+  test_op_code!("sbc", Abx, [0x03, 0, 0, 0x90]{x:1, acc: 0xFF, status_register: 1} => []{ acc: 0x6f });
+  test_op_code!("sbc", Aby, [0x03, 0, 0, 0x90]{y:1, acc: 0xFF, status_register: 1} => []{ acc: 0x6f });
+  test_op_code!("sbc", Izx, [0x02, 0, 0x05, 0, 0x90]{x:1, acc: 0xFF, status_register: 1} => []{ acc: 0x6f });
+  test_op_code!("sbc", Izy, [0x02, 0x04, 0, 0, 0x90]{y:1, acc: 0xFF, status_register: 1} => []{ acc: 0x6f });
+}
+
+#[test]
+fn test_cmp() {
+  test_op_code!("cmp", Imm, [10]{acc:10} => []{ status_register: 0b00000011 });
+  test_op_code!("cmp", Imm, [100]{acc:10} => []{ status_register: 0b10000000 });
+  test_op_code!("cmp", Imm, [10]{acc:100} => []{ status_register: 0b00000001 });
+  test_op_code!("cmp", Zpo,  [0x02, 10]{acc: 10} => []{ status_register: 0b00000011 });
+  test_op_code!("cmp", Zpx, [0x02, 0, 10]{x:1, acc: 10} => []{ status_register: 0b00000011 });
+  test_op_code!("cmp", Abs,  [0x04, 0, 0, 10]{acc:10} => []{ status_register: 0b00000011  });
+  test_op_code!("cmp", Abx, [0x03, 0, 0, 10]{x:1, acc: 10} => []{ status_register: 0b00000011 });
+  test_op_code!("cmp", Aby, [0x03, 0, 0, 10]{y:1, acc: 10} => []{ status_register: 0b00000011 });
+  test_op_code!("cmp", Izx, [0x02, 0, 0x05, 0, 10]{x:1, acc: 10} => []{ status_register: 0b00000011 });
+  test_op_code!("cmp", Izy, [0x02, 0x04, 0, 0, 10]{y:1, acc: 10} => []{ status_register: 0b00000011 });
+}
+
+#[test]
+fn test_cpx() {
+  test_op_code!("cpx", Imm, [10]{x:10} => []{ status_register: 0b00000011 });
+  test_op_code!("cpx", Imm, [100]{x:10} => []{ status_register: 0b10000000 });
+  test_op_code!("cpx", Imm, [10]{x:100} => []{ status_register: 0b00000001 });
+  test_op_code!("cpx", Zpo,  [0x02, 10]{x: 10} => []{ status_register: 0b00000011 });
+  test_op_code!("cpx", Abs,  [0x04, 0, 0, 10]{x:10} => []{ status_register: 0b00000011  });
+}
+
+#[test]
+fn test_cpy() {
+  test_op_code!("cpy", Imm, [10]{y:10} => []{ status_register: 0b00000011 });
+  test_op_code!("cpy", Imm, [100]{y:10} => []{ status_register: 0b10000000 });
+  test_op_code!("cpy", Imm, [10]{y:100} => []{ status_register: 0b00000001 });
+  test_op_code!("cpy", Zpo,  [0x02, 10]{y: 10} => []{ status_register: 0b00000011 });
+  test_op_code!("cpy", Abs,  [0x04, 0, 0, 10]{y:10} => []{ status_register: 0b00000011  });
+}
+
+#[test]
+fn test_and() {
+  test_op_code!("and", Imm, [0b00001111]{acc:0b01010101} => []{ acc: 0b00000101, status_register: 0 });
+  test_op_code!("and", Imm, [0b10001111]{acc:0b11010101} => []{ acc: 0b10000101, status_register: 0b10000000 });
+  test_op_code!("and", Imm, [0]{acc:0b11010101} => []{ acc: 0, status_register: 0b00000010 });
+  test_op_code!("and", Zpo,  [0x02, 0xFF]{acc: 0xF0} => []{acc: 0xF0});
+  test_op_code!("and", Zpx, [0x02, 0, 0xFF]{x:1, acc: 0xF0} => []{acc: 0xF0});
+  test_op_code!("and", Abs,  [0x04, 0, 0, 0xFF]{acc:0xF0} => []{acc: 0xF0});
+  test_op_code!("and", Abx, [0x03, 0, 0, 0xFF]{x:1, acc: 0xF0} => []{acc: 0xF0});
+  test_op_code!("and", Aby, [0x03, 0, 0, 0xFF]{y:1, acc: 0xF0} => []{acc: 0xF0});
+  test_op_code!("and", Izx, [0x02, 0, 0x05, 0, 0xFF]{x:1, acc: 0xF0} => []{acc: 0xF0});
+  test_op_code!("and", Izy, [0x02, 0x04, 0, 0, 0xFF]{y:1, acc: 0xF0} => []{acc: 0xF0});
+}
+
+#[test]
+fn test_ora() {
+  test_op_code!("ora", Imm, [0b00001111]{acc:0b01010101} => []{ acc: 0b01011111, status_register: 0 });
+  test_op_code!("ora", Imm, [0b10001111]{acc:0b01010101} => []{ acc: 0b11011111, status_register: 0b10000000 });
+  test_op_code!("ora", Imm, [0]{acc:0} => []{ acc: 0, status_register: 0b00000010 });
+  test_op_code!("ora", Zpo,  [0x02, 0xFF]{acc: 0xF0} => []{acc: 0xFF});
+  test_op_code!("ora", Zpx, [0x02, 0, 0xFF]{x:1, acc: 0xF0} => []{acc: 0xFF});
+  test_op_code!("ora", Abs,  [0x04, 0, 0, 0xFF]{acc:0xF0} => []{acc: 0xFF});
+  test_op_code!("ora", Abx, [0x03, 0, 0, 0xFF]{x:1, acc: 0xF0} => []{acc: 0xFF});
+  test_op_code!("ora", Aby, [0x03, 0, 0, 0xFF]{y:1, acc: 0xF0} => []{acc: 0xFF});
+  test_op_code!("ora", Izx, [0x02, 0, 0x05, 0, 0xFF]{x:1, acc: 0xF0} => []{acc: 0xFF});
+  test_op_code!("ora", Izy, [0x02, 0x04, 0, 0, 0xFF]{y:1, acc: 0xF0} => []{acc: 0xFF});
+}
+
+#[test]
+fn test_eor() {
+  test_op_code!("eor", Imm, [0b00001111]{acc:0b01010101} => []{ acc: 0b01011010, status_register: 0 });
+  test_op_code!("eor", Imm, [0b10001111]{acc:0b01010101} => []{ acc: 0b11011010, status_register: 0b10000000 });
+  test_op_code!("eor", Imm, [0xFF]{acc:0xFF} => []{ acc: 0, status_register: 0b00000010 });
+  test_op_code!("eor", Zpo,  [0x02, 0xFF]{acc: 0xF0} => []{acc: 0x0F});
+  test_op_code!("eor", Zpx, [0x02, 0, 0xFF]{x:1, acc: 0xF0} => []{acc: 0x0F});
+  test_op_code!("eor", Abs,  [0x04, 0, 0, 0xFF]{acc:0xF0} => []{acc: 0x0F});
+  test_op_code!("eor", Abx, [0x03, 0, 0, 0xFF]{x:1, acc: 0xF0} => []{acc: 0x0F});
+  test_op_code!("eor", Aby, [0x03, 0, 0, 0xFF]{y:1, acc: 0xF0} => []{acc: 0x0F});
+  test_op_code!("eor", Izx, [0x02, 0, 0x05, 0, 0xFF]{x:1, acc: 0xF0} => []{acc: 0x0F});
+  test_op_code!("eor", Izy, [0x02, 0x04, 0, 0, 0xFF]{y:1, acc: 0xF0} => []{acc: 0x0F});
+}
+
+#[test]
+fn test_bit() {
+  test_op_code!("bit", Zpo,  [0x02, 0x00]{acc: 0x0F} => []{status_register: 0b00000010});
+  test_op_code!("bit", Zpo,  [0x02, 0xF0]{acc: 0xFF} => []{status_register: 0b11000000});
+  test_op_code!("bit", Abs,  [0x03, 0, 0xF0]{acc: 0xFF} => []{status_register: 0b11000000});
+}
+
+#[test]
+fn test_rol() {
+  test_op_code!("rol", Zpo,  [0x02, 0xFF]{status_register:1} => [0x02, 0xFF]{status_register: 0b10000001});
+  test_op_code!("rol", Zpo,  [0x02, 0xFF]{status_register:0} => [0x02, 0xFE]{status_register: 0b10000001});
+  test_op_code!("rol", Zpo,  [0x02, 0b10000000]{status_register:0} => [0x02, 0]{status_register: 0b00000011});
+  test_op_code!("rol", Zpx, [0x02, 0, 0xFF]{status_register:1, x: 1} => [0x02, 0, 0xFF]{status_register: 0b10000001});
+  test_op_code!("rol", Abs,  [0x03, 0, 0xFF]{status_register:1} => [0x03, 0, 0xFF]{status_register: 0b10000001});
+  test_op_code!("rol", Abx, [0x03, 0, 0, 0xFF]{status_register:1, x: 1} => [0x03, 0, 0, 0xFF]{status_register: 0b10000001});
+}
+
+#[test]
+fn test_ror() {
+  test_op_code!("ror", Zpo,  [0x02, 0xFF]{status_register:1} => [0x02, 0xFF]{status_register: 0b10000001});
+  test_op_code!("ror", Zpo,  [0x02, 0xFF]{status_register:0} => [0x02, 0x7f]{status_register: 0b00000001});
+  test_op_code!("ror", Zpo,  [0x02, 1]{status_register:0} => [0x02, 0]{status_register: 0b00000011});
+  test_op_code!("ror", Zpx,  [0x02, 0, 1]{status_register:0, x: 1} => [0x02, 0]{status_register: 0b00000011});
+  test_op_code!("ror", Abs,  [0x03, 0, 1]{status_register:0} => [0x03, 0]{status_register: 0b00000011});
+  test_op_code!("ror", Abx,  [0x02, 0, 1]{status_register:0, x: 1} => [0x02, 0]{status_register: 0b00000011});
+}
+
+#[test]
+fn test_asl() {
+  test_op_code!("asl", Zpo,  [0x02, 0xFF]{status_register:1} => [0x02, 0xFE]{status_register: 0b10000001});
+  test_op_code!("asl", Zpo,  [0x02, 0xFF]{status_register:0} => [0x02, 0xFE]{status_register: 0b10000001});
+  test_op_code!("asl", Zpo,  [0x02, 0b10000000]{} => [0x02, 0]{status_register: 0b00000011});
+  test_op_code!("asl", Zpx, [0x02, 0, 1]{x: 1} => [0x02, 0, 2]{});
+  test_op_code!("asl", Abs,  [0x03, 0, 1]{} => [0x03, 0, 2]{});
+  test_op_code!("asl", Abx, [0x03, 0, 0, 1]{x: 1} => [0x03, 0, 0, 2]{});
+}
+
+#[test]
+fn test_lsr() {
+  test_op_code!("lsr", Zpo,  [0x02, 1]{status_register:1} => [0x02, 0]{status_register: 0b00000011});
+  test_op_code!("lsr", Zpo,  [0x02, 1]{status_register:0} => [0x02, 0]{status_register: 0b00000011});
+  test_op_code!("lsr", Zpx, [0x02, 0, 2]{x: 1} => [0x02, 0, 1]{});
+  test_op_code!("lsr", Abs,  [0x03, 0, 2]{} => [0x03, 0, 1]{});
+  test_op_code!("lsr", Abx, [0x03, 0, 0, 2]{x: 1} => [0x03, 0, 0, 1]{});
+  test_op_code!("lsr", Imp, []{acc: 2} => []{acc: 1});
+}
+
+#[test]
+fn test_inc() {
+  test_op_code!("inc", Zpo,  [0x02, 255]{} => [0x02, 0]{status_register: 0b00000010});
+  test_op_code!("inc", Zpo,  [0x02, 127]{} => [0x02, 128]{status_register: 0b10000000});
+  test_op_code!("inc", Zpx, [0x02, 0, 2]{x: 1} => [0x02, 0, 3]{});
+  test_op_code!("inc", Abs,  [0x03, 0, 2]{} => [0x03, 0, 3]{});
+  test_op_code!("inc", Abx, [0x03, 0, 0, 2]{x: 1} => [0x03, 0, 0, 3]{});
+}
+
+#[test]
+fn test_dec() {
+  test_op_code!("dec", Zpo,  [0x02, 0]{} => [0x02, 255]{status_register: 0b10000000});
+  test_op_code!("dec", Zpo,  [0x02, 1]{} => [0x02, 0]{status_register: 0b00000010});
+  test_op_code!("dec", Zpx, [0x02, 0, 2]{x: 1} => [0x02, 0, 1]{});
+  test_op_code!("dec", Abs,  [0x03, 0, 2]{} => [0x03, 0, 1]{});
+  test_op_code!("dec", Abx, [0x03, 0, 0, 2]{x: 1} => [0x03, 0, 0, 1]{});
+}
+
+#[test]
+fn test_inx() {
+  test_op_code!("inx", Imp,  []{x: 255} => []{x: 0, status_register: 0b00000010});
+  test_op_code!("inx", Imp,  []{x: 127} => []{x: 128, status_register: 0b10000000});
+}
+
+#[test]
+fn test_dex() {
+  test_op_code!("dex", Imp,  []{x: 1} => []{x: 0, status_register: 0b00000010});
+  test_op_code!("dex", Imp,  []{x: 0} => []{x: 255, status_register: 0b10000000});
+}
+
+#[test]
+fn test_iny() {
+  test_op_code!("iny", Imp,  []{y: 255} => []{y: 0, status_register: 0b00000010});
+  test_op_code!("iny", Imp,  []{y: 127} => []{y: 128, status_register: 0b10000000});
+}
+
+#[test]
+fn test_dey() {
+  test_op_code!("dey", Imp,  []{y: 1} => []{y: 0, status_register: 0b00000010});
+  test_op_code!("dey", Imp,  []{y: 0} => []{y: 255, status_register: 0b10000000});
+}
+
+#[test]
+fn test_tax() {
+  test_op_code!("tax", Imp,  []{acc: 1} => []{acc: 1, x: 1, status_register: 0b00000000});
+  test_op_code!("tax", Imp,  []{acc: 0} => []{acc: 0, x: 0, status_register: 0b00000010});
+  test_op_code!("tax", Imp,  []{acc: 128} => []{acc: 128, x: 128, status_register: 0b10000000});
+}
+
+#[test]
+fn test_tay() {
+  test_op_code!("tay", Imp,  []{acc: 1} => []{acc: 1, y: 1, status_register: 0b00000000});
+  test_op_code!("tay", Imp,  []{acc: 0} => []{acc: 0, y: 0, status_register: 0b00000010});
+  test_op_code!("tay", Imp,  []{acc: 128} => []{acc: 128, y: 128, status_register: 0b10000000});
+}
+#[test]
+fn test_txa() {
+  test_op_code!("txa", Imp,  []{x: 1} => []{acc: 1, x: 1, status_register: 0b00000000});
+  test_op_code!("txa", Imp,  []{x: 0} => []{acc: 0, x: 0, status_register: 0b00000010});
+  test_op_code!("txa", Imp,  []{x: 128} => []{acc: 128, x: 128, status_register: 0b10000000});
+}
+
+#[test]
+fn test_tya() {
+  test_op_code!("tya", Imp,  []{y: 1} => []{acc: 1, y: 1, status_register: 0b00000000});
+  test_op_code!("tya", Imp,  []{y: 0} => []{acc: 0, y: 0, status_register: 0b00000010});
+  test_op_code!("tya", Imp,  []{y: 128} => []{acc: 128, y: 128, status_register: 0b10000000});
+}
+
+#[test]
+fn test_tsx() {
+  test_op_code!("tsx", Imp,  []{stack_pointer: 1} => []{stack_pointer: 0b00000001, x: 1, status_register: 0b00000000});
+  test_op_code!("tsx", Imp,  []{stack_pointer: 0} => []{stack_pointer: 0b00000000, x: 0, status_register: 0b00000010});
+  test_op_code!("tsx", Imp,  []{stack_pointer: 128} => []{stack_pointer: 0b10000000, x: 128, status_register: 0b10000000});
+}
+
+#[test]
+fn test_txs() {
+  test_op_code!("txs", Imp,  []{x: 1} => []{stack_pointer: 1, x: 1, status_register: 0});
+}
+
+#[test]
+fn test_flag_ops() {
+  test_op_code!("clc", Imp, []{status_register: 0b11111111} => []{status_register: 0b11111110});
+  test_op_code!("sec", Imp, []{status_register: 0} => []{status_register: 1});
+  test_op_code!("cli", Imp, []{status_register: 0b11111111} => []{status_register: 0b11111011});
+  test_op_code!("sei", Imp, []{status_register: 0} => []{status_register: 0b00000100});
+  test_op_code!("clv", Imp, []{status_register: 0b11111111} => []{status_register: 0b10111111});
+  test_op_code!("cld", Imp, []{status_register: 0b11111111} => []{status_register: 0b11110111});
+  test_op_code!("sed", Imp, []{status_register: 0} => []{status_register: 0b00001000});
+}
+
+// #[test]
+// fn test_bpl() {
+//   let cpu = test_op_code!("bpl", Imp, [10]{status_register: 0b10000000} => []{pc: 0b00000010});
+//   assert_eq!(cpu.cycle, 2);
+//
+//   let cpu = test_op_code!("bpl", Imp, [10]{status_register: 0} => []{pc: 12});
+//   assert_eq!(cpu.cycle, 3);
+//
+//   let mut cpu = build_cpu_and_memory!([0]);
+//   cpu.pc = 0x00FE;
+//   cpu.bus.ram[0x00FE] = 1;
+//   cpu.bpl();
+//   assert!(cross(0x00FF, 1));
+//   assert_eq!(cpu.pc, 0x0100);
+//   assert_eq!(cpu.cycle, 3);
+// }
+//
+// #[test]
+// fn test_bmi() {
+//   let cpu = test_op_code!("bmi", Imp, [10]{status_register: 0} => []{pc: 2});
+//   assert_eq!(cpu.cycle, 2);
+//
+//   let cpu = test_op_code!("bmi", Imp, [10]{status_register: 0b10000000} => []{pc: 12});
+//   assert_eq!(cpu.cycle, 3);
+//
+//   let mut cpu = build_cpu_and_memory!([0]);
+//   cpu.pc = 0x00FE;
+//   cpu.bus.ram[0x00FE] = 1;
+//   cpu.stack_pointer = 0b10000000;
+//   cpu.bmi();
+//   assert!(cross(0x00FF, 1));
+//   assert_eq!(cpu.pc, 0x0100);
+//   assert_eq!(cpu.cycle, 3);
+// }
+
+fn cross(base: u16, offset: u8) -> bool {
+  high_byte(base + offset as u16) != high_byte(base)
+}
+
+// fn offset<T: Into<u16>>(base: T, offset: u8) -> u16 {
+//   base.into() + offset as u16
+// }
+//
+// fn low_byte<T: Into<u16>>(value: T) -> u16 {
+//   value.into() & 0xFF
+// }
+
+fn high_byte(value: u16) -> u16 {
+  value & 0xFF00
+}
+
+#[derive(Copy, Clone)]
 struct Op {
   code: u8,
   size: u16,
