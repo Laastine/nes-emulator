@@ -121,8 +121,7 @@ impl Cpu {
     }
   }
 
-  pub fn clock(&mut self, system_cycle: u32) {
-      self.system_cycle = system_cycle;
+  pub fn clock(&mut self) {
       self.opcode = self.bus_mut_read_u8(self.pc);
 
       self.pc_increment();

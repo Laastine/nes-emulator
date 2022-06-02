@@ -81,8 +81,13 @@ impl Ppu {
   }
 
   #[inline]
-  fn read_ppu_u8(&self, address: u16) -> u8 {
-    self.get_registers().ppu_read_reg(address)
+  pub fn read_ppu_u8(&mut self, address: u16) -> u8 {
+    self.get_mut_registers().ppu_read_reg(address)
+  }
+
+  #[inline]
+  pub fn write_ppu_u8(&mut self, address: u16, data: u8) {
+    self.get_mut_registers().bus_write_ppu_reg(address, data);
   }
 
   fn get_pixel_color(&mut self, pixel: u8) -> Color {

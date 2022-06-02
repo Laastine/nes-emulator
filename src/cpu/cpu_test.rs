@@ -4,26 +4,37 @@ use crate::apu::Apu;
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
+use crate::ppu::Ppu;
 use crate::cpu::instruction_table::AddrMode6502;
 use crate::cpu::instruction_table::AddrMode6502::*;
-use crate::nes::controller::Controller;
+use crate::nes::{OffScreenBuffer, controller::Controller};
 use crate::ppu::registers::Registers;
+use crate::nes::constants::{SCREEN_RES_X, SCREEN_RES_Y};
+
+fn init_cpu() -> Cpu {
+  let cartridge = Cartridge::mock_cartridge();
+  let cart = Rc::new(RefCell::new(Box::new(cartridge)));
+
+  let controller = Rc::new(RefCell::new(Controller::new()));
+
+  let apu = Rc::new(RefCell::new(Apu::new()));
+  let registers = Rc::new(RefCell::new(Registers::new(cart.clone())));
+
+  let off_screen: OffScreenBuffer = [[0u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
+  let off_screen_pixels = Rc::new(RefCell::new(off_screen));
+  let ppu = Rc::new(RefCell::new(Ppu::new(registers, off_screen_pixels.clone())));
+
+  let bus = Bus::new(cart, controller.clone(), ppu.clone(), apu.clone());
+
+  let mut cpu = Cpu::new(bus);
+
+  cpu
+}
 
 macro_rules! build_cpu_and_memory {
     ($bytes: expr) => {
       {
-        let cartridge = Cartridge::mock_cartridge();
-        let cart = Rc::new(RefCell::new(Box::new(cartridge)));
-
-        let registers = Rc::new(RefCell::new(Registers::new(cart.clone())));
-
-        let controller = Rc::new(RefCell::new(Controller::new()));
-
-        let apu = Rc::new(RefCell::new(Apu::new()));
-
-        let bus = Bus::new(cart, registers.clone(), controller.clone(), apu.clone());
-
-        let mut cpu = Cpu::new(bus);
+        let mut cpu = init_cpu();
 
         let bytes = $bytes;
         for (idx, &b) in bytes.iter().enumerate() {
@@ -49,7 +60,7 @@ macro_rules! test_op_code {
 
         let start_p = cpu.status_register;
         $(cpu.$sk=$sv;)*
-        cpu.clock(0);
+        cpu.clock();
         assert!(0 == cpu.status_register & start_p & !op.mask, "Register mask not respected. P: 0b{:b}", cpu.status_register);
 
         if op.size > 0 {

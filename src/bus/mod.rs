@@ -5,7 +5,7 @@ use std::rc::Rc;
 use crate::apu::Apu;
 use crate::cartridge::Cartridge;
 use crate::nes::controller::Controller;
-use crate::ppu::registers::Registers;
+use crate::ppu::Ppu;
 
 pub const MEM_SIZE: usize = 0x0800;
 
@@ -14,14 +14,14 @@ pub struct Bus {
   pub cartridge: Rc<RefCell<Box<Cartridge>>>,
   pub ram: [u8; MEM_SIZE],
   apu: Rc<RefCell<Apu>>,
+  ppu: Rc<RefCell<Ppu>>,
   controller: Rc<RefCell<Controller>>,
-  registers: Rc<RefCell<Registers>>,
   pub dma_transfer: bool,
   dma_page: u8,
 }
 
 impl Bus {
-  pub fn new(cartridge: Rc<RefCell<Box<Cartridge>>>, registers: Rc<RefCell<Registers>>, controller: Rc<RefCell<Controller>>, apu: Rc<RefCell<Apu>>) -> Bus {
+  pub fn new(cartridge: Rc<RefCell<Box<Cartridge>>>, controller: Rc<RefCell<Controller>>, ppu: Rc<RefCell<Ppu>>, apu: Rc<RefCell<Apu>>) -> Bus {
     let ram = [0u8; MEM_SIZE];
     let dma_transfer = false;
     let dma_page = 0x00;
@@ -29,9 +29,9 @@ impl Bus {
     Bus {
       cartridge,
       ram,
+      ppu,
       apu,
       controller,
-      registers,
       dma_transfer,
       dma_page,
     }
@@ -53,18 +53,18 @@ impl Bus {
     self.cartridge.borrow()
   }
 
-  pub fn get_mut_registers(&mut self) -> RefMut<Registers> {
-    self.registers.borrow_mut()
+  pub fn get_mut_ppu(&mut self) -> RefMut<Ppu> {
+    self.ppu.borrow_mut()
   }
 
   pub fn write_u8(&mut self, address: u16, data: u8, cycles: u32) {
     if (0x0000..=0x1FFF).contains(&address) {
       self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
     } else if (0x2000..=0x3FFF).contains(&address) {
-      self.get_mut_registers().bus_write_ppu_reg(address, data)
+      self.get_mut_ppu().get_mut_registers().bus_write_ppu_reg(address, data)
     } else if address == 0x4014 {
       self.dma_page = data;
-      self.get_mut_registers().oam_address = 0x00;
+      self.get_mut_ppu().get_mut_registers().oam_address = 0x00;
       self.dma_transfer = true;
     } else if (0x4000..=0x4013).contains(&address) || 0x4015 == address {
       self.get_mut_apu().apu_write_reg(address, data, cycles);
@@ -81,7 +81,7 @@ impl Bus {
     if (0x0000..=0x1FFF).contains(&address) {
       self.ram[usize::try_from(address & 0x07FF).unwrap()]
     } else if (0x2000..=0x3FFF).contains(&address) {
-      self.get_mut_registers().bus_read_ppu_reg(address)
+      self.get_mut_ppu().get_mut_registers().bus_read_ppu_reg(address)
     } else if address == 0x4015 {
       self.get_mut_apu().apu_read_reg()
     } else if 0x4016 == address {
@@ -107,7 +107,7 @@ impl Bus {
     for idx in 0..=255 {
       let addr = (u16::try_from(self.dma_page).unwrap() << 8) + idx;
       let dma_data = self.read_u8(addr);
-      self.get_mut_registers().write_oam_data(dma_data);
+      self.get_mut_ppu().get_mut_registers().write_oam_data(dma_data);
     }
     self.dma_transfer = false;
     cpu_dma_cycles
