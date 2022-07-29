@@ -406,3 +406,11 @@ impl LookUpTable {
 
   pub fn get_cycles(&self, index: usize) -> u8 { self.instructions[index].cycles }
 }
+
+pub fn hex(num: usize, len: usize) -> String {
+  match len {
+    2 => format!("{:0>2X}", num),
+    4 => format!("{:0>4X}", num),
+    _ => panic!("Unknown length"),
+  }
+}
