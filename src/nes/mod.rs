@@ -38,6 +38,21 @@ pub type OffScreenBuffer = [[u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
 
 const FRAME_DURATION: Duration = Duration::from_millis((REFRESH_RATE * 1000.0) as u64);
 
+fn init_controller() -> Gilrs {
+  match GilrsBuilder::new().set_update_state(false).build() {
+    Ok(g) => g,
+    Err(gilrs::Error::NotImplemented(g)) => {
+      eprintln!("Current platform is not supported");
+
+      g
+    }
+    Err(e) => {
+      eprintln!("Failed to create gilrs context: {}", e);
+      process::exit(-1);
+    }
+  }
+}
+
 pub struct Nes {
   apu: Rc<RefCell<Apu>>,
   cpu: Cpu,
@@ -64,20 +79,19 @@ impl Nes {
 
     let window_context = WindowContext::new();
 
-    let registers = Rc::new(RefCell::new(Registers::new(cart.clone())));
-
     let controller = Rc::new(RefCell::new(Controller::new()));
 
     let apu = Rc::new(RefCell::new(Apu::new()));
 
+    let registers = Rc::new(RefCell::new(Registers::new(cart.clone())));
     let bus = Bus::new(cart, registers.clone(), controller.clone(), apu.clone());
 
     let cpu = Cpu::new(bus);
 
     let off_screen: OffScreenBuffer = [[0u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
     let off_screen_pixels = Rc::new(RefCell::new(off_screen));
-
     let ppu = Ppu::new(registers, off_screen_pixels.clone());
+
     let system_cycles = 0;
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
 
@@ -85,18 +99,7 @@ impl Nes {
     let memory_hash = 0;
     let dbg_view = if is_dbg { Some(DebugView::new(64, 16)) } else { None };
 
-    let gilrs = match GilrsBuilder::new().set_update_state(false).build() {
-      Ok(g) => g,
-      Err(gilrs::Error::NotImplemented(g)) => {
-        eprintln!("Current platform is not supported");
-
-        g
-      }
-      Err(e) => {
-        eprintln!("Failed to create gilrs context: {}", e);
-        process::exit(-1);
-      }
-    };
+    let gilrs = init_controller();
 
     let input_filter = Repeat::new();
 
