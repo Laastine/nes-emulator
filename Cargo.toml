@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 bitfield = "0.14.0"
-crossterm = "0.24.0"
+crossterm = "0.25.0"
 getopts = "0.2.21"
 gilrs = "0.9.0"
 glutin = "0.28.0"
@@ -14,7 +14,7 @@ luminance = "0.46.0"
 luminance-gl = "0.19.0"
 luminance-derive = "0.9.0"
 luminance-glutin = "0.14.0"
-rodio = "0.15.0"
+rodio = "0.16.0"
 
 [dependencies.image]
 version = "0.24.3"
