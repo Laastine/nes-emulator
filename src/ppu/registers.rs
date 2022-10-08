@@ -6,7 +6,7 @@ use crate::cartridge::Cartridge;
 use crate::cartridge::rom_reading::Mirroring;
 
 bitfield! {
-  #[derive(Copy, Clone, PartialEq)]
+  #[derive(Copy, Clone, Eq, PartialEq)]
   pub struct PpuCtrlFlags(u8); impl Debug;
     pub u8, nametable_x, _: 0;
     pub u8, nametable_y, _: 1;
@@ -37,7 +37,7 @@ impl PpuCtrlFlags {
 }
 
 bitfield! {
-  #[derive(Copy, Clone, PartialEq)]
+  #[derive(Copy, Clone, Eq, PartialEq)]
   pub struct PpuMaskFlags(u8); impl Debug;
     pub u8, grayscale, _: 0;
     pub u8, show_background_in_left_margin, _: 1;
@@ -64,7 +64,7 @@ impl PpuMaskFlags {
 }
 
 bitfield! {
-  #[derive(Copy, Clone, PartialEq)]
+  #[derive(Copy, Clone, Eq, PartialEq)]
   pub struct PpuStatusFlags(u8); impl Debug;
     pub u8, sprite_overflow, set_sprite_overflow:               5;
     pub u8, sprite_zero_hit, set_sprite_zero_hit:               6;
@@ -72,7 +72,7 @@ bitfield! {
 }
 
 bitfield! {
-  #[derive(Copy, Clone, PartialEq)]
+  #[derive(Copy, Clone, Eq, PartialEq)]
   pub struct AddressRegister(u16); impl Debug;
     pub u8,    coarse_x,     set_coarse_x:      4,  0;
     pub u8,    coarse_y,     set_coarse_y:      9,  5;

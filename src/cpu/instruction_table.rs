@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Flag6502 {
   C,
   Z,
@@ -25,7 +25,7 @@ impl Flag6502 {
   }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum OpCode6502 {
   Add,
   And,
@@ -86,7 +86,7 @@ pub enum OpCode6502 {
   Xxx,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum AddrMode6502 {
   Imp,
   Imm,

@@ -1,6 +1,6 @@
 use crate::apu::sequencer::Sequencer;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Mode {
   OnesComplement = 1,
   TwosComplement = 0,

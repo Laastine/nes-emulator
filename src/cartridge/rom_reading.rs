@@ -151,7 +151,7 @@ impl Rom {
   }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Mirroring {
   Vertical,
   Horizontal,

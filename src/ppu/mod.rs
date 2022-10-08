@@ -10,7 +10,7 @@ use crate::ppu::registers::{get_nth_bit, Registers};
 pub mod registers;
 mod oam_sprite;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum PpuState {
   Render,
   NoOp

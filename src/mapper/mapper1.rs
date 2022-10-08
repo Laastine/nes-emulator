@@ -5,20 +5,20 @@ use crate::cartridge::rom_with_pager::RomData;
 use std::cell::{RefCell, Ref, RefMut};
 use std::rc::Rc;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum AddressRange {
   Lo,
   Hi,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum PrgMode {
   Consecutive,
   FixFirst,
   FixLast,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 enum ChrMode {
   Consecutive,
   NonConsecutive,

@@ -1,5 +1,5 @@
 bitfield! {
-  #[derive(Copy, Clone, PartialEq)]
+  #[derive(Copy, Clone, Eq, PartialEq)]
   pub struct EnvelopeCtrl(u8); impl Debug;
   pub constant_volume,    _: 3, 0;
   pub decay_level,        _: 3, 0;

@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 use crate::ppu::registers::{get_nth_bit, PpuCtrlFlags};
 
 bitfield! {
-  #[derive(Copy, Clone, PartialEq)]
+  #[derive(Copy, Clone, Eq, PartialEq)]
   pub struct SpriteAttributes(u8); impl Debug;
   pub palette,              _: 1, 0;
   pub is_behind_background, _:    5;
@@ -11,7 +11,7 @@ bitfield! {
   pub flip_y,               _:    7;
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct SpriteTileIndex(u8);
 
 #[derive(Debug, Copy, Clone)]

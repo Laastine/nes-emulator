@@ -86,7 +86,7 @@ pub const COLORS: [Color; 64] = [
   Color([0, 0, 0]),
 ];
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum KeyboardCommand {
   Reset,
   Exit,
