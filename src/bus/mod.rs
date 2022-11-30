@@ -81,9 +81,9 @@ impl Bus {
 
   pub fn read_u8(&mut self, address: u16) -> u8 {
     if (0x0000..=0x1FFF).contains(&address) {
-      self.ram[usize::try_from(address & 0x07FF).unwrap()].try_into().unwrap()
+      self.ram[usize::try_from(address & 0x07FF).unwrap()]
     } else if (0x2000..=0x3FFF).contains(&address) {
-      self.get_mut_registers().bus_read_ppu_reg(address).into()
+      self.get_mut_registers().bus_read_ppu_reg(address)
     } else if address == 0x4015 {
       self.get_mut_apu().apu_read_reg()
     } else if 0x4016 == address {
@@ -108,7 +108,7 @@ impl Bus {
     let cpu_dma_cycles = 513 + (system_cycles % 2);
     for idx in 0..=255 {
       let addr = (u16::try_from(self.dma_page).unwrap() << 8) + idx;
-      let dma_data = self.read_u8(addr).try_into().unwrap();
+      let dma_data = self.read_u8(addr);
       self.get_mut_registers().write_oam_data(dma_data);
     }
     self.dma_transfer = false;
