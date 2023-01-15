@@ -378,7 +378,7 @@ impl Cpu {
   /// OP CODES
   pub fn op_code_value(&mut self, op_code: OpCode6502) -> u8 {
     match op_code {
-      OpCode6502::Add => self.adc(),
+      OpCode6502::Adc => self.adc(),
       OpCode6502::And => self.and(),
       OpCode6502::Asl => self.asl(),
       OpCode6502::Bcc => self.bcc(),
@@ -703,10 +703,10 @@ impl Cpu {
   pub fn lsr(&mut self) -> u8 {
     self.fetch();
     self.set_flag(&Flag6502::C, (self.fetched & 1) > 0);
-    let val = self.fetched >> 1;
-    self.set_flags_zero_and_negative(val);
+    let val = u16::try_from(self.fetched >> 1).unwrap();
+    self.set_flags_zero_and_negative((val & 0xFF) as u8);
 
-    self.return_or_write_memory(val);
+    self.return_or_write_memory((val & 0xFF) as u8);
     0
   }
 

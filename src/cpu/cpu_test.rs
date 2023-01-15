@@ -26,7 +26,7 @@ fn init_cpu() -> Cpu {
 
   let bus = Bus::new(cart, controller.clone(), ppu.clone(), apu.clone());
 
-  let mut cpu = Cpu::new(bus);
+  let cpu = Cpu::new(bus);
 
   cpu
 }
