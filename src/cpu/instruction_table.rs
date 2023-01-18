@@ -1,3 +1,6 @@
+use std::fmt;
+use std::fmt::Formatter;
+
 #[derive(Debug, Eq, PartialEq)]
 pub enum Flag6502 {
   C,
@@ -86,6 +89,70 @@ pub enum OpCode6502 {
   Xxx,
 }
 
+impl fmt::Display for OpCode6502 {
+  fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+    match self {
+      OpCode6502::Adc => write!(f, "adc"),
+      OpCode6502::And => write!(f, "and"),
+      OpCode6502::Asl => write!(f, "asl"),
+      OpCode6502::Bcc => write!(f, "bcc"),
+      OpCode6502::Bcs => write!(f, "bcs"),
+      OpCode6502::Beq => write!(f, "beq"),
+      OpCode6502::Bit => write!(f, "bit"),
+      OpCode6502::Bmi => write!(f, "bmi"),
+      OpCode6502::Bne => write!(f, "bne"),
+      OpCode6502::Bpl => write!(f, "bpl"),
+      OpCode6502::Brk => write!(f, "brk"),
+      OpCode6502::Bvc => write!(f, "bvc"),
+      OpCode6502::Bvs => write!(f, "bvs"),
+      OpCode6502::Clc => write!(f, "clc"),
+      OpCode6502::Cld => write!(f, "cld"),
+      OpCode6502::Cli => write!(f, "cli"),
+      OpCode6502::Clv => write!(f, "clv"),
+      OpCode6502::Cmp => write!(f, "cmp"),
+      OpCode6502::Cpx => write!(f, "cpx"),
+      OpCode6502::Cpy => write!(f, "cpy"),
+      OpCode6502::Dec => write!(f, "dec"),
+      OpCode6502::Dex => write!(f, "dex"),
+      OpCode6502::Dey => write!(f, "dey"),
+      OpCode6502::Eor => write!(f, "eor"),
+      OpCode6502::Inc => write!(f, "inc"),
+      OpCode6502::Inx => write!(f, "inx"),
+      OpCode6502::Iny => write!(f, "iny"),
+      OpCode6502::Jmp => write!(f, "jmp"),
+      OpCode6502::Jsr => write!(f, "jsr"),
+      OpCode6502::Lda => write!(f, "lda"),
+      OpCode6502::Ldx => write!(f, "ldx"),
+      OpCode6502::Ldy => write!(f, "ldy"),
+      OpCode6502::Lsr => write!(f, "lsr"),
+      OpCode6502::Nop => write!(f, "nop"),
+      OpCode6502::Ora => write!(f, "ora"),
+      OpCode6502::Pha => write!(f, "pha"),
+      OpCode6502::Php => write!(f, "php"),
+      OpCode6502::Pla => write!(f, "pla"),
+      OpCode6502::Plp => write!(f, "plp"),
+      OpCode6502::Rol => write!(f, "rol"),
+      OpCode6502::Ror => write!(f, "ror"),
+      OpCode6502::Rti => write!(f, "rti"),
+      OpCode6502::Rts => write!(f, "rts"),
+      OpCode6502::Sbc => write!(f, "sbc"),
+      OpCode6502::Sec => write!(f, "sec"),
+      OpCode6502::Sed => write!(f, "sed"),
+      OpCode6502::Sei => write!(f, "sei"),
+      OpCode6502::Sta => write!(f, "sta"),
+      OpCode6502::Stx => write!(f, "stx"),
+      OpCode6502::Sty => write!(f, "sty"),
+      OpCode6502::Tax => write!(f, "tax"),
+      OpCode6502::Tay => write!(f, "tay"),
+      OpCode6502::Tsx => write!(f, "tsx"),
+      OpCode6502::Txa => write!(f, "txa"),
+      OpCode6502::Txs => write!(f, "txs"),
+      OpCode6502::Tya => write!(f, "tya"),
+      OpCode6502::Xxx => write!(f, "xxx"),
+    }
+  }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum AddrMode6502 {
   Abs,
@@ -115,13 +182,13 @@ impl Instruction6502 {
     operate: OpCode6502,
     addr_mode: AddrMode6502,
     cycles: u8,
-    extra_cycles: u8
+    extra_cycles: u8,
   ) -> Instruction6502 {
     Instruction6502 {
       operate,
       addr_mode,
       cycles,
-      extra_cycles
+      extra_cycles,
     }
   }
 }

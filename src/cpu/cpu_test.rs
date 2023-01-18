@@ -5,7 +5,7 @@ use crate::bus::Bus;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::ppu::Ppu;
-use crate::cpu::instruction_table::AddrMode6502;
+use crate::cpu::instruction_table::{AddrMode6502, Instruction6502};
 use crate::cpu::instruction_table::AddrMode6502::*;
 use crate::nes::{OffScreenBuffer, controller::Controller};
 use crate::ppu::registers::Registers;
@@ -423,17 +423,13 @@ fn test_flag_ops() {
 //   assert_eq!(cpu.pc, 0x0100);
 //   assert_eq!(cpu.cycle, 3);
 // }
-
-fn cross(base: u16, offset: u8) -> bool {
-  high_byte(base + offset as u16) != high_byte(base)
-}
-
-// fn offset<T: Into<u16>>(base: T, offset: u8) -> u16 {
-//   base.into() + offset as u16
+//
+// fn cross(base: u16, offset: u8) -> bool {
+//   high_byte(base + offset as u16) != high_byte(base)
 // }
 //
-// fn low_byte<T: Into<u16>>(value: T) -> u16 {
-//   value.into() & 0xFF
+// fn high_byte(value: u16) -> u16 {
+//   value & 0xFF00
 // }
 
 fn high_byte(value: u16) -> u16 {
