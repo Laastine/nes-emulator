@@ -1,4 +1,6 @@
+use std::cell::{RefCell, RefMut};
 use std::convert::{TryFrom, TryInto};
+use std::rc::Rc;
 
 use crate::bus::Bus;
 use crate::cpu::instruction_table::{AddrMode6502, Flag6502, hex, LookUpTable, OpCode6502};
@@ -8,7 +10,7 @@ pub mod instruction_table;
 mod cpu_test;
 
 pub struct Cpu {
-  pub bus: Bus,
+  pub bus: Rc<RefCell<Bus>>,
   pub pc: u16,
   pub acc: u8,
   pub x: u8,
@@ -25,7 +27,7 @@ pub struct Cpu {
 }
 
 impl Cpu {
-  pub fn new(bus: Bus) -> Cpu {
+  pub fn new(bus: Rc<RefCell<Bus>>) -> Cpu {
     let lookup = LookUpTable::new();
 
     Cpu {
@@ -46,6 +48,10 @@ impl Cpu {
     }
   }
 
+  pub fn get_mut_bus(&mut self) -> RefMut<Bus> {
+    self.bus.borrow_mut()
+  }
+
   fn set_flag(&mut self, flag: &Flag6502, val: bool) {
     let f = flag.value();
     if val {
@@ -64,15 +70,16 @@ impl Cpu {
   }
 
   pub fn bus_mut_read_u8(&mut self, address: u16) -> u8 {
-    self.bus.read_u8(address) as u8
+    self.get_mut_bus().read_u8(address) as u8
   }
 
   pub fn bus_mut_read_dbg_u8(&mut self, address_start: usize, address_end: usize) -> Vec<u8> {
-    self.bus.read_dbg_u8(address_start, address_end)
+    self.get_mut_bus().read_dbg_u8(address_start, address_end)
   }
 
   fn bus_write_u8(&mut self, address: u16, data: u8) {
-    self.bus.write_u8(address, data, self.system_cycle);
+    let cycles = self.system_cycle;
+    self.get_mut_bus().write_u8(address, data, cycles);
   }
 
   fn get_stack_address(&self) -> u16 {
@@ -197,7 +204,7 @@ impl Cpu {
   }
 
   pub fn irq(&mut self) {
-    if self.get_flag(&Flag6502::I) || self.bus.get_mut_apu().get_irq_flag() {
+    if self.get_flag(&Flag6502::I) || self.get_mut_bus().get_mut_apu().get_irq_flag() {
       self.bus_write_u8(self.get_stack_address(), u8::try_from((self.pc >> 8) & 0x00FF).unwrap());
       self.stack_pointer_decrement();
       self.bus_write_u8(self.get_stack_address(), u8::try_from(self.pc & 0x00FF).unwrap());
@@ -914,7 +921,7 @@ impl Cpu {
 //     while addr < end as u32 {
 //       let line_addr = u16::try_from(addr).unwrap();
 //       let mut codes = format!("$:{}: ", hex(usize::try_from(addr).unwrap(), 4));
-//       let opcode = self.bus.read_u8(u16::try_from(addr).unwrap());
+//       let opcode = self.get_mut_bus().read_u8(u16::try_from(addr).unwrap());
 //       addr += 1;
 //
 //       let name = self.lookup.get_name(opcode.try_into().unwrap());

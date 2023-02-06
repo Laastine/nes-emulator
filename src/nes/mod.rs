@@ -55,6 +55,7 @@ fn init_controller() -> Gilrs {
 
 pub struct Nes {
   apu: Rc<RefCell<Apu>>,
+  bus: Rc<RefCell<Bus>>,
   cpu: Cpu,
   ppu: Rc<RefCell<Ppu>>,
   system_cycles: u32,
@@ -88,8 +89,8 @@ impl Nes {
     let off_screen_pixels = Rc::new(RefCell::new(off_screen));
     let ppu = Rc::new(RefCell::new(Ppu::new(registers, off_screen_pixels.clone())));
 
-    let bus = Bus::new(cart, controller.clone(), ppu.clone(), apu.clone());
-    let cpu = Cpu::new(bus);
+    let bus = Rc::new(RefCell::new(Bus::new(cart, controller.clone(), ppu.clone(), apu.clone())));
+    let cpu = Cpu::new(bus.clone());
 
     let system_cycles = 0;
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
@@ -104,6 +105,7 @@ impl Nes {
 
     Nes {
       apu,
+      bus,
       cpu,
       ppu,
       system_cycles,
@@ -279,15 +281,15 @@ impl Nes {
     }
 
     if (curr_system_cycles % 3) == 0 {
-      if !self.cpu.bus.dma_transfer {
+      if !self.cpu.get_mut_bus().dma_transfer {
         self.get_apu().step(curr_system_cycles);
         self.cpu.clock();
         if self.is_dbg {
           self.draw_ram(0x0000);
         }
-      } else if self.cpu.bus.dma_transfer {
+      } else if self.cpu.get_mut_bus().dma_transfer {
         self.get_apu().flush_samples();
-        self.system_cycles = self.system_cycles.wrapping_add(self.cpu.bus.oam_dma_access(self.system_cycles));
+        self.system_cycles = self.system_cycles.wrapping_add(self.cpu.get_mut_bus().oam_dma_access(self.system_cycles));
       }
     }
 
@@ -296,8 +298,8 @@ impl Nes {
       self.cpu.nmi();
     }
 
-    if self.cpu.bus.borrow().get_cartridge().irq_flag() {
-      self.cpu.bus.get_mut_cartridge().clear_irq_flag();
+    if self.cpu.get_mut_bus().get_cartridge().irq_flag() {
+      self.cpu.get_mut_bus().get_mut_cartridge().clear_irq_flag();
       self.cpu.irq();
     }
 

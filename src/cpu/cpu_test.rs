@@ -26,7 +26,7 @@ fn init_cpu() -> Cpu {
 
   let bus = Bus::new(cart, controller.clone(), ppu.clone(), apu.clone());
 
-  let cpu = Cpu::new(bus);
+  let cpu = Cpu::new(Rc::new(RefCell::new(bus)));
 
   cpu
 }
@@ -38,7 +38,7 @@ macro_rules! build_cpu_and_memory {
 
         let bytes = $bytes;
         for (idx, &b) in bytes.iter().enumerate() {
-          cpu.bus.ram[idx] = b as u8;
+          cpu.get_mut_bus().ram[idx] = b as u8;
         }
 
         cpu
@@ -78,7 +78,7 @@ macro_rules! test_op_code {
         $(mem.push($rb);)*
         mem.insert(0, op.code);
         for (i, &b) in mem.iter().enumerate() {
-            assert!(cpu.bus.ram[i]==b, "Incorrect Memory. Expected ram[{}] to be {}, got 0x{:04X}", i, b, cpu.bus.ram[i]);
+            assert!(cpu.get_mut_bus().ram[i]==b, "Incorrect Memory. Expected ram[{}] to be {}, got 0x{:04X}", i, b, cpu.get_mut_bus().ram[i]);
         }
 
         cpu
