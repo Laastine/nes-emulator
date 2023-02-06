@@ -1,5 +1,4 @@
 use std::{fs, process, thread};
-use std::borrow::Borrow;
 use std::cell::{RefCell, RefMut};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -233,7 +232,7 @@ impl Nes {
       }
 
       if !self.is_paused {
-        self.clock();
+        self.tick();
       }
 
       let is_frame_ready = self.get_ppu().is_frame_ready;
@@ -271,10 +270,10 @@ impl Nes {
     }
   }
 
-  fn clock(&mut self) {
+  fn tick(&mut self) {
     let curr_system_cycles = self.system_cycles;
 
-    let state = self.get_ppu().clock();
+    let state = self.get_ppu().tick();
 
     if state == PpuState::Render {
       self.update_image_buffer();
@@ -282,8 +281,8 @@ impl Nes {
 
     if (curr_system_cycles % 3) == 0 {
       if !self.cpu.get_mut_bus().dma_transfer {
-        self.get_apu().step(curr_system_cycles);
-        self.cpu.clock();
+        self.get_apu().tick(curr_system_cycles);
+        self.cpu.tick();
         if self.is_dbg {
           self.draw_ram(0x0000);
         }

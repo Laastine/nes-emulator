@@ -127,7 +127,7 @@ impl Cpu {
     }
   }
 
-  pub fn clock(&mut self) {
+  pub fn tick(&mut self) {
     self.opcode = self.bus_mut_read_u8(self.pc);
 
     self.pc_increment();

@@ -187,7 +187,7 @@ impl Ppu {
     }
   }
 
-  pub fn clock(&mut self) -> PpuState {
+  pub fn tick(&mut self) -> PpuState {
     let mut state = PpuState::NoOp;
     match self.scan_line {
       (0..=239) => {

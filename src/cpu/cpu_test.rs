@@ -60,7 +60,7 @@ macro_rules! test_op_code {
 
         let start_p = cpu.status_register;
         $(cpu.$sk=$sv;)*
-        cpu.clock();
+        cpu.tick();
         assert!(0 == cpu.status_register & start_p & !op.mask, "Register mask not respected. P: 0b{:b}", cpu.status_register);
 
         if op.size > 0 {

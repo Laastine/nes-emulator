@@ -49,11 +49,11 @@ impl Apu {
   pub fn reset(&mut self) {
     self.apu_write_reg(0x4017, 0, 0);
     for idx in 0..=0x0A {
-      self.step(idx);
+      self.tick(idx);
     }
   }
 
-  pub fn step(&mut self, cycle: u32) {
+  pub fn tick(&mut self, cycle: u32) {
     self.triangle.step_sequencer();
     if cycle % 2 == 1 {
       self.pulse_0.step_sequencer();
