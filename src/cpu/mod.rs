@@ -1,12 +1,16 @@
+use std::cell::{RefCell, RefMut};
 use std::convert::{TryFrom, TryInto};
+use std::rc::Rc;
 
 use crate::bus::Bus;
 use crate::cpu::instruction_table::{AddrMode6502, Flag6502, hex, LookUpTable, OpCode6502};
 
 pub mod instruction_table;
+#[cfg(test)]
+mod cpu_test;
 
 pub struct Cpu {
-  pub bus: Bus,
+  pub bus: Rc<RefCell<Bus>>,
   pub pc: u16,
   pub acc: u8,
   pub x: u8,
@@ -23,7 +27,7 @@ pub struct Cpu {
 }
 
 impl Cpu {
-  pub fn new(bus: Bus) -> Cpu {
+  pub fn new(bus: Rc<RefCell<Bus>>) -> Cpu {
     let lookup = LookUpTable::new();
 
     Cpu {
@@ -44,6 +48,10 @@ impl Cpu {
     }
   }
 
+  pub fn get_mut_bus(&mut self) -> RefMut<Bus> {
+    self.bus.borrow_mut()
+  }
+
   fn set_flag(&mut self, flag: &Flag6502, val: bool) {
     let f = flag.value();
     if val {
@@ -57,21 +65,26 @@ impl Cpu {
     (self.status_register & flag.value()) > 0
   }
 
-  fn get_flag_val(&self, flag: &Flag6502) -> u16 {
-    //if (self.status_register & flag.value()) > 0 { 1 } else { 0 }
-    u16::from(self.status_register & flag.value() > 0)
+  fn get_flag_val(&self, flag: &Flag6502) -> u8 {
+    u8::from(self.status_register & flag.value() > 0)
   }
 
   pub fn bus_mut_read_u8(&mut self, address: u16) -> u8 {
-    self.bus.read_u8(address) as u8
+    self.get_mut_bus().read_u8(address) as u8
   }
 
   pub fn bus_mut_read_dbg_u8(&mut self, address_start: usize, address_end: usize) -> Vec<u8> {
-    self.bus.read_dbg_u8(address_start, address_end)
+    self.get_mut_bus().read_dbg_u8(address_start, address_end)
   }
 
   fn bus_write_u8(&mut self, address: u16, data: u8) {
-    self.bus.write_u8(address, data, self.system_cycle);
+    let cycles = self.system_cycle;
+    self.get_mut_bus().write_u8(address, data, cycles);
+  }
+
+  fn bus_write_with_tick(&mut self, address: u16, data: u8) {
+    let cycles = self.system_cycle;
+    self.get_mut_bus().write_u8(address, data, cycles);
   }
 
   fn get_stack_address(&self) -> u16 {
@@ -94,50 +107,43 @@ impl Cpu {
     self.stack_pointer = self.stack_pointer.wrapping_sub(1);
   }
 
-  fn set_flags_zero_and_negative(&mut self, val: u16) {
-    self.set_flag(&Flag6502::Z, val == 0x00);
-    self.set_flag(&Flag6502::N, (val & 0x80) > 0);
+  fn set_flags_zero_and_negative(&mut self, val: u8) {
+    self.set_flag(&Flag6502::Z, (val) == 0x00);
+    self.set_flag(&Flag6502::N, (val & 0x0080) > 0);
   }
 
   fn branching(&mut self, condition: bool) -> u8 {
     if condition {
       self.cycles_increment();
-      self.addr_abs = self.pc.wrapping_add(self.addr_rel);
-      if (self.addr_abs & 0xFF00) != (self.pc & 0xFF00) {
+      let new_pc = self.pc.wrapping_add(self.addr_rel);
+      if (new_pc & 0xFF00) != (self.pc & 0xFF00) {
         self.cycles_increment();
       }
-      self.pc = self.addr_abs;
+      self.pc = new_pc;
     }
     0
   }
 
-  fn return_or_write_memory(&mut self, val: u16) {
+  fn return_or_write_memory(&mut self, val: u8) {
     if self.addr_mode() == AddrMode6502::Imp {
-      self.acc = u8::try_from(val & 0xFF).unwrap();
+      self.acc = val;
     } else {
-      self.bus_write_u8(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
+      self.bus_write_with_tick(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
     }
   }
 
-  pub fn clock(&mut self, system_cycle: u32) {
-    if self.cycle == 0 {
-      self.system_cycle = system_cycle;
-      self.opcode = self.bus_mut_read_u8(self.pc);
+  pub fn tick(&mut self) {
+    self.opcode = self.bus_mut_read_u8(self.pc);
 
-      self.set_flag(&Flag6502::U, true);
-      self.pc_increment();
+    self.pc_increment();
 
-      let opcode_idx = usize::try_from(self.opcode).unwrap();
-      self.cycle = self.lookup.get_cycles(opcode_idx);
+    let opcode_idx = usize::try_from(self.opcode).unwrap();
+    self.cycle = self.lookup.get_cycles(opcode_idx);
 
-      let addr_mode = *self.lookup.get_addr_mode(opcode_idx);
-      let operate = *self.lookup.get_operate(opcode_idx);
+    let addr_mode = *self.lookup.get_addr_mode(opcode_idx);
+    let operate = *self.lookup.get_operate(opcode_idx);
 
-      self.cycle += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
-
-      self.set_flag(&Flag6502::U, true);
-    }
-    self.cycle -= 1;
+    self.cycle += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
   }
 
   #[allow(dead_code)]
@@ -203,7 +209,7 @@ impl Cpu {
   }
 
   pub fn irq(&mut self) {
-    if self.get_flag(&Flag6502::I) || self.bus.get_mut_apu().get_irq_flag() {
+    if self.get_flag(&Flag6502::I) || self.get_mut_bus().get_mut_apu().get_irq_flag() {
       self.bus_write_u8(self.get_stack_address(), u8::try_from((self.pc >> 8) & 0x00FF).unwrap());
       self.stack_pointer_decrement();
       self.bus_write_u8(self.get_stack_address(), u8::try_from(self.pc & 0x00FF).unwrap());
@@ -381,10 +387,10 @@ impl Cpu {
     (lo_byte, (hi_byte << 8))
   }
 
-  ///OPCODES
+  /// OP CODES
   pub fn op_code_value(&mut self, op_code: OpCode6502) -> u8 {
     match op_code {
-      OpCode6502::Add => self.adc(),
+      OpCode6502::Adc => self.adc(),
       OpCode6502::And => self.and(),
       OpCode6502::Asl => self.asl(),
       OpCode6502::Bcc => self.bcc(),
@@ -449,7 +455,7 @@ impl Cpu {
     self.fetch();
     let val = u16::try_from(self.acc).unwrap()
       .wrapping_add(u16::try_from(self.fetched).unwrap())
-      .wrapping_add(self.get_flag_val(&Flag6502::C));
+      .wrapping_add(self.get_flag_val(&Flag6502::C).into());
 
     self.set_flag(&Flag6502::C, (val) > 255);
     self.set_flag(
@@ -460,7 +466,7 @@ impl Cpu {
         & 0x80)
         > 0,
     );
-    self.set_flags_zero_and_negative(val & 0xFF);
+    self.set_flags_zero_and_negative((val & 0xFF) as u8);
     self.acc = u8::try_from(val & 0xFF).unwrap();
     1
   }
@@ -470,10 +476,12 @@ impl Cpu {
     self.fetch();
     let val = u16::try_from(self.fetched).unwrap() << 1;
     self.set_flag(&Flag6502::C, (val & 0xFF00) > 0);
+    let cycles = self.system_cycle;
+    self.get_mut_bus().tick(cycles);
     self.set_flag(&Flag6502::Z, val.trailing_zeros() > 7);
     self.set_flag(&Flag6502::N, (val & 0x80) > 0);
 
-    self.return_or_write_memory(val);
+    self.return_or_write_memory((val & 0xFF) as u8);
     0
   }
 
@@ -582,7 +590,7 @@ impl Cpu {
   /// Compare with accumulator
   pub fn cmp(&mut self) -> u8 {
     self.fetch();
-    let val = u16::try_from(self.acc.wrapping_sub(self.fetched)).unwrap();
+    let val = self.acc.wrapping_sub(self.fetched);
     self.set_flag(&Flag6502::C, self.acc >= self.fetched);
     self.set_flags_zero_and_negative(val);
     1
@@ -591,7 +599,7 @@ impl Cpu {
   /// Compare with X
   pub fn cpx(&mut self) -> u8 {
     self.fetch();
-    let val = u16::try_from(self.x.wrapping_sub(self.fetched)).unwrap();
+    let val = self.x.wrapping_sub(self.fetched);
     self.set_flag(&Flag6502::C, self.x >= self.fetched);
     self.set_flags_zero_and_negative(val);
     0
@@ -600,7 +608,7 @@ impl Cpu {
   /// Compare with Y
   pub fn cpy(&mut self) -> u8 {
     self.fetch();
-    let val = u16::try_from(self.y.wrapping_sub(self.fetched)).unwrap();
+    let val = self.y.wrapping_sub(self.fetched);
     self.set_flag(&Flag6502::C, self.y >= self.fetched);
     self.set_flags_zero_and_negative(val);
     0
@@ -609,7 +617,7 @@ impl Cpu {
   /// Decrement
   pub fn dec(&mut self) -> u8 {
     self.fetch();
-    let val = u16::try_from(self.fetched).unwrap().wrapping_sub(1);
+    let val = self.fetched.wrapping_sub(1);
     self.bus_write_u8(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
     self.set_flags_zero_and_negative(val);
     0
@@ -642,7 +650,7 @@ impl Cpu {
     self.fetch();
     let val = u16::try_from(self.fetched.wrapping_add(1)).unwrap();
     self.bus_write_u8(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
-    self.set_flags_zero_and_negative(val);
+    self.set_flags_zero_and_negative((val & 0xFF) as u8);
     0
   }
 
@@ -709,10 +717,12 @@ impl Cpu {
   pub fn lsr(&mut self) -> u8 {
     self.fetch();
     self.set_flag(&Flag6502::C, (self.fetched & 1) > 0);
+    let cycles = self.system_cycle;
+    self.get_mut_bus().tick(cycles);
     let val = u16::try_from(self.fetched >> 1).unwrap();
-    self.set_flags_zero_and_negative(val);
+    self.set_flags_zero_and_negative((val & 0xFF) as u8);
 
-    self.return_or_write_memory(val);
+    self.return_or_write_memory((val & 0xFF) as u8);
     0
   }
 
@@ -769,18 +779,18 @@ impl Cpu {
   /// Rotate left
   pub fn rol(&mut self) -> u8 {
     self.fetch();
-    let val = (u16::try_from(self.fetched).unwrap() << 1) | self.get_flag_val(&Flag6502::C);
+    let val = (u16::try_from(self.fetched).unwrap() << 1) | u16::try_from(self.get_flag_val(&Flag6502::C)).unwrap();
     self.set_flag(&Flag6502::C, (val & 0xFF00) > 0);
-    self.set_flags_zero_and_negative(val);
+    self.set_flags_zero_and_negative((val & 0xFF) as u8);
 
-    self.return_or_write_memory(val);
+    self.return_or_write_memory((val & 0xFF) as u8);
     0
   }
 
   /// Rotate right
   pub fn ror(&mut self) -> u8 {
     self.fetch();
-    let val = (self.get_flag_val(&Flag6502::C) << 7) | (u16::try_from(self.fetched).unwrap() >> 1);
+    let val = (self.get_flag_val(&Flag6502::C) << 7) | (self.fetched >> 1);
     self.set_flag(&Flag6502::C, (self.fetched & 0x01) > 0);
     self.set_flags_zero_and_negative(val);
 
@@ -826,11 +836,11 @@ impl Cpu {
 
     let val = u16::try_from(self.acc).unwrap()
       .wrapping_add(value)
-      .wrapping_add(self.get_flag_val(&Flag6502::C));
+      .wrapping_add(self.get_flag_val(&Flag6502::C).into());
 
     self.set_flag(&Flag6502::C, (val & 0xFF00) > 0);
     self.set_flag(&Flag6502::V, ((val ^ u16::try_from(self.acc).unwrap()) & (val ^ value) & 0x80) > 0);
-    self.set_flags_zero_and_negative(val & 0xFF);
+    self.set_flags_zero_and_negative((val & 0xFF) as u8);
     self.acc = u8::try_from(val & 0xFF).unwrap();
     1
   }
@@ -920,7 +930,7 @@ impl Cpu {
 //     while addr < end as u32 {
 //       let line_addr = u16::try_from(addr).unwrap();
 //       let mut codes = format!("$:{}: ", hex(usize::try_from(addr).unwrap(), 4));
-//       let opcode = self.bus.read_u8(u16::try_from(addr).unwrap());
+//       let opcode = self.get_mut_bus().read_u8(u16::try_from(addr).unwrap());
 //       addr += 1;
 //
 //       let name = self.lookup.get_name(opcode.try_into().unwrap());

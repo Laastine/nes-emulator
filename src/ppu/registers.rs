@@ -186,7 +186,6 @@ impl Registers {
       0
     }
   }
-
   pub fn ppu_write_reg(&mut self, address: u16, data: u8) {
     let addr = address & 0x3FFF;
     if (0x0000..=0x1FFF).contains(&addr) {

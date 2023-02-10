@@ -1,5 +1,4 @@
 use std::{fs, process, thread};
-use std::borrow::Borrow;
 use std::cell::{RefCell, RefMut};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -55,8 +54,9 @@ fn init_controller() -> Gilrs {
 
 pub struct Nes {
   apu: Rc<RefCell<Apu>>,
+  bus: Rc<RefCell<Bus>>,
   cpu: Cpu,
-  ppu: Ppu,
+  ppu: Rc<RefCell<Ppu>>,
   system_cycles: u32,
   window_context: WindowContext,
   controller: Rc<RefCell<Controller>>,
@@ -82,15 +82,14 @@ impl Nes {
     let controller = Rc::new(RefCell::new(Controller::new()));
 
     let apu = Rc::new(RefCell::new(Apu::new()));
-
     let registers = Rc::new(RefCell::new(Registers::new(cart.clone())));
-    let bus = Bus::new(cart, registers.clone(), controller.clone(), apu.clone());
-
-    let cpu = Cpu::new(bus);
 
     let off_screen: OffScreenBuffer = [[0u8; 3]; (SCREEN_RES_X * SCREEN_RES_Y) as usize];
     let off_screen_pixels = Rc::new(RefCell::new(off_screen));
-    let ppu = Ppu::new(registers, off_screen_pixels.clone());
+    let ppu = Rc::new(RefCell::new(Ppu::new(registers, off_screen_pixels.clone())));
+
+    let bus = Rc::new(RefCell::new(Bus::new(cart, controller.clone(), ppu.clone(), apu.clone())));
+    let cpu = Cpu::new(bus.clone());
 
     let system_cycles = 0;
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
@@ -105,6 +104,7 @@ impl Nes {
 
     Nes {
       apu,
+      bus,
       cpu,
       ppu,
       system_cycles,
@@ -124,6 +124,11 @@ impl Nes {
   #[inline]
   fn get_apu(&mut self) -> RefMut<Apu> {
     self.apu.borrow_mut()
+  }
+
+  #[inline]
+  fn get_ppu(&mut self) -> RefMut<Ppu> {
+    self.ppu.borrow_mut()
   }
 
   #[inline]
@@ -217,7 +222,7 @@ impl Nes {
           Some(KeyboardCommand::Exit) => break 'app,
           Some(KeyboardCommand::Reset) => {
             self.cpu.reset();
-            self.ppu.reset();
+            self.get_ppu().reset();
             self.get_apu().reset();
           }
           Some(KeyboardCommand::Resize) => self.window_context.resize = true,
@@ -227,15 +232,16 @@ impl Nes {
       }
 
       if !self.is_paused {
-        self.clock();
+        self.tick();
       }
 
-      if self.ppu.is_frame_ready || self.is_paused {
+      let is_frame_ready = self.get_ppu().is_frame_ready;
+      if is_frame_ready || self.is_paused {
         if keyboard_state == Some(KeyboardCommand::Resize) {
           self.window_context.resize = true;
         }
         self.render_screen();
-        self.ppu.is_frame_ready = false;
+        self.get_ppu().is_frame_ready = false;
 
         if let Some(delay) = FRAME_DURATION.checked_sub(last_time.elapsed()) {
           thread::sleep(delay);
@@ -264,35 +270,35 @@ impl Nes {
     }
   }
 
-  fn clock(&mut self) {
+  fn tick(&mut self) {
     let curr_system_cycles = self.system_cycles;
 
-    let state = self.ppu.clock();
+    let state = self.get_ppu().tick();
 
     if state == PpuState::Render {
       self.update_image_buffer();
     }
 
     if (curr_system_cycles % 3) == 0 {
-      if !self.cpu.bus.dma_transfer {
-        self.get_apu().step(curr_system_cycles);
-        self.cpu.clock(curr_system_cycles);
+      if !self.cpu.get_mut_bus().dma_transfer {
+        self.get_apu().tick(curr_system_cycles);
+        self.cpu.tick();
         if self.is_dbg {
           self.draw_ram(0x0000);
         }
-      } else if self.cpu.bus.dma_transfer {
+      } else if self.cpu.get_mut_bus().dma_transfer {
         self.get_apu().flush_samples();
-        self.system_cycles = self.system_cycles.wrapping_add(self.cpu.bus.oam_dma_access(self.system_cycles));
+        self.system_cycles = self.system_cycles.wrapping_add(self.cpu.get_mut_bus().oam_dma_access(self.system_cycles));
       }
     }
 
-    if self.ppu.nmi {
-      self.ppu.nmi = false;
+    if self.get_ppu().nmi {
+      self.get_ppu().nmi = false;
       self.cpu.nmi();
     }
 
-    if self.cpu.bus.borrow().get_cartridge().irq_flag() {
-      self.cpu.bus.get_mut_cartridge().clear_irq_flag();
+    if self.cpu.get_mut_bus().get_cartridge().irq_flag() {
+      self.cpu.get_mut_bus().get_mut_cartridge().clear_irq_flag();
       self.cpu.irq();
     }
 
@@ -367,7 +373,7 @@ impl Nes {
 
   pub fn reset(&mut self) {
     self.cpu.reset();
-    self.ppu.reset();
+    self.get_ppu().reset();
     self.off_screen_pixels.replace([[0u8; 3]; 256 * 240]);
     self.system_cycles = 0;
   }
