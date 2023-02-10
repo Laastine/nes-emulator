@@ -67,7 +67,7 @@ impl Apu {
     self.pulse_1.update_length_counter();
     self.triangle.update_length_counter();
 
-    if cycle % 40 == 0 && self.buf.len() < AUDIO_BUFFER_LIMIT {
+    if cycle % 40 == 0 /*&& self.buf.len() < AUDIO_BUFFER_LIMIT*/ {
       let sample = self.sample();
       self.buf.push(sample);
       self.buf.push(sample);

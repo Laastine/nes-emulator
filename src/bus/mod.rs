@@ -9,6 +9,8 @@ use crate::ppu::Ppu;
 
 pub const MEM_SIZE: usize = 0x0800;
 
+mod interrupt;
+
 #[derive(Clone)]
 pub struct Bus {
   pub cartridge: Rc<RefCell<Box<Cartridge>>>,
@@ -37,6 +39,29 @@ impl Bus {
     }
   }
 
+  pub fn tick(&mut self, cycle: u32) {
+    self.get_mut_apu().tick(cycle);
+    self.nmi.tick();
+    self.get_mut_ppu().tick();
+    self.get_mut_ppu().tick();
+    self.get_mut_ppu().tick();
+  }
+
+  fn handle_ppu_result(&mut self, result: PpuResult) {
+    match result {
+      PpuResult::Nmi => {
+        self.nmi.schedule(1);
+      }
+      PpuResult::Scanline => if let Some(c) = self.cartridge {
+        c.borrow_mut().signal_scanline();
+      },
+      PpuResult::Draw => {
+        self.draw = true;
+      }
+      PpuResult::None => {}
+    }
+  }
+
   fn get_controller(&mut self) -> RefMut<Controller> {
     self.controller.borrow_mut()
   }
@@ -55,6 +80,11 @@ impl Bus {
 
   pub fn get_mut_ppu(&mut self) -> RefMut<Ppu> {
     self.ppu.borrow_mut()
+  }
+
+  pub fn write_u8_with_tick(&mut self, address: u16, data: u8, cycles: u32) {
+    self.tick(cycles);
+    self.write_u8(address, data, cycles);
   }
 
   pub fn write_u8(&mut self, address: u16, data: u8, cycles: u32) {

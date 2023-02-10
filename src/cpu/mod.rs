@@ -82,6 +82,11 @@ impl Cpu {
     self.get_mut_bus().write_u8(address, data, cycles);
   }
 
+  fn bus_write_with_tick(&mut self, address: u16, data: u8) {
+    let cycles = self.system_cycle;
+    self.get_mut_bus().write_u8(address, data, cycles);
+  }
+
   fn get_stack_address(&self) -> u16 {
     0x0100 + u16::try_from(self.stack_pointer).unwrap()
   }
@@ -123,7 +128,7 @@ impl Cpu {
     if self.addr_mode() == AddrMode6502::Imp {
       self.acc = val;
     } else {
-      self.bus_write_u8(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
+      self.bus_write_with_tick(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
     }
   }
 
@@ -471,6 +476,8 @@ impl Cpu {
     self.fetch();
     let val = u16::try_from(self.fetched).unwrap() << 1;
     self.set_flag(&Flag6502::C, (val & 0xFF00) > 0);
+    let cycles = self.system_cycle;
+    self.get_mut_bus().tick(cycles);
     self.set_flag(&Flag6502::Z, val.trailing_zeros() > 7);
     self.set_flag(&Flag6502::N, (val & 0x80) > 0);
 
@@ -710,6 +717,8 @@ impl Cpu {
   pub fn lsr(&mut self) -> u8 {
     self.fetch();
     self.set_flag(&Flag6502::C, (self.fetched & 1) > 0);
+    let cycles = self.system_cycle;
+    self.get_mut_bus().tick(cycles);
     let val = u16::try_from(self.fetched >> 1).unwrap();
     self.set_flags_zero_and_negative((val & 0xFF) as u8);
 
