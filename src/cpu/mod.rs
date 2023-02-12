@@ -143,7 +143,7 @@ impl Cpu {
     let addr_mode = *self.lookup.get_addr_mode(opcode_idx);
     let operate = *self.lookup.get_operate(opcode_idx);
 
-    self.cycle += self.addr_mode_value(addr_mode) & self.op_code_value(operate);
+    self.cycle += self.addr_mode_value(addr_mode) & self.op_code_value(operate, addr_mode);
   }
 
   #[allow(dead_code)]
@@ -388,7 +388,7 @@ impl Cpu {
   }
 
   /// OP CODES
-  pub fn op_code_value(&mut self, op_code: OpCode6502) -> u8 {
+  pub fn op_code_value(&mut self, op_code: OpCode6502, addr_mode: AddrMode6502) -> u8 {
     match op_code {
       OpCode6502::Adc => self.adc(),
       OpCode6502::And => self.and(),

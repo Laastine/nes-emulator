@@ -41,6 +41,9 @@ impl Cartridge {
 
   pub fn clear_irq_flag(&mut self) { self.mapper.clear_irq_flag() }
 
+  pub fn signal_scanline(&mut self) {
+    !unimplemented!()
+  }
 
   pub fn get_mirror_mode(&self) -> Mirroring {
     self.mapper.mirroring()

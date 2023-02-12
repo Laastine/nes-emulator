@@ -5,7 +5,7 @@ use crate::bus::Bus;
 use crate::cartridge::Cartridge;
 use crate::cpu::Cpu;
 use crate::ppu::Ppu;
-use crate::cpu::instruction_table::{AddrMode6502, Instruction6502};
+use crate::cpu::instruction_table::{AddrMode6502};
 use crate::cpu::instruction_table::AddrMode6502::*;
 use crate::nes::{OffScreenBuffer, controller::Controller};
 use crate::ppu::registers::Registers;

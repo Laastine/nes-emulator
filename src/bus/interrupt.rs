@@ -1,13 +1,14 @@
+#[derive(Copy, Clone)]
 pub struct Interrupt {
   schedule: Option<u8>,
 }
 
 impl Interrupt {
-  fn new() -> Self {
+  pub fn new() -> Self {
     Interrupt { schedule: None }
   }
 
-  fn tick(&mut self) {
+  pub fn tick(&mut self) {
     match self.schedule.as_mut() {
       Some(v) => if *v > 0 {
         *v -= 1

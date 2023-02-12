@@ -25,7 +25,7 @@ pub struct Apu {
   pub triangle: Triangle
 }
 
-const AUDIO_BUFFER_LIMIT: usize = 1470;
+// const AUDIO_BUFFER_LIMIT: usize = 1470;
 
 impl Apu {
   pub fn new() -> Apu {

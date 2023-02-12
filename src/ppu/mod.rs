@@ -10,10 +10,12 @@ use crate::ppu::registers::{get_nth_bit, Registers};
 pub mod registers;
 mod oam_sprite;
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Copy, Clone, Eq, PartialEq)]
 pub enum PpuState {
   Render,
-  NoOp
+  NonMaskableInterrupt,
+  NoOp,
+  Scanline,
 }
 
 pub struct Ppu {
@@ -212,20 +214,23 @@ impl Ppu {
 
           if self.get_registers().ctrl_flags.enable_nmi() {
             self.nmi = true;
+            state = PpuState::NonMaskableInterrupt
           } else {
             self.nmi = false;
+            state = PpuState::NoOp
           }
         }
       }
       _ => ()
     }
 
-    if !self.nmi {
-      self.nmi = {
-        let reg = self.get_mut_registers();
-        reg.status_flags.vertical_blank() && reg.force_nmi && !reg.vblank_suppress
+    if self.get_mut_registers().status_flags.vertical_blank() && self.get_mut_registers().force_nmi && !self.get_mut_registers().vblank_suppress {
+        if let PpuState::NoOp = state {
+          state = PpuState::NonMaskableInterrupt;
+        } else {
+          panic!("Invalid state");
+        }
       };
-    }
 
     self.get_mut_registers().force_nmi = false;
     self.get_mut_registers().vblank_suppress = false;

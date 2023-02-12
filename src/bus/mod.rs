@@ -3,9 +3,10 @@ use std::convert::{TryFrom, TryInto};
 use std::rc::Rc;
 
 use crate::apu::Apu;
+use crate::bus::interrupt::Interrupt;
 use crate::cartridge::Cartridge;
 use crate::nes::controller::Controller;
-use crate::ppu::Ppu;
+use crate::ppu::{Ppu, PpuState};
 
 pub const MEM_SIZE: usize = 0x0800;
 
@@ -18,15 +19,19 @@ pub struct Bus {
   apu: Rc<RefCell<Apu>>,
   ppu: Rc<RefCell<Ppu>>,
   controller: Rc<RefCell<Controller>>,
+  nmi: Interrupt,
   pub dma_transfer: bool,
   dma_page: u8,
+  render: bool,
 }
 
 impl Bus {
   pub fn new(cartridge: Rc<RefCell<Box<Cartridge>>>, controller: Rc<RefCell<Controller>>, ppu: Rc<RefCell<Ppu>>, apu: Rc<RefCell<Apu>>) -> Bus {
     let ram = [0u8; MEM_SIZE];
     let dma_transfer = false;
+    let render = false;
     let dma_page = 0x00;
+    let nmi = Interrupt::new();
 
     Bus {
       cartridge,
@@ -34,31 +39,36 @@ impl Bus {
       ppu,
       apu,
       controller,
+      nmi,
       dma_transfer,
       dma_page,
+      render,
     }
   }
 
   pub fn tick(&mut self, cycle: u32) {
     self.get_mut_apu().tick(cycle);
     self.nmi.tick();
-    self.get_mut_ppu().tick();
-    self.get_mut_ppu().tick();
-    self.get_mut_ppu().tick();
+    let r = self.get_mut_ppu().tick();
+    self.handle_ppu_result(r);
+    let r =  self.get_mut_ppu().tick();
+    self.handle_ppu_result(r);
+    let r =  self.get_mut_ppu().tick();
+    self.handle_ppu_result(r);
   }
 
-  fn handle_ppu_result(&mut self, result: PpuResult) {
+  fn handle_ppu_result(&mut self, result: PpuState) {
     match result {
-      PpuResult::Nmi => {
+      PpuState::NonMaskableInterrupt => {
         self.nmi.schedule(1);
       }
-      PpuResult::Scanline => if let Some(c) = self.cartridge {
-        c.borrow_mut().signal_scanline();
+      PpuState::Scanline =>  {
+        self.get_mut_cartridge().signal_scanline();
       },
-      PpuResult::Draw => {
-        self.draw = true;
+      PpuState::Render => {
+        self.render = true;
       }
-      PpuResult::None => {}
+      PpuState::NoOp => {}
     }
   }
 
