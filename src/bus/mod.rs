@@ -15,6 +15,7 @@ mod interrupt;
 #[derive(Clone)]
 pub struct Bus {
   pub cartridge: Rc<RefCell<Box<Cartridge>>>,
+  pub cycles: u32,
   pub ram: [u8; MEM_SIZE],
   apu: Rc<RefCell<Apu>>,
   ppu: Rc<RefCell<Ppu>>,
@@ -32,9 +33,11 @@ impl Bus {
     let render = false;
     let dma_page = 0x00;
     let nmi = Interrupt::new();
+    let cycles = 0;
 
     Bus {
       cartridge,
+      cycles,
       ram,
       ppu,
       apu,
@@ -46,8 +49,11 @@ impl Bus {
     }
   }
 
-  pub fn tick(&mut self, cycle: u32) {
-    self.get_mut_apu().tick(cycle);
+  pub fn tick(&mut self) {
+    self.cycles += 1;
+    let c = self.cycles;
+    self.get_mut_apu().tick(c);
+    // TODO: siirrä nes/mod.rs cycles logiikkaa bus tick funktioon.
     self.nmi.tick();
     let r = self.get_mut_ppu().tick();
     self.handle_ppu_result(r);
@@ -92,12 +98,13 @@ impl Bus {
     self.ppu.borrow_mut()
   }
 
-  pub fn write_u8_with_tick(&mut self, address: u16, data: u8, cycles: u32) {
-    self.tick(cycles);
-    self.write_u8(address, data, cycles);
+  pub fn write_u8_with_tick(&mut self, address: u16, data: u8) {
+    self.tick();
+    self.write_u8(address, data);
   }
 
-  pub fn write_u8(&mut self, address: u16, data: u8, cycles: u32) {
+  pub fn write_u8(&mut self, address: u16, data: u8) {
+    let cycles = self.cycles;
     if (0x0000..=0x1FFF).contains(&address) {
       self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
     } else if (0x2000..=0x3FFF).contains(&address) {

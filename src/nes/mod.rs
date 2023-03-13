@@ -57,7 +57,6 @@ pub struct Nes {
   bus: Rc<RefCell<Bus>>,
   cpu: Cpu,
   ppu: Rc<RefCell<Ppu>>,
-  system_cycles: u32,
   window_context: WindowContext,
   controller: Rc<RefCell<Controller>>,
   image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
@@ -91,7 +90,6 @@ impl Nes {
     let bus = Rc::new(RefCell::new(Bus::new(cart, controller.clone(), ppu.clone(), apu.clone())));
     let cpu = Cpu::new(bus.clone());
 
-    let system_cycles = 0;
     let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
 
     let is_paused = false;
@@ -107,7 +105,6 @@ impl Nes {
       bus,
       cpu,
       ppu,
-      system_cycles,
       window_context,
       controller,
       image_buffer,
@@ -129,6 +126,10 @@ impl Nes {
   #[inline]
   fn get_ppu(&mut self) -> RefMut<Ppu> {
     self.ppu.borrow_mut()
+  }
+
+  fn get_bus(&mut self) -> RefMut<Bus> {
+    self.bus.borrow_mut()
   }
 
   #[inline]
@@ -271,7 +272,8 @@ impl Nes {
   }
 
   fn tick(&mut self) {
-    let curr_system_cycles = self.system_cycles;
+    // self.get_bus().tick();
+    let curr_system_cycles = self.get_bus().cycles;
 
     let state = self.get_ppu().tick();
 
@@ -280,15 +282,16 @@ impl Nes {
     }
 
     if (curr_system_cycles % 3) == 0 {
-      if !self.cpu.get_mut_bus().dma_transfer {
+      if !self.get_bus().dma_transfer {
         self.get_apu().tick(curr_system_cycles);
         self.cpu.tick();
         if self.is_dbg {
           self.draw_ram(0x0000);
         }
-      } else if self.cpu.get_mut_bus().dma_transfer {
+      } else if self.get_bus().dma_transfer {
         self.get_apu().flush_samples();
-        self.system_cycles = self.system_cycles.wrapping_add(self.cpu.get_mut_bus().oam_dma_access(self.system_cycles));
+        let oam_cycles = self.cpu.get_mut_bus().oam_dma_access(curr_system_cycles);
+        self.get_bus().cycles = curr_system_cycles.wrapping_add(oam_cycles);
       }
     }
 
@@ -302,7 +305,7 @@ impl Nes {
       self.cpu.irq();
     }
 
-    self.system_cycles = self.system_cycles.wrapping_add(1);
+    self.get_bus().cycles = curr_system_cycles.wrapping_add(1);
   }
 
   fn update_image_buffer(&mut self) {
@@ -375,6 +378,6 @@ impl Nes {
     self.cpu.reset();
     self.get_ppu().reset();
     self.off_screen_pixels.replace([[0u8; 3]; 256 * 240]);
-    self.system_cycles = 0;
+    self.get_bus().cycles = 0;
   }
 }

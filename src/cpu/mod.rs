@@ -23,7 +23,6 @@ pub struct Cpu {
   pub opcode: u8,
   pub cycle: u8,
   lookup: LookUpTable,
-  system_cycle: u32,
 }
 
 impl Cpu {
@@ -44,7 +43,6 @@ impl Cpu {
       status_register: 0u8,
       cycle: 0u8,
       lookup,
-      system_cycle: 0,
     }
   }
 
@@ -78,13 +76,11 @@ impl Cpu {
   }
 
   fn bus_write_u8(&mut self, address: u16, data: u8) {
-    let cycles = self.system_cycle;
-    self.get_mut_bus().write_u8(address, data, cycles);
+    self.get_mut_bus().write_u8(address, data);
   }
 
   fn bus_write_with_tick(&mut self, address: u16, data: u8) {
-    let cycles = self.system_cycle;
-    self.get_mut_bus().write_u8(address, data, cycles);
+    self.get_mut_bus().write_u8(address, data);
   }
 
   fn get_stack_address(&self) -> u16 {
@@ -422,7 +418,7 @@ impl Cpu {
       OpCode6502::Lda => self.lda(),
       OpCode6502::Ldx => self.ldx(),
       OpCode6502::Ldy => self.ldy(),
-      OpCode6502::Lsr => self.lsr(),
+      OpCode6502::Lsr => self.lsr(addr_mode),
       OpCode6502::Nop => self.nop(),
       OpCode6502::Ora => self.ora(),
       OpCode6502::Pha => self.pha(),
@@ -476,8 +472,7 @@ impl Cpu {
     self.fetch();
     let val = u16::try_from(self.fetched).unwrap() << 1;
     self.set_flag(&Flag6502::C, (val & 0xFF00) > 0);
-    let cycles = self.system_cycle;
-    self.get_mut_bus().tick(cycles);
+    self.get_mut_bus().tick();
     self.set_flag(&Flag6502::Z, val.trailing_zeros() > 7);
     self.set_flag(&Flag6502::N, (val & 0x80) > 0);
 
@@ -714,15 +709,19 @@ impl Cpu {
   }
 
   /// Logical shift right
-  pub fn lsr(&mut self) -> u8 {
+  pub fn lsr(&mut self, _addr_mode: AddrMode6502) -> u8 {
     self.fetch();
     self.set_flag(&Flag6502::C, (self.fetched & 1) > 0);
-    let cycles = self.system_cycle;
-    self.get_mut_bus().tick(cycles);
+    self.get_mut_bus().tick();
     let val = u16::try_from(self.fetched >> 1).unwrap();
     self.set_flags_zero_and_negative((val & 0xFF) as u8);
 
     self.return_or_write_memory((val & 0xFF) as u8);
+    // if addr_mode != AddrMode6502::Imp {
+    //   self.get_mut_bus().write_u8_with_tick(address, value);
+    // } else {
+    //   self.acc = self.fetched;
+    // }
     0
   }
 
@@ -1025,4 +1024,21 @@ impl Cpu {
 //     let hi_byte = self.bus_mut_read_u8(addr.try_into().unwrap());
 //     (lo_byte, hi_byte)
 //   }
+}
+
+
+fn cross(base: u16, offset: u8) -> bool {
+  high_byte(base + offset as u16) != high_byte(base)
+}
+
+fn offset<T: Into<u16>>(base: T, offset: u8) -> u16 {
+  base.into() + offset as u16
+}
+
+fn low_byte<T: Into<u16>>(value: T) -> u16 {
+  value.into() & 0xFF
+}
+
+fn high_byte(value: u16) -> u16 {
+  value & 0xFF00
 }
