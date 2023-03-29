@@ -178,6 +178,87 @@ impl Cpu {
       .expect("File write error");
   }
 
+  fn operand_address(&mut self, mode: AddrMode6502) -> u16 {
+    match mode {
+      AddrMode6502::Imm => {
+        let original_pc = self.pc;
+        self.pc_increment();
+        original_pc
+      }
+      AddrMode6502::Zpo => self.next_byte() as u16,
+      AddrMode6502::Zpx => {
+        self.get_mut_bus().tick();
+        low_byte(offset(self.next_byte(), self.x))
+      }
+      AddrMode6502::Zpy => {
+        self.get_mut_bus().tick();
+        low_byte(offset(self.next_byte(), self.y))
+      }
+      AddrMode6502::Abs => self.next_word(),
+      AddrMode6502::Abx => {
+        let base = self.next_word();
+        if cross(base, self.x) {
+          self.get_mut_bus().tick();
+        };
+        offset(base, self.x)
+      }
+      // AddrMode6502::AbsoluteXForceTick => {
+      //   self.get_mut_bus(.tick());
+      //   offset(self.next_word(), self.x)
+      // }
+      AddrMode6502::Aby => {
+        let base = self.next_word();
+        if cross(base, self.y) {
+          self.get_mut_bus().tick();
+        }
+        offset(base, self.y)
+      }
+      // AddrMode6502::AbsoluteYForceTick => {
+      //   self.get_mut_bus(.tick());
+      //   offset(self.next_word(), self.y)
+      // }
+      AddrMode6502::Ind => {
+        let i = self.next_word();
+        self.get_mut_bus()
+          .read_noncontinuous_word(i, high_byte(i) | low_byte(i + 1))
+      }
+      AddrMode6502::Izx => {
+        self.get_mut_bus().tick();
+        let i = offset(self.next_byte(), self.x);
+        self.get_mut_bus()
+          .read_noncontinuous_word(low_byte(i), low_byte(i + 1))
+      }
+      AddrMode6502::Izy => {
+        let i = self.next_byte();
+        let base = self.get_mut_bus().read_noncontinuous_word(i, low_byte(i + 1));
+        if cross(base, self.y) {
+          self.get_mut_bus().tick();
+        }
+        offset(base, self.y)
+      }
+      // AddrMode6502::IndirectYForceTick => {
+      //   let i = self.next_byte();
+      //   let base = self.bus.read_noncontinuous_word(i, low_byte(i + 1));
+      //   self.bus.tick();
+      //   offset(base, self.y)
+      // }
+      _ => panic!("Mode::NoMode should never be used to read from memory"),
+    }
+  }
+
+  fn next_byte(&mut self) -> u8 {
+    let original_pc = self.pc;
+    self.pc_increment();
+    self.get_mut_bus().read_byte(original_pc)
+  }
+
+  fn next_word(&mut self) -> u16 {
+    let original_pc = self.pc;
+    self.pc_increment();
+    self.pc_increment();
+    self.get_mut_bus().read_word(original_pc)
+  }
+
   pub fn fetch(&mut self) {
     if self.addr_mode() != AddrMode6502::Imp {
       self.fetched = self.bus_mut_read_u8(self.addr_abs);

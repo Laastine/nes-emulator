@@ -142,6 +142,20 @@ impl Bus {
     }
   }
 
+  pub fn read_byte<T: Into<u16>>(&mut self, address: T) -> u8 {
+    self.tick();
+    self.read_u8(address.into())
+  }
+
+  pub fn read_noncontinuous_word<T: Into<u16>, U: Into<u16>>(&mut self, a: T, b: U) -> u16 {
+    (self.read_byte(a) as u16) | (self.read_byte(b) as u16) << 8
+  }
+
+  pub fn read_word<T: Into<u16>>(&mut self, address: T) -> u16 {
+    let address = address.into();
+    self.read_noncontinuous_word(address, address + 1)
+  }
+
   pub fn read_dbg_u8(&mut self, address_start: usize, address_end: usize) -> Vec<u8> {
     if (0x0000..=0x1FFF).contains(&address_start) && (0x0000..=0x1FFF).contains(&address_end) {
       return self.ram[address_start .. address_end].to_vec()
