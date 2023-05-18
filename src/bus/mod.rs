@@ -163,6 +163,19 @@ impl Bus {
     vec![]
   }
 
+  pub fn clock(&mut self, cpu_cycle: u8) -> u8 {
+    let cycle = (cpu_cycle + 1) as u32;
+
+    self.get_mut_apu().step(cycle.into());
+
+    self.nmi.tick();
+
+    self.get_mut_ppu().clock();
+    self.get_mut_ppu().clock();
+    self.get_mut_ppu().clock();
+    0
+  }
+
   pub fn oam_dma_access(&mut self, system_cycles: u32) -> u32 {
     let cpu_dma_cycles = 513 + (system_cycles % 2);
     for idx in 0..=255 {
@@ -172,5 +185,40 @@ impl Bus {
     }
     self.dma_transfer = false;
     cpu_dma_cycles
+  }
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Interrupt {
+  schedule: Option<u8>,
+}
+
+impl Interrupt {
+  fn new() -> Self {
+    Interrupt { schedule: None }
+  }
+
+  fn tick(&mut self) {
+    match self.schedule.as_mut() {
+      Some(v) => if *v > 0 {
+        *v -= 1
+      },
+      None => (),
+    };
+  }
+
+  pub fn schedule(&mut self, n: u8) {
+    self.schedule = Some(n);
+  }
+
+  pub fn acknowledge(&mut self) {
+    self.schedule = None;
+  }
+
+  pub fn ready(&self) -> bool {
+    match self.schedule {
+      Some(v) => v == 0,
+      None => false,
+    }
   }
 }

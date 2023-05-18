@@ -252,7 +252,7 @@ impl Nes {
       }
     } // app loop
   }
-
+  // TODO: tarvii bus tick(), kun cpu instruction liian pitkä. implementoi eri addressing modet per käsky mm. asl ja inc
   fn draw_ram(
     &mut self,
     addr: usize) {
