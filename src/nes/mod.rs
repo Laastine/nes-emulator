@@ -1,5 +1,4 @@
 use std::{fs, process, thread};
-use std::borrow::Borrow;
 use std::cell::{RefCell, RefMut};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
@@ -291,7 +290,7 @@ impl Nes {
       self.cpu.nmi();
     }
 
-    if self.cpu.bus.borrow().get_cartridge().irq_flag() {
+    if self.cpu.bus.get_cartridge().irq_flag() {
       self.cpu.bus.get_mut_cartridge().clear_irq_flag();
       self.cpu.irq();
     }
