@@ -110,7 +110,7 @@ impl WindowContext {
 
     let back_buffer = surface.back_buffer().unwrap();
     let front_buffer = surface
-      .new_framebuffer::<Dim2, RGBA32F, ()>([SCREEN_RES_X as u32, SCREEN_RES_Y as u32], 0, Sampler::default())
+      .new_framebuffer::<Dim2, RGBA32F, ()>([SCREEN_RES_X, SCREEN_RES_Y], 0, Sampler::default())
       .expect("framebuffer create");
 
     let texture = surface.new_texture(

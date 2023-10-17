@@ -53,6 +53,10 @@ impl Apu {
     }
   }
 
+  pub fn step(&mut self, cycle: u32) {
+    self.tick(cycle);
+  }
+
   pub fn tick(&mut self, cycle: u32) {
     self.triangle.step_sequencer();
     if cycle % 2 == 1 {

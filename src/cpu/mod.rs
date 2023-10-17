@@ -68,7 +68,7 @@ impl Cpu {
   }
 
   pub fn bus_mut_read_u8(&mut self, address: u16) -> u8 {
-    self.get_mut_bus().read_u8(address) as u8
+    self.get_mut_bus().read_u8(address)
   }
 
   pub fn bus_mut_read_dbg_u8(&mut self, address_start: usize, address_end: usize) -> Vec<u8> {
@@ -124,7 +124,7 @@ impl Cpu {
     if self.addr_mode() == AddrMode6502::Imp {
       self.acc = val;
     } else {
-      self.bus_write_with_tick(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
+      self.bus_write_with_tick(self.addr_abs, val);
     }
   }
 
@@ -397,7 +397,7 @@ impl Cpu {
   /// Absolute
   pub fn abs(&mut self) -> u8 {
     let (lo_byte, hi_byte) = self.read_pc();
-    self.addr_abs = (hi_byte | lo_byte) as u16;
+    self.addr_abs = hi_byte | lo_byte;
     0
   }
 
@@ -405,7 +405,7 @@ impl Cpu {
   pub fn abx(&mut self) -> u8 {
     let (lo_byte, hi_byte) = self.read_pc();
 
-    self.addr_abs = (hi_byte | lo_byte) as u16;
+    self.addr_abs = hi_byte | lo_byte;
     self.addr_abs = self.addr_abs.wrapping_add(u16::try_from(self.x).unwrap());
     u8::from((self.addr_abs & 0xFF00) != hi_byte)
   }
@@ -414,7 +414,7 @@ impl Cpu {
   pub fn aby(&mut self) -> u8 {
     let (lo_byte, hi_byte) = self.read_pc();
 
-    self.addr_abs = (hi_byte | lo_byte) as u16;
+    self.addr_abs = hi_byte | lo_byte;
     self.addr_abs = self.addr_abs.wrapping_add(u16::try_from(self.y).unwrap());
     u8::from((self.addr_abs & 0xFF00) != hi_byte)
   }
@@ -438,7 +438,7 @@ impl Cpu {
     let x = u16::try_from(self.x).unwrap();
     let lo_byte = self.bus_mut_read_u8(byte.wrapping_add(x) & 0x00FF) as u16;
     let hi_byte = self.bus_mut_read_u8((byte.wrapping_add(x).wrapping_add(1)) & 0x00FF) as u16;
-    self.addr_abs = ((hi_byte << 8) | lo_byte) as u16;
+    self.addr_abs = (hi_byte << 8) | lo_byte;
 
     0
   }
@@ -565,7 +565,7 @@ impl Cpu {
   pub fn and(&mut self) -> u8 {
     self.fetch();
     self.acc &= self.fetched;
-    self.set_flags_zero_and_negative(self.acc.into());
+    self.set_flags_zero_and_negative(self.acc);
     1
   }
 
@@ -694,7 +694,7 @@ impl Cpu {
   pub fn dec(&mut self) -> u8 {
     self.fetch();
     let val = self.fetched.wrapping_sub(1);
-    self.bus_write_u8(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
+    self.bus_write_u8(self.addr_abs, val);
     self.set_flags_zero_and_negative(val);
     0
   }
@@ -702,14 +702,14 @@ impl Cpu {
   /// Decrement X
   pub fn dex(&mut self) -> u8 {
     self.x = self.x.wrapping_sub(1);
-    self.set_flags_zero_and_negative(self.x.into());
+    self.set_flags_zero_and_negative(self.x);
     0
   }
 
   /// Decrement Y
   pub fn dey(&mut self) -> u8 {
     self.y = self.y.wrapping_sub(1);
-    self.set_flags_zero_and_negative(self.y.into());
+    self.set_flags_zero_and_negative(self.y);
     0
   }
 
@@ -717,7 +717,7 @@ impl Cpu {
   pub fn eor(&mut self) -> u8 {
     self.fetch();
     self.acc ^= self.fetched;
-    self.set_flags_zero_and_negative(self.acc.into());
+    self.set_flags_zero_and_negative(self.acc);
     1
   }
 
@@ -733,14 +733,14 @@ impl Cpu {
   /// Increment X
   pub fn inx(&mut self) -> u8 {
     self.x = self.x.wrapping_add(1);
-    self.set_flags_zero_and_negative(self.x.into());
+    self.set_flags_zero_and_negative(self.x);
     0
   }
 
   /// Increment Y
   pub fn iny(&mut self) -> u8 {
     self.y = self.y.wrapping_add(1);
-    self.set_flags_zero_and_negative(self.y.into());
+    self.set_flags_zero_and_negative(self.y);
     0
   }
 
@@ -769,7 +769,7 @@ impl Cpu {
   pub fn lda(&mut self) -> u8 {
     self.fetch();
     self.acc = self.fetched;
-    self.set_flags_zero_and_negative(self.acc.into());
+    self.set_flags_zero_and_negative(self.acc);
     1
   }
 
@@ -777,7 +777,7 @@ impl Cpu {
   pub fn ldx(&mut self) -> u8 {
     self.fetch();
     self.x = self.fetched;
-    self.set_flags_zero_and_negative(self.x.into());
+    self.set_flags_zero_and_negative(self.x);
     1
   }
 
@@ -785,7 +785,7 @@ impl Cpu {
   pub fn ldy(&mut self) -> u8 {
     self.fetch();
     self.y = self.fetched;
-    self.set_flags_zero_and_negative(self.y.into());
+    self.set_flags_zero_and_negative(self.y);
     1
   }
 
@@ -818,7 +818,7 @@ impl Cpu {
   pub fn ora(&mut self) -> u8 {
     self.fetch();
     self.acc |= self.fetched;
-    self.set_flags_zero_and_negative(self.acc.into());
+    self.set_flags_zero_and_negative(self.acc);
     1
   }
 
@@ -844,7 +844,7 @@ impl Cpu {
   pub fn pla(&mut self) -> u8 {
     self.stack_pointer_increment();
     self.acc = self.bus_mut_read_u8(self.get_stack_address());
-    self.set_flags_zero_and_negative(self.acc.into());
+    self.set_flags_zero_and_negative(self.acc);
     0
   }
 
@@ -964,28 +964,28 @@ impl Cpu {
   /// Transfer accumulator to X
   pub fn tax(&mut self) -> u8 {
     self.x = self.acc;
-    self.set_flags_zero_and_negative(self.x.into());
+    self.set_flags_zero_and_negative(self.x);
     0
   }
 
   /// Transfer accumulator to Y
   pub fn tay(&mut self) -> u8 {
     self.y = self.acc;
-    self.set_flags_zero_and_negative(self.y.into());
+    self.set_flags_zero_and_negative(self.y);
     0
   }
 
   /// Transfer stack pointer to X
   pub fn tsx(&mut self) -> u8 {
     self.x = self.stack_pointer;
-    self.set_flags_zero_and_negative(self.x.into());
+    self.set_flags_zero_and_negative(self.x);
     0
   }
 
   /// Transfer X to accumulator
   pub fn txa(&mut self) -> u8 {
     self.acc = self.x;
-    self.set_flags_zero_and_negative(self.acc.into());
+    self.set_flags_zero_and_negative(self.acc);
     0
   }
 
@@ -998,7 +998,7 @@ impl Cpu {
   /// Transfer Y to accumulator
   pub fn tya(&mut self) -> u8 {
     self.acc = self.y;
-    self.set_flags_zero_and_negative(self.acc.into());
+    self.set_flags_zero_and_negative(self.acc);
     0
   }
 

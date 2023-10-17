@@ -46,7 +46,7 @@ impl Sprite {
     };
 
     let sprite_size = control_flags.get_sprite_size();
-    let mut y_offset = ((scan_line - self.y as usize) as u16 % sprite_size as u16) as u16;
+    let mut y_offset = (scan_line - self.y as usize) as u16 % sprite_size;
 
     if self.attributes.flip_y() {
       y_offset = control_flags.get_sprite_size() - 1 - y_offset;

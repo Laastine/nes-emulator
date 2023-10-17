@@ -9,11 +9,10 @@ impl Interrupt {
   }
 
   pub fn tick(&mut self) {
-    match self.schedule.as_mut() {
-      Some(v) => if *v > 0 {
-        *v -= 1
-      },
-      None => (),
+    if let Some(v) = self.schedule.as_mut() {
+      if *v > 0 {
+        *v -= 1;
+      }
     };
   }
 
