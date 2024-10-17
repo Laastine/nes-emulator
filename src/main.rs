@@ -17,6 +17,7 @@ mod gfx;
 mod mapper;
 mod nes;
 mod ppu;
+mod glium_gfx;
 
 fn main() {
   let args: Vec<String> = env::args().collect();

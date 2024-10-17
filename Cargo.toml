@@ -9,15 +9,16 @@ bitfield = "0.14.0"
 crossterm = "0.26.1"
 getopts = "0.2.21"
 gilrs = "0.10.2"
-glutin = { version = "0.28", default-features = false }
-luminance = "0.46.0"
-luminance-gl = "0.19.1"
-luminance-derive = "0.9.0"
-luminance-glutin = "0.14.1"
+glutin = { version = "0.32.1", default-features = false }
+glutin-winit = "0.5.0"
+glium = "0.36.0"
+obj = "0.10.2"
+ouroboros = "0.18.4"
 rodio = "0.17.1"
+winit = "0.30.5"
 
 [dependencies.image]
-version = "0.24.6"
+version = "0.25.4"
 default-features = false
 
 [profile.release]
