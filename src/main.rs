@@ -1,7 +1,10 @@
 #[macro_use]
 extern crate bitfield;
+#[macro_use]
+extern crate glium;
 extern crate getopts;
 extern crate image;
+
 
 use std::env;
 
@@ -13,11 +16,10 @@ mod apu;
 mod bus;
 mod cartridge;
 mod cpu;
-mod gfx;
 mod mapper;
 mod nes;
 mod ppu;
-mod glium_gfx;
+mod gfx;
 
 fn main() {
   let args: Vec<String> = env::args().collect();

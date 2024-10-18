@@ -1,137 +1,92 @@
-use glutin::dpi::PhysicalSize;
-use glutin::event_loop::EventLoop;
-use glutin::GlProfile;
-use luminance::context::GraphicsContext;
-use luminance::framebuffer::Framebuffer;
-use luminance::pipeline::TextureBinding;
-use luminance::pixel::{NormRGB8UI, NormUnsigned, RGBA32F};
-use luminance::shader::{BuiltProgram, Program, Uniform};
-use luminance::tess::{Mode, Tess, TessBuilder};
-use luminance::texture::{Dim2, Sampler, TexelUpload, Texture};
-use luminance_derive::UniformInterface;
-use luminance_gl::GL33;
-use luminance_glutin::GlutinSurface;
+use glium::{implement_vertex, Display, Texture2d, Vertex, VertexBuffer};
+use glium::texture::Texture2dArray;
+use glium::vertex::VertexBufferAny;
+use glutin::surface::WindowSurface;
+use image::ImageBuffer;
+use crate::nes::constants::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
-use crate::gfx::gfx_util::{Semantics, VertexColor, VertexData, VertexPosition};
-use crate::nes::constants::{SCREEN_HEIGHT, SCREEN_RES_X, SCREEN_RES_Y, SCREEN_WIDTH};
+const vertex_shader_src: &str = r#"
+        #version 140
 
-mod gfx_util;
+        in vec2 position;
+        in vec2 tex_coords;
+        out vec2 v_tex_coords;
 
-const SHADER_VERT: &str = include_str!("emulator.v.glsl");
-const SHADER_FRAG: &str = include_str!("emulator.f.glsl");
-const COPY_VS: &str = include_str!("copy.v.glsl");
-const COPY_FS: &str = include_str!("copy.f.glsl");
+        uniform mat4 matrix;
 
-const VERTICES: [VertexData; 4] = [
-  VertexData {
-    pos: VertexPosition::new([-0.5, -0.5]),
-    uv: VertexColor::new([1.0, 0.0, 0.0]),
-  },
-  VertexData {
-    pos: VertexPosition::new([0.5, -0.5]),
-    uv: VertexColor::new([0.0, 1.0, 0.0]),
-  },
-  VertexData {
-    pos: VertexPosition::new([0.5, 0.5]),
-    uv: VertexColor::new([0.0, 0.0, 1.0]),
-  },
-  VertexData {
-    pos: VertexPosition::new([-0.5, 0.5]),
-    uv: VertexColor::new([1.0, 1.0, 0.0]),
-  },
-];
+        void main() {
+            v_tex_coords = tex_coords;
+            gl_Position = matrix * vec4(position, 0.0, 1.0);
+        }
+    "#;
+const fragment_shader_src: &str = r#"
+        #version 140
 
-const INDICES: [u32; 6] = [0, 1, 2, 2, 3, 0];
+        in vec2 v_tex_coords;
+        out vec4 color;
 
-#[derive(UniformInterface)]
-pub struct ShaderInterface {
-  #[uniform(unbound, name = "source_texture")]
-  pub(crate) texture: Uniform<TextureBinding<Dim2, NormUnsigned>>,
-}
+        uniform sampler2D tex;
+
+        void main() {
+            color = texture(tex, v_tex_coords);
+        }
+    "#;
 
 pub struct WindowContext {
-  pub copy_program: Program<GL33, (), (), ShaderInterface>,
-  pub program: Program<GL33, Semantics, (), ()>,
-  pub back_buffer: Framebuffer<GL33, Dim2, (), ()>,
-  pub front_buffer: Framebuffer<GL33, Dim2, RGBA32F, ()>,
-  pub surface: GlutinSurface,
-  pub resize: bool,
-  pub background: Tess<GL33, ()>,
-  pub texture_vertices: Tess<GL33, VertexData, u32>,
-  pub event_loop: EventLoop<()>,
-  pub texture: Texture<GL33, Dim2, NormRGB8UI>,
+    pub texture: Texture2d,
+    pub vertex_buffer: VertexBufferAny,
+    pub program: glium::Program,
+    window: winit::window::Window,
+    pub event_loop: winit::event_loop::EventLoop<()>,
+    pub indices: glium::index::NoIndices,
+    pub display: Display<WindowSurface>,
 }
 
 impl WindowContext {
-  pub fn new() -> WindowContext {
-    let (mut surface, event_loop) = GlutinSurface::new_gl33_from_builders(
-      |_, window_builder| {
-        window_builder
-          .with_title("NES-emulator")
-          .with_inner_size(PhysicalSize::new(SCREEN_WIDTH, SCREEN_HEIGHT))
-      },
-      |_, context_builder| context_builder
-        .with_double_buffer(Some(false))
-        .with_gl_profile(GlProfile::Compatibility),
-    )
-      .expect("Glutin surface create");
+    pub fn new() -> Self {
 
-    let program = surface
-      .new_shader_program::<Semantics, (), ()>()
-      .from_strings(SHADER_VERT, None, None, SHADER_FRAG)
-      .expect("Program create error")
-      .ignore_warnings();
+        #[derive(Copy, Clone)]
+        struct Vertex {
+            position: [f32; 2],
+            tex_coords: [f32; 2],
+        }
+        implement_vertex!(Vertex, position, tex_coords);
+        // We've changed our shape to a rectangle so the image isn't distorted.
+        let shape = vec![
+            Vertex { position: [-0.5, -0.5], tex_coords: [0.0, 0.0] },
+            Vertex { position: [ 0.5, -0.5], tex_coords: [1.0, 0.0] },
+            Vertex { position: [ 0.5,  0.5], tex_coords: [1.0, 1.0] },
 
-    let BuiltProgram {
-      program: copy_program,
-      warnings,
-    } = surface
-      .new_shader_program::<(), (), ShaderInterface>()
-      .from_strings(COPY_VS, None, None, COPY_FS)
-      .expect("copy program creation");
+            Vertex { position: [ 0.5,  0.5], tex_coords: [1.0, 1.0] },
+            Vertex { position: [-0.5,  0.5], tex_coords: [0.0, 1.0] },
+            Vertex { position: [-0.5, -0.5], tex_coords: [0.0, 0.0] },
+        ];
 
-    for warning in &warnings {
-      eprintln!("copy shader warning: {:?}", warning);
+
+        let event_loop = winit::event_loop::EventLoopBuilder::new().build().unwrap();
+        let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
+            .with_title("NES-emulator")
+            .with_inner_size(SCREEN_WIDTH, SCREEN_HEIGHT)
+            .build(&event_loop);
+
+        let texture = glium::Texture2d::empty(&display, SCREEN_WIDTH, SCREEN_HEIGHT).unwrap();
+
+        let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
+        let vertex_buffer = glium::VertexBuffer::dynamic(&display, &shape).unwrap();
+
+        let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
+        WindowContext {
+            texture,
+            vertex_buffer: vertex_buffer.into(),
+            program,
+            window,
+            event_loop,
+            indices,
+            display,
+        }
     }
 
-    let texture_vertices = surface
-      .new_tess()
-      .set_vertices(&VERTICES[..])
-      .set_indices(INDICES)
-      .set_mode(Mode::Triangle)
-      .build()
-      .unwrap();
+    pub fn update_image_buffer(&mut self) {
 
-    let background = TessBuilder::new(&mut surface)
-      .set_render_vertex_nb(4)
-      .set_mode(Mode::TriangleFan)
-      .build()
-      .unwrap();
-
-    let back_buffer = surface.back_buffer().unwrap();
-    let front_buffer = surface
-      .new_framebuffer::<Dim2, RGBA32F, ()>([SCREEN_RES_X as u32, SCREEN_RES_Y as u32], 0, Sampler::default())
-      .expect("framebuffer create");
-
-    let texture = surface.new_texture(
-      [SCREEN_RES_X, SCREEN_RES_Y],
-      Sampler::default(),
-      TexelUpload::reserve(0),
-    ).unwrap();
-
-    let resize = false;
-
-    WindowContext {
-      copy_program,
-      program,
-      back_buffer,
-      front_buffer,
-      surface,
-      resize,
-      background,
-      texture_vertices,
-      event_loop,
-      texture,
     }
-  }
 }

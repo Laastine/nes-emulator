@@ -8,16 +8,19 @@ use std::time::{Duration, Instant};
 use gilrs::{Event, EventType, Gilrs, GilrsBuilder};
 use gilrs::Button::{DPadDown, DPadLeft, DPadRight, DPadUp, East, Select, South, Start};
 use gilrs::ev::filter::{Filter, Repeat};
-use glutin::event::{KeyboardInput, WindowEvent};
-use glutin::event::{ElementState::{Pressed, Released}, VirtualKeyCode::{A, Down, Escape, Left, R, Right, S, Space, Up, X, Z}};
-use glutin::event_loop::ControlFlow;
-use glutin::platform::run_return::EventLoopExtRunReturn;
+use glium::uniform;
 use image::{ImageBuffer, Rgb};
-use luminance::context::GraphicsContext;
-use luminance::framebuffer::Framebuffer;
-use luminance::pipeline::PipelineState;
-use luminance::render_state::RenderState;
-use luminance::texture::{Sampler, TexelUpload};
+use winit::event::ElementState::Pressed;
+use winit::event::WindowEvent;
+use winit::event::WindowEvent::KeyboardInput;
+use winit::event_loop::ControlFlow;
+use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
+// use luminance::context::GraphicsContext;
+// use luminance::framebuffer::Framebuffer;
+// use luminance::pipeline::PipelineState;
+// use luminance::render_state::RenderState;
+// use luminance::texture::{Sampler, TexelUpload};
+use glium::Surface;
 
 use crate::apu::Apu;
 use crate::bus::Bus;
@@ -150,42 +153,41 @@ impl Nes {
       if poll_input {
         poll_input = false;
         let is_paused = self.is_paused;
-        self.window_context.event_loop.run_return(|event, _, control_flow| {
-          *control_flow = ControlFlow::Wait;
+        self.window_context.event_loop.run_on_demand(|event, control_flow| {
 
-          if let glutin::event::Event::MainEventsCleared = &event {
-            *control_flow = ControlFlow::Exit;
-          }
+          // if let winit::event::Event:: = &event {
+          //   *control_flow = ControlFlow::Exit;
+          // }
 
-          if let glutin::event::Event::WindowEvent { event, .. } = event {
+          if let winit::event::Event::WindowEvent { event, .. } = event {
             match event {
               WindowEvent::CloseRequested | WindowEvent::Destroyed => { keyboard_state = Some(KeyboardCommand::Exit) }
-              WindowEvent::KeyboardInput { input, .. } => {
-                match input {
-                  KeyboardInput { state: Released, virtual_keycode: Some(Escape), .. } => {
-                    keyboard_state = Some(KeyboardCommand::Exit);
-                  }
-                  KeyboardInput { state: Released, virtual_keycode: Some(Space), .. } => {
-                    if is_paused {
-                      keyboard_state = Some(KeyboardCommand::Continue);
-                    } else {
-                      keyboard_state = Some(KeyboardCommand::Pause);
-                    }
-                  }
-                  KeyboardInput { state, virtual_keycode: Some(X), .. } => update_key_map(&mut key_map, 0, state == Pressed),
-                  KeyboardInput { state, virtual_keycode: Some(Z), .. } => update_key_map(&mut key_map, 1, state == Pressed),
-                  KeyboardInput { state, virtual_keycode: Some(A), .. } => update_key_map(&mut key_map, 2, state == Pressed),
-                  KeyboardInput { state, virtual_keycode: Some(S), .. } => update_key_map(&mut key_map, 3, state == Pressed),
-                  KeyboardInput { state, virtual_keycode: Some(Up), .. } => update_key_map(&mut key_map, 4, state == Pressed),
-                  KeyboardInput { state, virtual_keycode: Some(Down), .. } => update_key_map(&mut key_map, 5, state == Pressed),
-                  KeyboardInput { state, virtual_keycode: Some(Left), .. } => update_key_map(&mut key_map, 6, state == Pressed),
-                  KeyboardInput { state, virtual_keycode: Some(Right), .. } => update_key_map(&mut key_map, 7, state == Pressed),
-                  KeyboardInput { state: Pressed, virtual_keycode: Some(R), .. } => {
-                    keyboard_state = Some(KeyboardCommand::Reset)
-                  }
-                  _ => {}
-                }
-              }
+              // KeyboardInput { event, .. } => {
+              //   match event {
+              //     KeyboardInput { state: Released, virtual_keycode: Some(Escape), .. } => {
+              //       keyboard_state = Some(KeyboardCommand::Exit);
+              //     }
+              //     KeyboardInput { state: Released, virtual_keycode: Some(Space), .. } => {
+              //       if is_paused {
+              //         keyboard_state = Some(KeyboardCommand::Continue);
+              //       } else {
+              //         keyboard_state = Some(KeyboardCommand::Pause);
+              //       }
+              //     }
+              //     KeyboardInput { state, virtual_keycode: Some(X), .. } => update_key_map(&mut key_map, 0, state == Pressed),
+              //     KeyboardInput { state, virtual_keycode: Some(Z), .. } => update_key_map(&mut key_map, 1, state == Pressed),
+              //     KeyboardInput { state, virtual_keycode: Some(A), .. } => update_key_map(&mut key_map, 2, state == Pressed),
+              //     KeyboardInput { state, virtual_keycode: Some(S), .. } => update_key_map(&mut key_map, 3, state == Pressed),
+              //     KeyboardInput { state, virtual_keycode: Some(Up), .. } => update_key_map(&mut key_map, 4, state == Pressed),
+              //     KeyboardInput { state, virtual_keycode: Some(Down), .. } => update_key_map(&mut key_map, 5, state == Pressed),
+              //     KeyboardInput { state, virtual_keycode: Some(Left), .. } => update_key_map(&mut key_map, 6, state == Pressed),
+              //     KeyboardInput { state, virtual_keycode: Some(Right), .. } => update_key_map(&mut key_map, 7, state == Pressed),
+              //     KeyboardInput { state: Pressed, virtual_keycode: Some(R), .. } => {
+              //       keyboard_state = Some(KeyboardCommand::Reset)
+              //     }
+              //     _ => {}
+              //   }
+              // }
               WindowEvent::Resized(_) => {
                 keyboard_state = Some(KeyboardCommand::Resize)
               }
@@ -219,7 +221,7 @@ impl Nes {
             self.ppu.reset();
             self.get_apu().reset();
           }
-          Some(KeyboardCommand::Resize) => self.window_context.resize = true,
+          // Some(KeyboardCommand::Resize) => self.window_context.resize = true,
           _ => {}
         }
         self.controller.borrow_mut().update_buttons(key_map);
@@ -231,7 +233,7 @@ impl Nes {
 
       if self.ppu.is_frame_ready || self.is_paused {
         if keyboard_state == Some(KeyboardCommand::Resize) {
-          self.window_context.resize = true;
+          // self.window_context.resize = true;
         }
         self.render_screen();
         self.ppu.is_frame_ready = false;
@@ -304,64 +306,39 @@ impl Nes {
       let p = pixel_buffer[y as usize * 256 + x as usize];
       *pixel = Rgb(p);
     }
-
-    self.window_context.texture
-      .upload_raw(TexelUpload::base_level(&self.image_buffer, 0))
-      .expect("Texture update error");
   }
 
+
+
   fn render_screen(&mut self) {
-    if self.window_context.resize {
-      let size = self.window_context.surface.size();
-      self.window_context.front_buffer =
-        Framebuffer::new(&mut self.window_context.surface, size, 0, Sampler::default())
-          .expect("Framebuffer recreate error");
-      self.window_context.resize = false;
-    }
+    // if self.window_context.resize {
+    //   let size = self.window_context.surface.size();
+    //   self.window_context.front_buffer =
+    //     Framebuffer::new(&mut self.window_context.surface, size, 0, Sampler::default())
+    //       .expect("Framebuffer recreate error");
+    //   self.window_context.resize = false;
+    // }
 
-    let mut builder = self.window_context.surface.new_pipeline_gate();
-    let texture = &mut self.window_context.texture;
-    let program = &mut self.window_context.program;
-    let copy_program = &mut self.window_context.copy_program;
-    let texture_vertices = &self.window_context.texture_vertices;
-    let background = &self.window_context.background;
+    // let mut builder = self.window_context.surface.new_pipeline_gate();
+    // let texture = &;
 
-    let mut render = builder.pipeline(
-      &self.window_context.front_buffer,
-      &PipelineState::default(),
-      |_, mut shd_gate| {
-        shd_gate.shade(program, |_, _, mut rdr_gate| {
-          rdr_gate.render(&RenderState::default(), |mut tess_gate| {
-            tess_gate.render(texture_vertices)
-          })
-        })
-      },
-    ).assume();
 
-    if render.is_err() {
-      panic!("render error");
-    }
+    let mut target = self.window_context.display.draw();
+    target.clear_color(0.0, 0.0, 0.0, 1.0);
 
-    render = builder.pipeline(
-      &self.window_context.back_buffer,
-      &PipelineState::default(),
-      |pipeline, mut shd_gate| {
-        let bound_texture = pipeline.bind_texture(texture)?;
+    let uniforms = uniform! {
+                        matrix: [
+                            [1.0, 0.0, 0.0, 0.0],
+                            [0.0, 1.0, 0.0, 0.0],
+                            [0.0, 0.0, 1.0, 0.0],
+                            [0.0, 0.0, 0.0, 1.0f32],
+                        ],
+                        tex: &self.window_context.texture,
+                    };
 
-        shd_gate.shade(copy_program, |mut iface, uni, mut rdr_gate| {
-          iface.set(&uni.texture, bound_texture.binding());
-          rdr_gate.render(&RenderState::default(), |mut tess_gate| {
-            tess_gate.render(background)
-          })
-        })
-      },
-    ).assume();
-
-    if render.is_ok() {
-      self.window_context.surface.swap_buffers();
-    } else {
-      panic!("swap buffers error");
-    }
+    target.draw(&self.window_context.vertex_buffer, &self.window_context.indices, &&self.window_context.program, &uniforms,
+                &Default::default()).unwrap();
+    target.finish().unwrap();
   }
 
   pub fn reset(&mut self) {
