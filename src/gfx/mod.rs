@@ -1,11 +1,11 @@
-use glium::{implement_vertex, Display, Texture2d, Vertex, VertexBuffer};
-use glium::texture::Texture2dArray;
+use glium::{framebuffer, implement_vertex, Display, Texture2d, Vertex, VertexBuffer};
+use glium::texture::{RawImage2d, Texture2dArray};
 use glium::vertex::VertexBufferAny;
 use glutin::surface::WindowSurface;
-use image::ImageBuffer;
+use image::{ImageBuffer, Rgb};
 use crate::nes::constants::{SCREEN_HEIGHT, SCREEN_WIDTH};
 
-const vertex_shader_src: &str = r#"
+const VERTEX_SHADER_SRC: &str = r#"
         #version 140
 
         in vec2 position;
@@ -19,7 +19,7 @@ const vertex_shader_src: &str = r#"
             gl_Position = matrix * vec4(position, 0.0, 1.0);
         }
     "#;
-const fragment_shader_src: &str = r#"
+const FRAGMENT_SHADER_SRC: &str = r#"
         #version 140
 
         in vec2 v_tex_coords;
@@ -70,11 +70,12 @@ impl WindowContext {
             .build(&event_loop);
 
         let texture = glium::Texture2d::empty(&display, SCREEN_WIDTH, SCREEN_HEIGHT).unwrap();
+        // let framebuffer = glium::framebuffer::SimpleFrameBuffer::new(&display, &texture).unwrap();
 
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
         let vertex_buffer = glium::VertexBuffer::dynamic(&display, &shape).unwrap();
 
-        let program = glium::Program::from_source(&display, vertex_shader_src, fragment_shader_src, None).unwrap();
+        let program = glium::Program::from_source(&display, VERTEX_SHADER_SRC, FRAGMENT_SHADER_SRC, None).unwrap();
         WindowContext {
             texture,
             vertex_buffer: vertex_buffer.into(),
@@ -86,7 +87,8 @@ impl WindowContext {
         }
     }
 
-    pub fn update_image_buffer(&mut self) {
-
+    pub fn update_image_buffer(&mut self, image_buffer: &ImageBuffer<Rgb<u8>, Vec<u8>>) {
+        let raw_image = RawImage2d::from_raw_rgb_reversed(&image_buffer, (SCREEN_WIDTH, SCREEN_HEIGHT));
+        self.texture.write(glium::Rect { left: 0, bottom: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT }, raw_image);
     }
 }

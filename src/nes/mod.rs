@@ -21,7 +21,7 @@ use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 // use luminance::render_state::RenderState;
 // use luminance::texture::{Sampler, TexelUpload};
 use glium::Surface;
-
+use glium::texture::Dimensions::Texture2d;
 use crate::apu::Apu;
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
@@ -306,23 +306,10 @@ impl Nes {
       let p = pixel_buffer[y as usize * 256 + x as usize];
       *pixel = Rgb(p);
     }
+    self.window_context.update_image_buffer(&self.image_buffer)
   }
 
-
-
   fn render_screen(&mut self) {
-    // if self.window_context.resize {
-    //   let size = self.window_context.surface.size();
-    //   self.window_context.front_buffer =
-    //     Framebuffer::new(&mut self.window_context.surface, size, 0, Sampler::default())
-    //       .expect("Framebuffer recreate error");
-    //   self.window_context.resize = false;
-    // }
-
-    // let mut builder = self.window_context.surface.new_pipeline_gate();
-    // let texture = &;
-
-
     let mut target = self.window_context.display.draw();
     target.clear_color(0.0, 0.0, 0.0, 1.0);
 
