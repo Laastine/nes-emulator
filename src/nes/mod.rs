@@ -10,10 +10,7 @@ use gilrs::Button::{DPadDown, DPadLeft, DPadRight, DPadUp, East, Select, South, 
 use gilrs::ev::filter::{Filter, Repeat};
 use glium::uniform;
 use image::{ImageBuffer, Rgb};
-use winit::event::ElementState::Pressed;
 use winit::event::WindowEvent;
-use winit::event::WindowEvent::KeyboardInput;
-use winit::event_loop::ControlFlow;
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 // use luminance::context::GraphicsContext;
 // use luminance::framebuffer::Framebuffer;
@@ -21,7 +18,6 @@ use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 // use luminance::render_state::RenderState;
 // use luminance::texture::{Sampler, TexelUpload};
 use glium::Surface;
-use glium::texture::Dimensions::Texture2d;
 use crate::apu::Apu;
 use crate::bus::Bus;
 use crate::cartridge::Cartridge;
@@ -153,48 +149,6 @@ impl Nes {
       if poll_input {
         poll_input = false;
         let is_paused = self.is_paused;
-        self.window_context.event_loop.run_on_demand(|event, control_flow| {
-
-          // if let winit::event::Event:: = &event {
-          //   *control_flow = ControlFlow::Exit;
-          // }
-
-          if let winit::event::Event::WindowEvent { event, .. } = event {
-            match event {
-              WindowEvent::CloseRequested | WindowEvent::Destroyed => { keyboard_state = Some(KeyboardCommand::Exit) }
-              // KeyboardInput { event, .. } => {
-              //   match event {
-              //     KeyboardInput { state: Released, virtual_keycode: Some(Escape), .. } => {
-              //       keyboard_state = Some(KeyboardCommand::Exit);
-              //     }
-              //     KeyboardInput { state: Released, virtual_keycode: Some(Space), .. } => {
-              //       if is_paused {
-              //         keyboard_state = Some(KeyboardCommand::Continue);
-              //       } else {
-              //         keyboard_state = Some(KeyboardCommand::Pause);
-              //       }
-              //     }
-              //     KeyboardInput { state, virtual_keycode: Some(X), .. } => update_key_map(&mut key_map, 0, state == Pressed),
-              //     KeyboardInput { state, virtual_keycode: Some(Z), .. } => update_key_map(&mut key_map, 1, state == Pressed),
-              //     KeyboardInput { state, virtual_keycode: Some(A), .. } => update_key_map(&mut key_map, 2, state == Pressed),
-              //     KeyboardInput { state, virtual_keycode: Some(S), .. } => update_key_map(&mut key_map, 3, state == Pressed),
-              //     KeyboardInput { state, virtual_keycode: Some(Up), .. } => update_key_map(&mut key_map, 4, state == Pressed),
-              //     KeyboardInput { state, virtual_keycode: Some(Down), .. } => update_key_map(&mut key_map, 5, state == Pressed),
-              //     KeyboardInput { state, virtual_keycode: Some(Left), .. } => update_key_map(&mut key_map, 6, state == Pressed),
-              //     KeyboardInput { state, virtual_keycode: Some(Right), .. } => update_key_map(&mut key_map, 7, state == Pressed),
-              //     KeyboardInput { state: Pressed, virtual_keycode: Some(R), .. } => {
-              //       keyboard_state = Some(KeyboardCommand::Reset)
-              //     }
-              //     _ => {}
-              //   }
-              // }
-              WindowEvent::Resized(_) => {
-                keyboard_state = Some(KeyboardCommand::Resize)
-              }
-              _ => (),
-            };
-          }
-        });
 
         while let Some(ev) = self.gilrs.next_event().filter_ev(&self.input_filter, &mut self.gilrs) {
           self.gilrs.update(&ev);
@@ -230,7 +184,6 @@ impl Nes {
       if !self.is_paused {
         self.clock();
       }
-
       if self.ppu.is_frame_ready || self.is_paused {
         if keyboard_state == Some(KeyboardCommand::Resize) {
           // self.window_context.resize = true;
@@ -241,7 +194,6 @@ impl Nes {
         if let Some(delay) = FRAME_DURATION.checked_sub(last_time.elapsed()) {
           thread::sleep(delay);
         }
-        poll_input = true;
         last_time = Instant::now();
       }
     } // app loop

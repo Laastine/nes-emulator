@@ -1,8 +1,7 @@
 pub const SCREEN_RES_X: u32 = 256;
 pub const SCREEN_RES_Y: u32 = 240;
 
-pub const SCREEN_WIDTH: u32 = 256;
-pub const SCREEN_HEIGHT: u32 = 240;
+pub const SCALING_FACTOR: u32 = 4;
 
 // 16ms per frame ~ 60FPS
 pub const REFRESH_RATE: f32 = 1.0 / 60.0;

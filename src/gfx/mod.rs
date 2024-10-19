@@ -1,9 +1,9 @@
-use glium::{framebuffer, implement_vertex, Display, Texture2d, Vertex, VertexBuffer};
-use glium::texture::{RawImage2d, Texture2dArray};
+use glium::{implement_vertex, Display, Texture2d};
+use glium::texture::RawImage2d;
 use glium::vertex::VertexBufferAny;
 use glutin::surface::WindowSurface;
 use image::{ImageBuffer, Rgb};
-use crate::nes::constants::{SCREEN_HEIGHT, SCREEN_WIDTH};
+use crate::nes::constants::{SCALING_FACTOR, SCREEN_RES_Y, SCREEN_RES_X};
 
 const VERTEX_SHADER_SRC: &str = r#"
         #version 140
@@ -66,10 +66,10 @@ impl WindowContext {
         let event_loop = winit::event_loop::EventLoopBuilder::new().build().unwrap();
         let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
             .with_title("NES-emulator")
-            .with_inner_size(SCREEN_WIDTH, SCREEN_HEIGHT)
+            .with_inner_size(SCREEN_RES_X*SCALING_FACTOR, SCREEN_RES_Y*SCALING_FACTOR)
             .build(&event_loop);
 
-        let texture = glium::Texture2d::empty(&display, SCREEN_WIDTH, SCREEN_HEIGHT).unwrap();
+        let texture = glium::Texture2d::empty(&display, SCREEN_RES_X, SCREEN_RES_Y).unwrap();
         // let framebuffer = glium::framebuffer::SimpleFrameBuffer::new(&display, &texture).unwrap();
 
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
@@ -88,7 +88,7 @@ impl WindowContext {
     }
 
     pub fn update_image_buffer(&mut self, image_buffer: &ImageBuffer<Rgb<u8>, Vec<u8>>) {
-        let raw_image = RawImage2d::from_raw_rgb_reversed(&image_buffer, (SCREEN_WIDTH, SCREEN_HEIGHT));
-        self.texture.write(glium::Rect { left: 0, bottom: 0, width: SCREEN_WIDTH, height: SCREEN_HEIGHT }, raw_image);
+        let raw_image = RawImage2d::from_raw_rgb(image_buffer.pixels().flat_map(|Rgb(d)| d.to_vec()).collect(), (SCREEN_RES_X, SCREEN_RES_Y));
+        self.texture.write(glium::Rect { left: 0, bottom: 0, width: SCREEN_RES_X, height: SCREEN_RES_Y }, raw_image);
     }
 }
