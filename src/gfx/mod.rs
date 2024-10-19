@@ -1,8 +1,11 @@
+use std::cell::RefCell;
+use std::rc::Rc;
 use glium::{implement_vertex, Display, Texture2d};
 use glium::texture::RawImage2d;
 use glium::vertex::VertexBufferAny;
 use glutin::surface::WindowSurface;
 use image::{ImageBuffer, Rgb};
+use winit::event_loop::EventLoop;
 use crate::nes::constants::{SCALING_FACTOR, SCREEN_RES_Y, SCREEN_RES_X};
 
 const VERTEX_SHADER_SRC: &str = r#"
@@ -37,13 +40,13 @@ pub struct WindowContext {
     pub vertex_buffer: VertexBufferAny,
     pub program: glium::Program,
     window: winit::window::Window,
-    pub event_loop: winit::event_loop::EventLoop<()>,
+    pub event_loop: Rc<RefCell<EventLoop<()>>>,
     pub indices: glium::index::NoIndices,
     pub display: Display<WindowSurface>,
 }
 
 impl WindowContext {
-    pub fn new() -> Self {
+    pub fn new(event_loop: Rc<RefCell<EventLoop<()>>>) -> Self {
 
         #[derive(Copy, Clone)]
         struct Vertex {
@@ -63,11 +66,10 @@ impl WindowContext {
         ];
 
 
-        let event_loop = winit::event_loop::EventLoopBuilder::new().build();
         let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
             .with_title("NES-emulator")
             .with_inner_size(SCREEN_RES_X*SCALING_FACTOR, SCREEN_RES_Y*SCALING_FACTOR)
-            .build(&event_loop);
+            .build(&event_loop.borrow_mut());
 
         let texture = glium::Texture2d::empty(&display, SCREEN_RES_X, SCREEN_RES_Y).unwrap();
         // let framebuffer = glium::framebuffer::SimpleFrameBuffer::new(&display, &texture).unwrap();
