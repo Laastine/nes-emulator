@@ -63,7 +63,7 @@ impl WindowContext {
         ];
 
 
-        let event_loop = winit::event_loop::EventLoopBuilder::new().build().unwrap();
+        let event_loop = winit::event_loop::EventLoopBuilder::new().build();
         let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
             .with_title("NES-emulator")
             .with_inner_size(SCREEN_RES_X*SCALING_FACTOR, SCREEN_RES_Y*SCALING_FACTOR)

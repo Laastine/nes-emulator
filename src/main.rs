@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate bitfield;
-#[macro_use]
 extern crate glium;
 extern crate getopts;
 extern crate image;

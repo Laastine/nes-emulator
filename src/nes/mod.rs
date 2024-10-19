@@ -11,7 +11,6 @@ use gilrs::ev::filter::{Filter, Repeat};
 use glium::uniform;
 use image::{ImageBuffer, Rgb};
 use winit::event::WindowEvent;
-use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 // use luminance::context::GraphicsContext;
 // use luminance::framebuffer::Framebuffer;
 // use luminance::pipeline::PipelineState;
