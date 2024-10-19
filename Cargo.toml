@@ -13,7 +13,6 @@ glutin = { version = "0.30.10", default-features = false }
 glutin-winit = "0.3.0"
 glium = "0.33.0"
 obj = "0.10.2"
-ouroboros = "0.18.4"
 rodio = "0.17.1"
 winit = "0.28.7"
 

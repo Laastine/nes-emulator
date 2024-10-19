@@ -1,5 +1,5 @@
 use std::cell::{Ref, RefCell, RefMut};
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 use std::rc::Rc;
 
 use crate::apu::Apu;
@@ -18,7 +18,6 @@ pub struct Bus {
   registers: Rc<RefCell<Registers>>,
   pub dma_transfer: bool,
   dma_page: u8,
-  pub stall_cycles: u32,
 }
 
 impl Bus {
@@ -35,7 +34,6 @@ impl Bus {
       registers,
       dma_transfer,
       dma_page,
-      stall_cycles: 0,
     }
   }
 
@@ -61,7 +59,7 @@ impl Bus {
 
   pub fn write_u8(&mut self, address: u16, data: u8, cycles: u32) {
     if (0x0000..=0x1FFF).contains(&address) {
-      self.ram[usize::try_from(address & 0x07FF).unwrap()] = data;
+      self.ram[usize::from(address & 0x07FF)] = data;
     } else if (0x2000..=0x3FFF).contains(&address) {
       self.get_mut_registers().bus_write_ppu_reg(address, data)
     } else if address == 0x4014 {
@@ -81,7 +79,7 @@ impl Bus {
 
   pub fn read_u8(&mut self, address: u16) -> u8 {
     if (0x0000..=0x1FFF).contains(&address) {
-      self.ram[usize::try_from(address & 0x07FF).unwrap()]
+      self.ram[usize::from(address & 0x07FF)]
     } else if (0x2000..=0x3FFF).contains(&address) {
       self.get_mut_registers().bus_read_ppu_reg(address)
     } else if address == 0x4015 {
@@ -107,7 +105,7 @@ impl Bus {
   pub fn oam_dma_access(&mut self, system_cycles: u32) -> u32 {
     let cpu_dma_cycles = 513 + (system_cycles % 2);
     for idx in 0..=255 {
-      let addr = (u16::try_from(self.dma_page).unwrap() << 8) + idx;
+      let addr = (u16::from(self.dma_page) << 8) + idx;
       let dma_data = self.read_u8(addr);
       self.get_mut_registers().write_oam_data(dma_data);
     }

@@ -1,5 +1,4 @@
 use std::cell::{Ref, RefCell, RefMut};
-use std::convert::TryFrom;
 use std::rc::Rc;
 
 use crate::nes::constants::{Color, COLORS};
@@ -92,7 +91,7 @@ impl Ppu {
       0
     }.into();
     let idx = self.read_ppu_u8(0x3F00 + palette);
-    COLORS[usize::try_from(idx).unwrap()]
+    COLORS[usize::from(idx)]
   }
 
   pub fn reset(&mut self) {
@@ -205,11 +204,8 @@ impl Ppu {
         if self.cycles == 1 && !self.get_registers().vblank_suppress {
           self.get_mut_registers().status_flags.set_vertical_blank(true);
 
-          if self.get_registers().ctrl_flags.enable_nmi() {
-            self.nmi = true;
-          } else {
-            self.nmi = false;
-          }
+          let nmi_val = self.get_registers().ctrl_flags.enable_nmi();
+          self.nmi = nmi_val;
         }
       }
       _ => ()
@@ -271,7 +267,7 @@ impl Ppu {
           let vram_addr = self.get_registers().vram_addr;
           let ctrl_flags = self.get_registers().ctrl_flags;
           self.curr_address = ctrl_flags.get_pattern_background()
-            + ((0x10 * u16::try_from(self.nametable_entry).unwrap()) | u16::try_from(vram_addr.fine_y()).unwrap());
+            + ((0x10 * u16::from(self.nametable_entry)) | u16::from(vram_addr.fine_y()));
         }
         0x06 => {
           self.bg_next_tile_lo = self.read_ppu_u8(self.curr_address);
@@ -350,9 +346,9 @@ impl Ppu {
       let address = idx * 4;
       let sprite = Sprite::new(idx, &self.get_registers().oam_ram[address..(address + 4)]);
 
-      let sprite_size = usize::try_from(self.get_registers().ctrl_flags.get_sprite_size()).unwrap();
+      let sprite_size = usize::from(self.get_registers().ctrl_flags.get_sprite_size());
       let scan_line = self.scan_line;
-      let sprite_y = usize::try_from(sprite.y).unwrap();
+      let sprite_y = usize::from(sprite.y);
 
       if scan_line >= sprite_y && scan_line < (sprite_y + sprite_size) {
         if self.secondary_oam.len() == 8 {
@@ -446,10 +442,10 @@ impl Ppu {
   fn fetch_next_bg_tile_attribute(&mut self) -> u16 {
     let vram_addr = self.get_registers().vram_addr;
 
-    let nametable_x = u16::try_from(vram_addr.nametable_x()).unwrap();
-    let nametable_y = u16::try_from(vram_addr.nametable_y()).unwrap();
-    let coarse_x = u16::try_from(vram_addr.coarse_x()).unwrap();
-    let coarse_y = u16::try_from(vram_addr.coarse_y()).unwrap();
+    let nametable_x = u16::from(vram_addr.nametable_x());
+    let nametable_y = u16::from(vram_addr.nametable_y());
+    let coarse_x = u16::from(vram_addr.coarse_x());
+    let coarse_y = u16::from(vram_addr.coarse_y());
 
     0x23C0 | (nametable_y << 11) | (nametable_x << 10) | ((coarse_y >> 2) << 3) | (coarse_x >> 2)
   }

@@ -13,6 +13,7 @@ pub const CHR_ROM_BANK_SIZE: usize = 0x2000;
 #[derive(Clone)]
 pub struct Cartridge {
   pub mapper: Box<dyn Mapper>,
+  #[allow(dead_code)]
   pub rom_header: RomHeader,
 }
 

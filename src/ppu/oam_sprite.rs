@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 
 use crate::ppu::registers::{get_nth_bit, PpuCtrlFlags};
 
@@ -40,13 +39,13 @@ impl Sprite {
 
   pub fn tile_address(&mut self, control_flags: PpuCtrlFlags, scan_line: usize) -> u16 {
     let tile_address = if control_flags.sprite_size() {
-      0x1000 * u16::try_from(self.index.0 & 1).unwrap() + 0x10 * u16::try_from(self.index.0 & !1).unwrap()
+      0x1000 * u16::from(self.index.0 & 1) + 0x10 * u16::from(self.index.0 & !1)
     } else {
-      control_flags.get_sprite_tile_base() + 0x10 * u16::try_from(self.index.0).unwrap()
+      control_flags.get_sprite_tile_base() + 0x10 * u16::from(self.index.0)
     };
 
     let sprite_size = control_flags.get_sprite_size();
-    let mut y_offset = ((scan_line - self.y as usize) as u16 % sprite_size as u16) as u16;
+    let mut y_offset = (scan_line - self.y as usize) as u16 % sprite_size;
 
     if self.attributes.flip_y() {
       y_offset = control_flags.get_sprite_size() - 1 - y_offset;

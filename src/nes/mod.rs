@@ -10,12 +10,7 @@ use gilrs::Button::{DPadDown, DPadLeft, DPadRight, DPadUp, East, Select, South, 
 use gilrs::ev::filter::{Filter, Repeat};
 use glium::uniform;
 use image::{ImageBuffer, Rgb};
-use winit::event::{KeyboardInput, VirtualKeyCode, WindowEvent};
-// use luminance::context::GraphicsContext;
-// use luminance::framebuffer::Framebuffer;
-// use luminance::pipeline::PipelineState;
-// use luminance::render_state::RenderState;
-// use luminance::texture::{Sampler, TexelUpload};
+use winit::event::{VirtualKeyCode, WindowEvent};
 use glium::Surface;
 use winit::event::ElementState::Pressed;
 use winit::event_loop::EventLoop;
@@ -171,48 +166,28 @@ impl Nes {
             match event {
               WindowEvent::CloseRequested | WindowEvent::Destroyed => { keyboard_state = Some(KeyboardCommand::Exit) }
               WindowEvent::KeyboardInput { input, .. } => {
-                match input {
-                  KeyboardInput { state, virtual_keycode: Some(virtual_code), .. } => {
-                    match virtual_code {
-                      VirtualKeyCode::Escape => { keyboard_state = Some(KeyboardCommand::Exit); },
-                      VirtualKeyCode::Space => {
-                        if is_paused {
-                          keyboard_state = Some(KeyboardCommand::Continue);
-                        } else {
-                          keyboard_state = Some(KeyboardCommand::Pause);
-                        }
+                  match input.virtual_keycode.unwrap() {
+                    VirtualKeyCode::Escape => { keyboard_state = Some(KeyboardCommand::Exit); },
+                    VirtualKeyCode::Space => {
+                      if is_paused {
+                        keyboard_state = Some(KeyboardCommand::Continue);
+                      } else {
+                        keyboard_state = Some(KeyboardCommand::Pause);
                       }
-                      VirtualKeyCode::X => update_key_map(&mut key_map, 0, state == Pressed),
-                      VirtualKeyCode::Z => update_key_map(&mut key_map, 1, state == Pressed),
-                      VirtualKeyCode::A => update_key_map(&mut key_map, 2, state == Pressed),
-                      VirtualKeyCode::S => update_key_map(&mut key_map, 3, state == Pressed),
-                      VirtualKeyCode::Up => update_key_map(&mut key_map, 4, state == Pressed),
-                      VirtualKeyCode::Down => update_key_map(&mut key_map, 5, state == Pressed),
-                      VirtualKeyCode::Left => update_key_map(&mut key_map, 6, state == Pressed),
-                      VirtualKeyCode::Right => update_key_map(&mut key_map, 7, state == Pressed),
-                      _ => {}
                     }
+                    VirtualKeyCode::X => update_key_map(&mut key_map, 0, input.state == Pressed),
+                    VirtualKeyCode::Z => update_key_map(&mut key_map, 1, input.state == Pressed),
+                    VirtualKeyCode::A => update_key_map(&mut key_map, 2, input.state == Pressed),
+                    VirtualKeyCode::S => update_key_map(&mut key_map, 3, input.state == Pressed),
+                    VirtualKeyCode::Up => update_key_map(&mut key_map, 4, input.state == Pressed),
+                    VirtualKeyCode::Down => update_key_map(&mut key_map, 5, input.state == Pressed),
+                    VirtualKeyCode::Left => update_key_map(&mut key_map, 6, input.state == Pressed),
+                    VirtualKeyCode::Right => update_key_map(&mut key_map, 7, input.state == Pressed),
+                    VirtualKeyCode::R => {
+                      keyboard_state = Some(KeyboardCommand::Reset)
+                    }
+                    _ => {}
                   }
-                  // KeyboardInput { state: Released, virtual_keycode: Some(Space), .. } => {
-                  //   if is_paused {
-                  //     keyboard_state = Some(KeyboardCommand::Continue);
-                  //   } else {
-                  //     keyboard_state = Some(KeyboardCommand::Pause);
-                  //   }
-                  // },
-                  // KeyboardInput { state, virtual_keycode: Some(X), .. } => update_key_map(&mut key_map, 0, state == Pressed),
-                  // KeyboardInput { state, virtual_keycode: Some(Z), .. } => update_key_map(&mut key_map, 1, state == Pressed),
-                  // KeyboardInput { state, virtual_keycode: Some(A), .. } => update_key_map(&mut key_map, 2, state == Pressed),
-                  // KeyboardInput { state, virtual_keycode: Some(S), .. } => update_key_map(&mut key_map, 3, state == Pressed),
-                  // KeyboardInput { state, virtual_keycode: Some(Up), .. } => update_key_map(&mut key_map, 4, state == Pressed),
-                  // KeyboardInput { state, virtual_keycode: Some(Down), .. } => update_key_map(&mut key_map, 5, state == Pressed),
-                  // KeyboardInput { state, virtual_keycode: Some(Left), .. } => update_key_map(&mut key_map, 6, state == Pressed),
-                  // KeyboardInput { state, virtual_keycode: Some(Right), .. } => update_key_map(&mut key_map, 7, state == Pressed),
-                  // KeyboardInput { state: Pressed, virtual_keycode: Some(R), .. } => {
-                  //   keyboard_state = Some(KeyboardCommand::Reset)
-                  // }
-                  _ => {}
-                }
               }
               WindowEvent::Resized(_) => {
                 keyboard_state = Some(KeyboardCommand::Resize)
@@ -350,7 +325,7 @@ impl Nes {
                         tex: &self.window_context.texture,
                     };
 
-    target.draw(&self.window_context.vertex_buffer, &self.window_context.indices, &&self.window_context.program, &uniforms,
+    target.draw(&self.window_context.vertex_buffer, self.window_context.indices, &self.window_context.program, &uniforms,
                 &Default::default()).unwrap();
     target.finish().unwrap();
   }

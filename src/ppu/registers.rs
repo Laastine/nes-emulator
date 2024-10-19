@@ -1,5 +1,5 @@
 use std::cell::{Ref, RefCell, RefMut};
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryInto;
 use std::rc::Rc;
 
 use crate::cartridge::Cartridge;
@@ -20,7 +20,7 @@ bitfield! {
 
 impl PpuCtrlFlags {
   pub fn get_pattern_background(self) -> u16 {
-    u16::try_from(self.pattern_background()).unwrap() * 0x1000
+    u16::from(self.pattern_background()) * 0x1000
   }
 
   pub fn get_sprite_size(self) -> u16 {
@@ -32,7 +32,7 @@ impl PpuCtrlFlags {
   }
 
   pub fn get_sprite_tile_base(self) -> u16 {
-    u16::try_from(self.pattern_sprite_table_addr()).unwrap() * 0x1000
+    u16::from(self.pattern_sprite_table_addr()) * 0x1000
   }
 }
 
@@ -151,13 +151,13 @@ impl Registers {
   }
 
   pub fn write_oam_data(&mut self, data: u8) {
-    let idx = usize::try_from(self.oam_address).unwrap();
+    let idx = usize::from(self.oam_address);
     self.oam_ram[idx] = data;
     self.oam_address = self.oam_address.wrapping_add(1);
   }
 
   fn read_oam_data(&self) -> u8 {
-    let idx = usize::try_from(self.oam_address).unwrap();
+    let idx = usize::from(self.oam_address);
     if idx % 4 == 2 {
       self.oam_ram[idx] & 0xE3
     } else {
@@ -305,7 +305,7 @@ impl Registers {
 
 fn mirror_name_table(mirror_mode: Mirroring, addr: u16) -> (usize, usize) {
   let addr_range = addr & 0x0FFF;
-  let idx = usize::try_from(addr_range & 0x03FF).unwrap();
+  let idx = usize::from(addr_range & 0x03FF);
   match mirror_mode {
     Mirroring::Vertical => {
       match addr_range {
@@ -362,12 +362,12 @@ mod test {
 
     registers.status_flags.set_sprite_overflow(true);
 
-    assert_eq!(registers.status_flags.sprite_overflow(), true);
+    assert!(registers.status_flags.sprite_overflow());
     assert_eq!(registers.status_flags.0, 0b00_10_00_00);
 
     registers.status_flags.set_sprite_overflow(false);
 
-    assert_eq!(registers.status_flags.sprite_overflow(), false);
+    assert!(!registers.status_flags.sprite_overflow());
     assert_eq!(registers.status_flags.0, 0b00_00_00_00);
   }
 
@@ -408,13 +408,13 @@ mod test {
     registers.bus_write_ppu_reg(0x2005, 0xEE);
     assert_eq!(registers.fine_x, 6);
     assert_eq!(registers.tram_addr.coarse_x(), 0x1D);
-    assert_eq!(registers.address_latch, true);
+    assert!(registers.address_latch);
 
 
     registers.bus_write_ppu_reg(0x2005, 0xFA);
     assert_eq!(registers.fine_x, 6);
     assert_eq!(registers.tram_addr.coarse_y(), 0x1F);
-    assert_eq!(registers.address_latch, false);
+    assert!(!registers.address_latch);
   }
 
   #[test]
@@ -424,12 +424,12 @@ mod test {
 
     registers.bus_write_ppu_reg(0x2006, 0x1A);
     assert_eq!(registers.tram_addr.0, 0x1A00);
-    assert_eq!(registers.address_latch, true);
+    assert!(registers.address_latch);
 
 
     registers.bus_write_ppu_reg(0x2006, 0xB2);
     assert_eq!(registers.tram_addr.0, 0x1AB2);
-    assert_eq!(registers.address_latch, false);
+    assert!(!registers.address_latch);
   }
 
   #[test]

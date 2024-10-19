@@ -1,4 +1,4 @@
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 
 use crate::bus::Bus;
 use crate::cpu::instruction_table::{AddrMode6502, Flag6502, hex, LookUpTable, OpCode6502};
@@ -63,7 +63,7 @@ impl Cpu {
   }
 
   pub fn bus_mut_read_u8(&mut self, address: u16) -> u8 {
-    self.bus.read_u8(address) as u8
+    self.bus.read_u8(address)
   }
 
   pub fn bus_mut_read_dbg_u8(&mut self, address_start: usize, address_end: usize) -> Vec<u8> {
@@ -75,7 +75,7 @@ impl Cpu {
   }
 
   fn get_stack_address(&self) -> u16 {
-    0x0100 + u16::try_from(self.stack_pointer).unwrap()
+    0x0100 + u16::from(self.stack_pointer)
   }
 
   fn pc_increment(&mut self) {
@@ -127,7 +127,7 @@ impl Cpu {
       self.set_flag(&Flag6502::U, true);
       self.pc_increment();
 
-      let opcode_idx = usize::try_from(self.opcode).unwrap();
+      let opcode_idx = usize::from(self.opcode);
       self.cycle = self.lookup.get_cycles(opcode_idx);
 
       let addr_mode = *self.lookup.get_addr_mode(opcode_idx);
@@ -145,7 +145,7 @@ impl Cpu {
     use std::fs::OpenOptions;
     use std::io::Write;
     let mut file = OpenOptions::new()
-      .write(true)
+      
       .append(true)
       .open("log.txt")
       .expect("File append error");
@@ -158,9 +158,9 @@ impl Cpu {
           self.addr_abs,
           self.addr_rel,
           hex(log_pc, 4),
-          hex(u8::try_into(self.acc).unwrap(), 2),
-          hex(u8::try_into(self.x).unwrap(), 2),
-          hex(u8::try_into(self.y).unwrap(), 2),
+          hex(u8::into(self.acc), 2),
+          hex(u8::into(self.x), 2),
+          hex(u8::into(self.y), 2),
           if self.get_flag(&Flag6502::N) { "N" } else { "." },
           if self.get_flag(&Flag6502::V) { "V" } else { "." },
           if self.get_flag(&Flag6502::U) { "U" } else { "." },
@@ -169,7 +169,7 @@ impl Cpu {
           if self.get_flag(&Flag6502::I) { "I" } else { "." },
           if self.get_flag(&Flag6502::Z) { "Z" } else { "." },
           if self.get_flag(&Flag6502::C) { "C" } else { "." },
-          hex(usize::try_from(self.stack_pointer).unwrap(), 2),
+          hex(usize::from(self.stack_pointer), 2),
         )
           .as_bytes(),
       )
@@ -314,7 +314,7 @@ impl Cpu {
   /// Absolute
   pub fn abs(&mut self) -> u8 {
     let (lo_byte, hi_byte) = self.read_pc();
-    self.addr_abs = (hi_byte | lo_byte) as u16;
+    self.addr_abs = hi_byte | lo_byte;
     0
   }
 
@@ -322,8 +322,8 @@ impl Cpu {
   pub fn abx(&mut self) -> u8 {
     let (lo_byte, hi_byte) = self.read_pc();
 
-    self.addr_abs = (hi_byte | lo_byte) as u16;
-    self.addr_abs = self.addr_abs.wrapping_add(u16::try_from(self.x).unwrap());
+    self.addr_abs = hi_byte | lo_byte;
+    self.addr_abs = self.addr_abs.wrapping_add(u16::from(self.x));
     u8::from((self.addr_abs & 0xFF00) != hi_byte)
   }
 
@@ -331,8 +331,8 @@ impl Cpu {
   pub fn aby(&mut self) -> u8 {
     let (lo_byte, hi_byte) = self.read_pc();
 
-    self.addr_abs = (hi_byte | lo_byte) as u16;
-    self.addr_abs = self.addr_abs.wrapping_add(u16::try_from(self.y).unwrap());
+    self.addr_abs = hi_byte | lo_byte;
+    self.addr_abs = self.addr_abs.wrapping_add(u16::from(self.y));
     u8::from((self.addr_abs & 0xFF00) != hi_byte)
   }
 
@@ -342,7 +342,7 @@ impl Cpu {
 
     let byte = hi_byte | lo_byte;
     let b = if lo_byte == 0x00FF { byte & 0xFF00 } else { byte.wrapping_add(1) };
-    self.addr_abs = (u16::try_from(self.bus_mut_read_u8(b)).unwrap() << 8) | u16::try_from(self.bus_mut_read_u8(byte)).unwrap();
+    self.addr_abs = (u16::from(self.bus_mut_read_u8(b)) << 8) | u16::from(self.bus_mut_read_u8(byte));
 
     0
   }
@@ -352,10 +352,10 @@ impl Cpu {
     let byte = self.bus_mut_read_u8(self.pc) as u16;
     self.pc_increment();
 
-    let x = u16::try_from(self.x).unwrap();
+    let x = u16::from(self.x);
     let lo_byte = self.bus_mut_read_u8(byte.wrapping_add(x) & 0x00FF) as u16;
     let hi_byte = self.bus_mut_read_u8((byte.wrapping_add(x).wrapping_add(1)) & 0x00FF) as u16;
-    self.addr_abs = ((hi_byte << 8) | lo_byte) as u16;
+    self.addr_abs = (hi_byte << 8) | lo_byte;
 
     0
   }
@@ -368,7 +368,7 @@ impl Cpu {
     let lo_byte = self.bus_mut_read_u8(byte & 0xFF) as u16;
     let hi_byte = self.bus_mut_read_u8((byte.wrapping_add(1)) & 0xFF) as u16;
     self.addr_abs = (hi_byte << 8) | lo_byte;
-    self.addr_abs = self.addr_abs.wrapping_add(u16::try_from(self.y).unwrap());
+    self.addr_abs = self.addr_abs.wrapping_add(u16::from(self.y));
 
     ((self.addr_abs & 0xFF00) != (hi_byte << 8)).into()
   }
@@ -447,16 +447,16 @@ impl Cpu {
   /// Add with carry
   pub fn adc(&mut self) -> u8 {
     self.fetch();
-    let val = u16::try_from(self.acc).unwrap()
-      .wrapping_add(u16::try_from(self.fetched).unwrap())
+    let val = u16::from(self.acc)
+      .wrapping_add(u16::from(self.fetched))
       .wrapping_add(self.get_flag_val(&Flag6502::C));
 
     self.set_flag(&Flag6502::C, (val) > 255);
     self.set_flag(
       &Flag6502::V,
-      ((!(u16::try_from(self.acc).unwrap()
-        ^ u16::try_from(self.fetched).unwrap())
-        & (u16::try_from(self.acc).unwrap() ^ val))
+      ((!(u16::from(self.acc)
+        ^ u16::from(self.fetched))
+        & (u16::from(self.acc) ^ val))
         & 0x80)
         > 0,
     );
@@ -468,7 +468,7 @@ impl Cpu {
   /// Arithmetic shift left
   pub fn asl(&mut self) -> u8 {
     self.fetch();
-    let val = u16::try_from(self.fetched).unwrap() << 1;
+    let val = u16::from(self.fetched) << 1;
     self.set_flag(&Flag6502::C, (val & 0xFF00) > 0);
     self.set_flag(&Flag6502::Z, val.trailing_zeros() > 7);
     self.set_flag(&Flag6502::N, (val & 0x80) > 0);
@@ -503,7 +503,7 @@ impl Cpu {
   /// Bit test
   pub fn bit(&mut self) -> u8 {
     self.fetch();
-    let val = u16::try_from(self.acc).unwrap() & u16::try_from(self.fetched).unwrap();
+    let val = u16::from(self.acc) & u16::from(self.fetched);
     self.set_flag(&Flag6502::Z, val.trailing_zeros() > 7);
     self.set_flag(&Flag6502::N, (self.fetched & 0x80) > 0);
     self.set_flag(&Flag6502::V, (self.fetched & 0x40) > 0);
@@ -541,7 +541,7 @@ impl Cpu {
     self.stack_pointer_decrement();
     self.set_flag(&Flag6502::B, false);
 
-    self.pc = u16::try_from(self.bus_mut_read_u8(0xFFFE)).unwrap() | u16::try_from(self.bus_mut_read_u8(0xFFFF)).unwrap() << 8;
+    self.pc = u16::from(self.bus_mut_read_u8(0xFFFE)) | u16::from(self.bus_mut_read_u8(0xFFFF)) << 8;
     0
   }
 
@@ -582,7 +582,7 @@ impl Cpu {
   /// Compare with accumulator
   pub fn cmp(&mut self) -> u8 {
     self.fetch();
-    let val = u16::try_from(self.acc.wrapping_sub(self.fetched)).unwrap();
+    let val = u16::from(self.acc.wrapping_sub(self.fetched));
     self.set_flag(&Flag6502::C, self.acc >= self.fetched);
     self.set_flags_zero_and_negative(val);
     1
@@ -591,7 +591,7 @@ impl Cpu {
   /// Compare with X
   pub fn cpx(&mut self) -> u8 {
     self.fetch();
-    let val = u16::try_from(self.x.wrapping_sub(self.fetched)).unwrap();
+    let val = u16::from(self.x.wrapping_sub(self.fetched));
     self.set_flag(&Flag6502::C, self.x >= self.fetched);
     self.set_flags_zero_and_negative(val);
     0
@@ -600,7 +600,7 @@ impl Cpu {
   /// Compare with Y
   pub fn cpy(&mut self) -> u8 {
     self.fetch();
-    let val = u16::try_from(self.y.wrapping_sub(self.fetched)).unwrap();
+    let val = u16::from(self.y.wrapping_sub(self.fetched));
     self.set_flag(&Flag6502::C, self.y >= self.fetched);
     self.set_flags_zero_and_negative(val);
     0
@@ -609,7 +609,7 @@ impl Cpu {
   /// Decrement
   pub fn dec(&mut self) -> u8 {
     self.fetch();
-    let val = u16::try_from(self.fetched).unwrap().wrapping_sub(1);
+    let val = u16::from(self.fetched).wrapping_sub(1);
     self.bus_write_u8(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
     self.set_flags_zero_and_negative(val);
     0
@@ -640,7 +640,7 @@ impl Cpu {
   /// Increment
   pub fn inc(&mut self) -> u8 {
     self.fetch();
-    let val = u16::try_from(self.fetched.wrapping_add(1)).unwrap();
+    let val = u16::from(self.fetched.wrapping_add(1));
     self.bus_write_u8(self.addr_abs, u8::try_from(val & 0xFF).unwrap());
     self.set_flags_zero_and_negative(val);
     0
@@ -709,7 +709,7 @@ impl Cpu {
   pub fn lsr(&mut self) -> u8 {
     self.fetch();
     self.set_flag(&Flag6502::C, (self.fetched & 1) > 0);
-    let val = u16::try_from(self.fetched >> 1).unwrap();
+    let val = u16::from(self.fetched >> 1);
     self.set_flags_zero_and_negative(val);
 
     self.return_or_write_memory(val);
@@ -769,7 +769,7 @@ impl Cpu {
   /// Rotate left
   pub fn rol(&mut self) -> u8 {
     self.fetch();
-    let val = (u16::try_from(self.fetched).unwrap() << 1) | self.get_flag_val(&Flag6502::C);
+    let val = (u16::from(self.fetched) << 1) | self.get_flag_val(&Flag6502::C);
     self.set_flag(&Flag6502::C, (val & 0xFF00) > 0);
     self.set_flags_zero_and_negative(val);
 
@@ -780,7 +780,7 @@ impl Cpu {
   /// Rotate right
   pub fn ror(&mut self) -> u8 {
     self.fetch();
-    let val = (self.get_flag_val(&Flag6502::C) << 7) | (u16::try_from(self.fetched).unwrap() >> 1);
+    let val = (self.get_flag_val(&Flag6502::C) << 7) | (u16::from(self.fetched) >> 1);
     self.set_flag(&Flag6502::C, (self.fetched & 0x01) > 0);
     self.set_flags_zero_and_negative(val);
 
@@ -789,7 +789,7 @@ impl Cpu {
   }
 
   fn addr_mode(&mut self) -> AddrMode6502 {
-    let idx = usize::try_from(self.opcode).unwrap();
+    let idx = usize::from(self.opcode);
     *self.lookup.get_addr_mode(idx)
   }
 
@@ -803,7 +803,7 @@ impl Cpu {
     self.stack_pointer_increment();
     self.pc = self.bus_mut_read_u8(self.get_stack_address()) as u16;
     self.stack_pointer_increment();
-    self.pc |= u16::try_from(self.bus_mut_read_u8(self.get_stack_address())).unwrap().wrapping_shl(8);
+    self.pc |= u16::from(self.bus_mut_read_u8(self.get_stack_address())).wrapping_shl(8);
     0
   }
 
@@ -813,7 +813,7 @@ impl Cpu {
     self.pc = self.bus_mut_read_u8(self.get_stack_address()) as u16;
 
     self.stack_pointer_increment();
-    self.pc |= u16::try_from(self.bus_mut_read_u8(self.get_stack_address())).unwrap().wrapping_shl(8);
+    self.pc |= u16::from(self.bus_mut_read_u8(self.get_stack_address())).wrapping_shl(8);
 
     self.pc_increment();
     0
@@ -822,14 +822,14 @@ impl Cpu {
   /// Subtract with carry
   pub fn sbc(&mut self) -> u8 {
     self.fetch();
-    let value = u16::try_from(self.fetched).unwrap() ^ 0xFF;
+    let value = u16::from(self.fetched) ^ 0xFF;
 
-    let val = u16::try_from(self.acc).unwrap()
+    let val = u16::from(self.acc)
       .wrapping_add(value)
       .wrapping_add(self.get_flag_val(&Flag6502::C));
 
     self.set_flag(&Flag6502::C, (val & 0xFF00) > 0);
-    self.set_flag(&Flag6502::V, ((val ^ u16::try_from(self.acc).unwrap()) & (val ^ value) & 0x80) > 0);
+    self.set_flag(&Flag6502::V, ((val ^ u16::from(self.acc)) & (val ^ value) & 0x80) > 0);
     self.set_flags_zero_and_negative(val & 0xFF);
     self.acc = u8::try_from(val & 0xFF).unwrap();
     1

@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 
 pub struct Sequencer {
   pub frame_counter: u16,
@@ -31,10 +30,10 @@ impl Sequencer {
   }
 
   pub fn set_period_lo(&mut self, val: u8) {
-    self.period = (self.period & 0xFF00) | u16::try_from(val).unwrap();
+    self.period = (self.period & 0xFF00) | u16::from(val);
   }
 
   pub fn set_period_hi(&mut self, val: u8) {
-    self.period = (self.period & 0x00FF) | ((u16::try_from(val).unwrap() & 0x07) << 8);
+    self.period = (self.period & 0x00FF) | ((u16::from(val) & 0x07) << 8);
   }
 }

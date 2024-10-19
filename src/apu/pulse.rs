@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 
 use crate::apu::envelope::Envelope;
 use crate::apu::length_counter::LengthCounter;
@@ -34,7 +33,7 @@ impl Pulse {
   pub fn pulse_write_reg_u8(&mut self, address: u16, data: u8) {
     match address % 4 {
       0x00 => {
-        self.cycle = usize::try_from(data).unwrap() >> 6;
+        self.cycle = usize::from(data) >> 6;
         self.envelope.write_reg(data);
         self.length_counter.set_halted((data & 0x20) > 0)
       }

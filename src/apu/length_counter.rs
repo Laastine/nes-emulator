@@ -1,4 +1,3 @@
-use std::convert::TryFrom;
 
 const LENGTH_TABLE: [u8; 32] = [
   0xA, 0xFE, 0x14, 0x02, 0x28, 0x04, 0x50, 0x06, 0xA0, 0x08, 0x3C, 0xA, 0x0E, 0x0C, 0x1A, 0xE,
@@ -61,7 +60,7 @@ impl LengthCounter {
 
     if let Some(val) = self.is_pending_reg {
       if self.is_enabled {
-        self.frame_counter = LENGTH_TABLE[usize::try_from(val >> 3).unwrap()];
+        self.frame_counter = LENGTH_TABLE[usize::from(val >> 3)];
       }
       self.is_pending_reg = None;
     }

@@ -1,5 +1,4 @@
 use std::cell::{Ref, RefCell, RefMut};
-use std::convert::TryFrom;
 use std::rc::Rc;
 
 use crate::cartridge::rom_with_pager::RomData;
@@ -51,7 +50,7 @@ impl Mapper for Mapper2 {
 
   fn mapped_write_cpu_u8(&mut self, address: u16, data: u8) {
     if (0x8000..=0xFFFF).contains(&address) {
-      self.prg_bank_select = usize::try_from(data & 0x0F).unwrap()
+      self.prg_bank_select = usize::from(data & 0x0F)
     } else {
       panic!("Invalid mapped_write_cpu_u8 address 0x{:04X}", address)
     };

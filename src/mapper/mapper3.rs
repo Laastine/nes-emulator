@@ -1,5 +1,4 @@
 use std::cell::{Ref, RefCell};
-use std::convert::TryFrom;
 use std::rc::Rc;
 
 use crate::cartridge::rom_reading::Mirroring;
@@ -42,7 +41,7 @@ impl Mapper for Mapper3 {
 
   fn mapped_write_cpu_u8(&mut self, address: u16, data: u8) {
     if (0x8000..=0xFFFF).contains(&address) {
-      self.chr_bank_select = usize::try_from(data & 0x03).unwrap()
+      self.chr_bank_select = usize::from(data & 0x03)
     }
   }
 

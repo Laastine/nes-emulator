@@ -39,10 +39,10 @@ pub struct WindowContext {
     pub texture: Texture2d,
     pub vertex_buffer: VertexBufferAny,
     pub program: glium::Program,
-    window: winit::window::Window,
-    pub event_loop: Rc<RefCell<EventLoop<()>>>,
     pub indices: glium::index::NoIndices,
     pub display: Display<WindowSurface>,
+    #[allow(dead_code)]
+    window: winit::window::Window,
 }
 
 impl WindowContext {
@@ -83,7 +83,6 @@ impl WindowContext {
             vertex_buffer: vertex_buffer.into(),
             program,
             window,
-            event_loop,
             indices,
             display,
         }

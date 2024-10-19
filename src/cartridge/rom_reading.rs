@@ -8,10 +8,15 @@ pub struct RomHeader {
   pub chr_ram_len: usize,
   pub mirroring: Mirroring,
   pub mapper: u8,
+  #[allow(dead_code)]
   pub flag_persistent: bool,
+  #[allow(dead_code)]
   pub flag_trainer: bool,
+  #[allow(dead_code)]
   pub flag_vs_unisystem: bool,
+  #[allow(dead_code)]
   pub flag_playchoice_10: bool,
+  #[allow(dead_code)]
   pub flag_bus_conflicts: bool,
 }
 
