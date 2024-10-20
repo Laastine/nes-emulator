@@ -42,7 +42,6 @@ jobs:
         run: sudo apt update; sudo apt install --no-install-recommends libasound2-dev libudev-dev
 
       - name: Run cargo test w/ -D warnings
-        if: ${{ runner.os == 'Linux' }}
         run: cargo test -- --test-threads=1
         env:
           RUSTFLAGS: "-D warnings"
