@@ -62,7 +62,8 @@ pub struct Nes {
   is_paused: bool,
   gilrs: Gilrs,
   input_filter: Repeat,
-  event_loop: Rc<RefCell<EventLoop<()>>>
+  event_loop: Rc<RefCell<EventLoop<()>>>,
+  resize: bool,
 }
 
 impl Nes {
@@ -98,6 +99,8 @@ impl Nes {
 
     let input_filter = Repeat::new();
 
+    let resize: bool = false;
+
     Nes {
       apu,
       cpu,
@@ -113,6 +116,7 @@ impl Nes {
       gilrs,
       input_filter,
       event_loop,
+      resize,
     }
   }
 
@@ -220,7 +224,7 @@ impl Nes {
             self.ppu.reset();
             self.get_apu().reset();
           }
-          // Some(KeyboardCommand::Resize) => self.window_context.resize = true,
+          Some(KeyboardCommand::Resize) => self.resize = true,
           _ => {}
         }
         self.controller.borrow_mut().update_buttons(key_map);
@@ -231,7 +235,7 @@ impl Nes {
       }
       if self.ppu.is_frame_ready || self.is_paused {
         if keyboard_state == Some(KeyboardCommand::Resize) {
-          // self.window_context.resize = true;
+          self.resize = true;
         }
         self.render_screen();
         self.ppu.is_frame_ready = false;
@@ -304,6 +308,11 @@ impl Nes {
   }
 
   fn render_screen(&mut self) {
+    if self.resize {
+      self.window_context.update_screen_size();
+      self.resize = false;
+    }
+
     let mut target = self.window_context.display.draw();
     target.clear_color(0.0, 0.0, 0.0, 1.0);
 

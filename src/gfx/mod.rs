@@ -55,13 +55,13 @@ impl WindowContext {
         implement_vertex!(Vertex, position, tex_coords);
         // We've changed our shape to a rectangle so the image isn't distorted.
         let shape = vec![
-            Vertex { position: [-0.5, -0.5], tex_coords: [0.0, 0.0] },
-            Vertex { position: [ 0.5, -0.5], tex_coords: [1.0, 0.0] },
-            Vertex { position: [ 0.5,  0.5], tex_coords: [1.0, 1.0] },
+            Vertex { position: [-1.0, -1.0], tex_coords: [0.0, 0.0] },
+            Vertex { position: [ 1.0, -1.0], tex_coords: [1.0, 0.0] },
+            Vertex { position: [ 1.0,  1.0], tex_coords: [1.0, 1.0] },
 
-            Vertex { position: [ 0.5,  0.5], tex_coords: [1.0, 1.0] },
-            Vertex { position: [-0.5,  0.5], tex_coords: [0.0, 1.0] },
-            Vertex { position: [-0.5, -0.5], tex_coords: [0.0, 0.0] },
+            Vertex { position: [ 1.0,  1.0], tex_coords: [1.0, 1.0] },
+            Vertex { position: [-1.0,  1.0], tex_coords: [0.0, 1.0] },
+            Vertex { position: [-1.0, -1.0], tex_coords: [0.0, 0.0] },
         ];
 
 
@@ -90,5 +90,10 @@ impl WindowContext {
     pub fn update_image_buffer(&mut self, pixels: Vec<u8>) {
         let raw_image = RawImage2d::from_raw_rgb(pixels, (SCREEN_RES_X, SCREEN_RES_Y));
         self.texture.write(glium::Rect { left: 0, bottom: 0, width: SCREEN_RES_X, height: SCREEN_RES_Y }, raw_image);
+    }
+
+    pub fn update_screen_size(&mut self) {
+        let size = self.display.get_max_viewport_dimensions();
+        self.display.resize(size)
     }
 }
