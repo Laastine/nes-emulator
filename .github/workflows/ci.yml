@@ -9,7 +9,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [windows-latest, ubuntu-24.04]
+        os: [windows-latest, ubuntu-latest]
         toolchain: [stable]
     runs-on: ${{ matrix.os }}
     steps:
@@ -48,13 +48,13 @@ jobs:
           RUSTFLAGS: "-D warnings"
 
       - name: Build the Rust binary
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest'
         run: |
           cargo build --release
 
       # Collect binary and README.md for the release
       - name: Prepare the release artifact
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest'
         run: |
           mkdir release
           cp target/release/nes-emulator release/
@@ -62,21 +62,21 @@ jobs:
 
       # Archive the release artifact
       - name: Create tarball
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest'
         run: |
-          tar -czvf release_artifact.tar.gz -C release .
+          tar -czvf nes-emulator-${{ runner.os }}.tar.gz -C release .
 
       # Create a GitHub release and upload the artifact
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') && matrix.os == 'ubuntu-latest'
         uses: softprops/action-gh-release@v1
         with:
-          files: release_artifact.tar.gz
+          files: nes-emulator-${{ runner.os }}.tar.gz
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Provided automatically by GitHub
 
   clippy:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
 
       - name: Checkout

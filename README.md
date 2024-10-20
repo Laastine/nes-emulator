@@ -1,6 +1,6 @@
 # NES-emulator
 
-![CI](https://github.com/Laastine/nes-emulator/workflows/nes-emulator/badge.svg?branch=master&event=push)
+![CI](https://github.com/Laastine/nes-emulator/actions/workflows/ci.yml/badge.svg)
 
 <p float="left">
 <img src="assets/zelda.png" width="30%">
