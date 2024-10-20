@@ -71,7 +71,6 @@ impl WindowContext {
             .build(&event_loop.borrow_mut());
 
         let texture = glium::Texture2d::empty(&display, SCREEN_RES_X, SCREEN_RES_Y).unwrap();
-        // let framebuffer = glium::framebuffer::SimpleFrameBuffer::new(&display, &texture).unwrap();
 
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
         let vertex_buffer = glium::VertexBuffer::dynamic(&display, &shape).unwrap();

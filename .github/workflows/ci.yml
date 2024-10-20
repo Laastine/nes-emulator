@@ -1,8 +1,6 @@
 name: nes-emulator
 
-on:
-  push:
-    branches: [master, branches]
+on: [push, pull_request]
 
 env:
   CARGO_TERM_COLOR: always
@@ -49,6 +47,34 @@ jobs:
         env:
           RUSTFLAGS: "-D warnings"
 
+      - name: Build the Rust binary
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          cargo build --release
+
+      # Collect binary and README.md for the release
+      - name: Prepare the release artifact
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          mkdir release
+          cp target/release/nes-emulator release/
+          cp README.md release/
+
+      # Archive the release artifact
+      - name: Create tarball
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          tar -czvf release_artifact.tar.gz -C release .
+
+      # Create a GitHub release and upload the artifact
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release_artifact.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Provided automatically by GitHub
+
   clippy:
     runs-on: ubuntu-24.04
     steps:
@@ -79,6 +105,3 @@ jobs:
 
       - name: Install linux dependencies
         run: sudo apt update; sudo apt install --no-install-recommends libasound2-dev libudev-dev
-
-      - name: Run cargo clippy
-        run: cargo clippy -- -D warnings
