@@ -9,7 +9,6 @@ use gilrs::{Event, EventType, Gilrs, GilrsBuilder};
 use gilrs::Button::{DPadDown, DPadLeft, DPadRight, DPadUp, East, Select, South, Start};
 use gilrs::ev::filter::{Filter, Repeat};
 use glium::uniform;
-use image::{ImageBuffer, Rgb};
 use winit::event::{VirtualKeyCode, WindowEvent};
 use glium::Surface;
 use winit::event::ElementState::Pressed;
@@ -56,7 +55,6 @@ pub struct Nes {
   system_cycles: u32,
   window_context: WindowContext,
   controller: Rc<RefCell<Controller>>,
-  image_buffer: ImageBuffer<Rgb<u8>, Vec<u8>>,
   off_screen_pixels: Rc<RefCell<OffScreenBuffer>>,
   memory_hash: u64,
   dbg_view: Option<DebugView>,
@@ -91,7 +89,6 @@ impl Nes {
     let ppu = Ppu::new(registers, off_screen_pixels.clone());
 
     let system_cycles = 0;
-    let image_buffer = ImageBuffer::new(SCREEN_RES_X, SCREEN_RES_Y);
 
     let is_paused = false;
     let memory_hash = 0;
@@ -108,7 +105,6 @@ impl Nes {
       system_cycles,
       window_context,
       controller,
-      image_buffer,
       off_screen_pixels,
       memory_hash,
       dbg_view,
@@ -303,12 +299,8 @@ impl Nes {
   }
 
   fn update_image_buffer(&mut self) {
-    let pixel_buffer = *self.get_off_screen_pixels();
-    for (x, y, pixel) in self.image_buffer.enumerate_pixels_mut() {
-      let p = pixel_buffer[y as usize * 256 + x as usize];
-      *pixel = Rgb(p);
-    }
-    self.window_context.update_image_buffer(&self.image_buffer)
+    let pixels = self.get_off_screen_pixels().iter().flat_map(|p| *p).collect::<Vec<u8>>();
+    self.window_context.update_image_buffer(pixels);
   }
 
   fn render_screen(&mut self) {

@@ -4,7 +4,6 @@ use glium::{implement_vertex, Display, Texture2d};
 use glium::texture::RawImage2d;
 use glium::vertex::VertexBufferAny;
 use glutin::surface::WindowSurface;
-use image::{ImageBuffer, Rgb};
 use winit::event_loop::EventLoop;
 use crate::nes::constants::{SCALING_FACTOR, SCREEN_RES_Y, SCREEN_RES_X};
 
@@ -88,8 +87,8 @@ impl WindowContext {
         }
     }
 
-    pub fn update_image_buffer(&mut self, image_buffer: &ImageBuffer<Rgb<u8>, Vec<u8>>) {
-        let raw_image = RawImage2d::from_raw_rgb(image_buffer.pixels().flat_map(|Rgb(d)| d.to_vec()).collect(), (SCREEN_RES_X, SCREEN_RES_Y));
+    pub fn update_image_buffer(&mut self, pixels: Vec<u8>) {
+        let raw_image = RawImage2d::from_raw_rgb(pixels, (SCREEN_RES_X, SCREEN_RES_Y));
         self.texture.write(glium::Rect { left: 0, bottom: 0, width: SCREEN_RES_X, height: SCREEN_RES_Y }, raw_image);
     }
 }
