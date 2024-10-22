@@ -74,7 +74,7 @@ impl Pulse {
     self.sequencer.step(true);
   }
 
-  pub fn is_playing(&mut self) -> bool {
+  pub fn is_playing(&self) -> bool {
     self.length_counter.playing()
   }
 

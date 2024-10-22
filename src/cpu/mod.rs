@@ -378,7 +378,7 @@ impl Cpu {
     self.pc_increment();
     let hi_byte = self.bus_mut_read_u8(self.pc) as u16;
     self.pc_increment();
-    (lo_byte, (hi_byte << 8))
+    (lo_byte, hi_byte << 8)
   }
 
   ///OPCODES

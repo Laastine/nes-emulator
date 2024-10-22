@@ -64,13 +64,12 @@ impl WindowContext {
             Vertex { position: [-1.0, -1.0], tex_coords: [0.0, 0.0] },
         ];
 
-
         let (window, display) = glium::backend::glutin::SimpleWindowBuilder::new()
             .with_title("NES-emulator")
             .with_inner_size(SCREEN_RES_X*SCALING_FACTOR, SCREEN_RES_Y*SCALING_FACTOR)
             .build(&event_loop.borrow_mut());
 
-        let texture = glium::Texture2d::empty(&display, SCREEN_RES_X, SCREEN_RES_Y).unwrap();
+        let texture = Texture2d::empty(&display, SCREEN_RES_X, SCREEN_RES_Y).unwrap();
 
         let indices = glium::index::NoIndices(glium::index::PrimitiveType::TrianglesList);
         let vertex_buffer = glium::VertexBuffer::dynamic(&display, &shape).unwrap();
